@@ -1,116 +1,237 @@
-```markdown
-# Trust Transfer Protocol (TTP)
+Trust Transfer Protocol (TTP)
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Spec Version](https://img.shields.io/badge/Spec-v1.5-orange)](spec/rfc0001.md)
+TTP is an open protocol for runtime trust verification in autonomous systems.
 
-**TTP** is an open protocol for runtime trust qualification in autonomous agent systems.
+It allows a service to evaluate whether an agent should be trusted right now, based on verifiable behavioral history issued by independent observers.
 
-TTP enables systems to verify the trustworthiness of an interacting entity *at the moment of request*, based on observable behavioral history aggregated by independent issuers. It breaks the "blind trust transfer" model of traditional IAM by requiring trust to be continuously re-earned through signed interaction receipts.
+Instead of granting static permissions (API keys, OAuth scopes, sessions), TTP enforces trust continuously — at every request.
 
-TTP is deliberately minimal, transport-agnostic, and infrastructure-oriented:
-- No blockchains, tokens, or economic layers.
-- Built on standard JWT (RFC 7519) with Ed25519 signatures.
-- Primary binding: HTTP `Authorization: Trust` scheme for seamless enforcement.
+⸻
 
-## Why TTP Exists
+The Problem
 
-Traditional credential systems (OAuth scopes, API keys, session tokens) delegate authority once and assume perpetual alignment. This works for deterministic software but fails for nondeterministic agents that can be prompt-injected, hallucinate, or deviate.
+Autonomous agents introduce a new failure mode:
+	•	prompt injection
+	•	hallucinated reasoning
+	•	tool misuse
+	•	drifting behavior over time
 
-TTP inserts a lightweight verification gate at every hop, asking:
-> "Given this entity's cumulative behavior, is this specific action trustworthy right now?"
+Traditional identity and access systems assume deterministic software and static authorization.
 
-This enables secure scaling of high-autonomy agents in production.
+Agents are neither.
 
-## Key Properties
+TTP replaces “trust once, use forever” with:
 
-- **Behavioral Trust**: Scores derived from interaction receipts and endorsements.
-- **Runtime Enforcement**: Short-lived tokens (≤1 hour) with consensus scores (0–100).
-- **Multi-Domain Scoring**: Context-specific trust (e.g., research vs. payments).
-- **Decentralized Observation**: Independent issuers; aggregation resists compromise.
-- **Developer-Friendly**: Declarative policies, automatic token handling via SDKs.
-- **Secure by Design**: Minimal attack surface, short lifetimes, statistical anomaly resistance.
+“Verify trust at the moment of action.”
 
-## Repository Structure
+⸻
 
-```
-/spec                  # Protocol specification
-  └── rfc0001.md       # Core spec (v1.5)
-/reference             # Reference implementations
-  └── go               # Verifier + minimal issuer (high-performance, production-ready)
-/sdk                   # Client libraries
-  ├── python           # Agent-side SDK (LangChain integration example)
-  └── js               # JavaScript/TypeScript SDK
-/examples              # Usage examples
-  ├── langchain        # TTP-protected tool calls
-  └── http-gateway     # Nginx/Express middleware
-/docs                  # Additional documentation
-  └── whitepaper.md    # Problem statement and design rationale
-```
+What TTP Does
 
-## Quick Start
+TTP introduces a lightweight verification layer:
+	•	behavioral receipts signed after interactions
+	•	independent issuers observing performance
+	•	aggregation into a runtime trust score
+	•	short-lived tokens proving trustworthiness
+	•	enforcement directly at API and tool boundaries
 
-### Run the Reference Verifier (Go)
+No chains.
+No tokens.
+No reputation platforms.
 
-```bash
+Just verifiable behavioral trust.
+
+⸻
+
+Core Properties
+
+Behavioral Trust
+Scores derived from real interaction history and endorsements.
+
+Runtime Enforcement
+Short-lived tokens (≤1 hour) evaluated per request.
+
+Contextual Trust Domains
+Trust varies by domain: research ≠ payments ≠ deployment.
+
+Decentralized Observation
+Independent issuers reduce manipulation and central failure.
+
+Developer-First
+SDK-managed tokens, declarative policy thresholds.
+
+Secure by Design
+Ed25519 signatures, minimal state, small attack surface.
+
+⸻
+
+Architecture Overview
+
+Agent → Issuers → Aggregator → Verifier → Protected Service
+        (receipts)  (scores)     (policy)     (enforcement)
+
+TTP sits between identity and execution.
+
+It answers:
+	•	Has this agent behaved reliably?
+	•	In this domain?
+	•	Recently?
+	•	Verified by whom?
+	•	Above this risk threshold?
+
+⸻
+
+Repository Structure
+
+/spec
+  └── rfc0001.md       # Protocol specification
+
+/reference
+  └── go               # Verifier + minimal issuer
+
+/sdk
+  ├── python           # Agent SDK (LangChain example)
+  └── js               # JS/TS SDK
+
+/examples
+  ├── langchain
+  └── http-gateway
+
+/docs
+  └── whitepaper.md
+
+
+⸻
+
+Quick Start
+
+1) Run the Verifier
+
 git clone https://github.com/ttp-protocol/ttp.git
 cd ttp/reference/go/verifier
 go run main.go --port 8080
-```
 
-### Example Request
+2) Make a Protected Request
 
-```bash
-curl -H "Authorization: Trust eyJhbGciOiJFZERTQSIs..." https://api.example.com/sensitive
-```
+curl \
+  -H "Authorization: Trust eyJhbGciOiJFZERTQSIs..." \
+  https://api.example.com/sensitive
 
-### Python SDK (Agent-Side)
+3) Generate a Token (Python)
 
-```python
 from ttp.sdk.python import TTPClient
 
-client = TTPClient(issuer_urls=["https://issuer1.example.com", "https://issuer2.example.com"])
-token = client.get_token(min_score=70, domain="research")
+client = TTPClient(
+    issuer_urls=[
+        "https://issuer1.example.com",
+        "https://issuer2.example.com"
+    ]
+)
 
-# Automatically attach to tool calls in LangChain, etc.
-```
+token = client.get_token(
+    min_score=70,
+    domain="research"
+)
 
-## Specification
+SDKs automatically attach tokens to agent tool calls.
 
-Full details in [`/spec/rfc0001.md`](spec/rfc0001.md).
+⸻
 
-Highlights:
-- Token format and claims
-- Verification and aggregation endpoints
-- Interaction receipt primitive
-- HTTP Authorization binding
+Specification
 
-## Contributing
+Full protocol details:
+/spec/rfc0001.md
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
+Includes:
+	•	token structure + claims
+	•	receipt model
+	•	issuer responsibilities
+	•	aggregation rules
+	•	verifier policy engine
+	•	HTTP Authorization binding
 
-Priorities:
-- Framework integrations (LangChain, CrewAI, LlamaIndex)
-- Additional SDKs (Java, Rust)
-- Public issuer deployments
-- Security audits and fuzzing
+⸻
 
-Issues labeled `good first issue` are great entry points.
+Where TTP Fits
 
-## Governance
+TTP complements — not replaces:
+	•	OAuth
+	•	API gateways
+	•	service meshes
+	•	agent frameworks
 
-Lightweight working group model. Spec changes require consensus among active maintainers.
+Identity answers who you are.
+TTP answers whether you’re trustworthy right now.
 
-## License
+⸻
 
-Apache License 2.0 – permissive and enterprise-friendly.
+Contributing
 
-## Contact & Community
+We’re actively building the ecosystem.
 
-- Open an issue for discussions.
-- Early adopters: Reach out for partnership on hosted verifiers or enterprise integrations.
+High-impact areas:
+	•	LangChain / CrewAI / LlamaIndex integrations
+	•	additional SDKs (Rust, Java)
+	•	issuer implementations
+	•	verification performance
+	•	adversarial testing + fuzzing
+	•	production deployment patterns
 
-TTP is built for the agent era: secure, scalable, and open.
+Start with issues labeled good first issue.
 
-Let's make runtime trust the default.
-```
+See: CONTRIBUTING.md
+
+⸻
+
+Governance
+
+Spec-driven development with maintainer consensus.
+
+Focus:
+	•	minimal core
+	•	strong interoperability
+	•	multiple independent implementations
+
+⸻
+
+Security
+
+Security-first design priorities:
+	•	stateless verification
+	•	short token lifetimes
+	•	issuer diversity
+	•	anomaly resistance
+	•	verifiable signatures
+
+Security reviews and audits are welcomed.
+
+⸻
+
+License
+
+Apache 2.0 — permissive for commercial and enterprise adoption.
+
+⸻
+
+Community
+	•	Issues → design discussion
+	•	PRs → implementations
+	•	Early adopters → integrations
+
+TTP is being built as neutral infrastructure for the agent ecosystem.
+
+⸻
+
+Vision
+
+Agents will coordinate across organizations, networks, and environments.
+
+Trust cannot live inside platforms.
+
+It must be:
+	•	portable
+	•	verifiable
+	•	privacy-preserving
+	•	open
+
+TTP is the runtime trust layer for autonomous systems.
