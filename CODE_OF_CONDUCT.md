@@ -1,55 +1,78 @@
-# Contributor Covenant Code of Conduct
+# Code of Conduct
 
-## Our Pledge
+## Our Commitment
 
-We commit to making participation in this project a harassment-free experience for everyone.
+Participation in this project should reflect integrity, dignity, and mutual respect.
 
-We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
+We are committed to maintaining a community where contributors can collaborate openly and safely — where ideas are challenged rigorously, and people are treated honorably.
 
----
-
-## Expected Behavior
-
-- Be respectful and professional
-- Accept constructive feedback
-- Focus on what is best for the ecosystem
-- Assume good intent
+This space exists to build infrastructure others may rely on.  
+Conduct here should reflect that responsibility.
 
 ---
 
-## Unacceptable Behavior
+## Expected Conduct
 
-- Harassment, trolling, or insults
-- Public or private discrimination
-- Publishing private information without consent
-- Sustained disruption of discussions
+Participants are expected to:
 
----
-
-## Enforcement Responsibilities
-
-Maintainers are responsible for clarifying standards and taking appropriate corrective action.
-
----
-
-## Enforcement
-
-Instances may be reported to maintainers.
-
-All reports will be reviewed and handled confidentially.
+- Treat others with respect and professionalism  
+- Engage with sincerity and good intent  
+- Accept constructive critique with humility  
+- Offer feedback with care and clarity  
+- Prioritize what strengthens the ecosystem over personal recognition  
+- Exercise restraint in disagreement  
+- Assume good intent unless proven otherwise  
 
 ---
 
-## Consequences
+## Unacceptable Conduct
 
-Actions may include:
-- warning
-- temporary ban
-- permanent removal from community spaces
+The following behaviors are not tolerated:
+
+- Harassment, insults, or intimidation  
+- Discrimination or exclusion of any kind  
+- Sharing private information without consent  
+- Persistent disruption or bad-faith participation  
+- Attempts to undermine collaboration or trust  
+
+---
+
+## Stewardship Responsibilities
+
+Maintainers are responsible for:
+
+- Clarifying expectations  
+- Acting fairly and proportionally  
+- Addressing issues without favoritism  
+- Preserving community integrity  
+
+Leadership decisions will prioritize the health and continuity of the ecosystem.
+
+---
+
+## Reporting Concerns
+
+Concerns or violations may be reported privately:
+
+maurice@blocksifr.com
+
+Reports will be reviewed with discretion and respect for confidentiality.
+
+---
+
+## Resolution
+
+Responses may include:
+
+- Guidance or warning  
+- Temporary restriction  
+- Removal from project spaces  
+
+Actions will be proportional and intended to restore constructive collaboration.
 
 ---
 
 ## Attribution
 
-This Code of Conduct is adapted from Contributor Covenant v2.1.
+This Code of Conduct adapts principles from Contributor Covenant v2.1  
 https://www.contributor-covenant.org/version/2/1/code_of_conduct/
