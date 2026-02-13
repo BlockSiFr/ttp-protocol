@@ -1,237 +1,312 @@
-Trust Transfer Protocol (TTP)
+# Trust Transfer Protocol (TTP)
 
-TTP is an open protocol for runtime trust verification in autonomous systems.
+Runtime trust verification for autonomous AI systems
 
-It allows a service to evaluate whether an agent should be trusted right now, based on verifiable behavioral history issued by independent observers.
+TTP is an open protocol that enables services to evaluate whether an AI agent should be trusted right now, based on verifiable behavioral history issued by independent observers.
 
-Instead of granting static permissions (API keys, OAuth scopes, sessions), TTP enforces trust continuously — at every request.
+Instead of granting static permissions (API keys, OAuth scopes, long-lived sessions), TTP enforces trust continuously—at every request.
 
-⸻
+---
 
-The Problem
+## The Problem
 
-Autonomous agents introduce a new failure mode:
-	•	prompt injection
-	•	hallucinated reasoning
-	•	tool misuse
-	•	drifting behavior over time
+Autonomous AI agents introduce failure modes that traditional access control cannot address:
 
-Traditional identity and access systems assume deterministic software and static authorization.
+- Prompt injection  
+- Memory poisoning  
+- Tool misuse  
+- Behavioral drift  
+- Hallucinated reasoning  
 
-Agents are neither.
+Traditional identity and access systems assume:
 
-TTP replaces “trust once, use forever” with:
+- Software behaves deterministically  
+- Authorization grants are static  
+- Trust decisions occur once at authentication  
 
-“Verify trust at the moment of action.”
+Agents violate these assumptions.
 
-⸻
+TTP replaces:
 
-What TTP Does
+> Trust once, use forever
 
-TTP introduces a lightweight verification layer:
-	•	behavioral receipts signed after interactions
-	•	independent issuers observing performance
-	•	aggregation into a runtime trust score
-	•	short-lived tokens proving trustworthiness
-	•	enforcement directly at API and tool boundaries
+with:
 
-No chains.
-No tokens.
-No reputation platforms.
+> Verify trust at the moment of action
+
+---
+
+## What TTP Does
+
+TTP introduces a lightweight verification layer between agents and the services they access.
+
+Core Components
+
+1. Behavioral Receipts — signed records of interactions  
+2. Independent Issuers — observers producing receipts  
+3. Trust Aggregation — domain/time bounded scoring  
+4. Short-Lived Tokens — proof of current trustworthiness  
+5. Policy Enforcement — verification at service boundary  
+
+No blockchains.  
+No on-chain consensus.  
+No reputation marketplaces.
 
 Just verifiable behavioral trust.
 
-⸻
+---
 
-Core Properties
+## Core Properties
 
-Behavioral Trust
-Scores derived from real interaction history and endorsements.
+### Behavioral Trust
+Derived from observed behavior, not credentials.
 
-Runtime Enforcement
-Short-lived tokens (≤1 hour) evaluated per request.
+### Runtime Enforcement
+Tokens evaluated per request.
 
-Contextual Trust Domains
-Trust varies by domain: research ≠ payments ≠ deployment.
+### Contextual Domains
+Trust varies by operational context.
 
-Decentralized Observation
-Independent issuers reduce manipulation and central failure.
+### Decentralized Observation
+Multiple issuers reduce manipulation risk.
 
-Developer-First
-SDK-managed tokens, declarative policy thresholds.
+### Developer-First Integration
+SDK-managed token handling.
 
-Secure by Design
-Ed25519 signatures, minimal state, small attack surface.
+### Secure by Design
+Ed25519 signatures and stateless verification.
 
-⸻
+---
 
-Architecture Overview
+## Formal Foundations (Draft)
 
-Agent → Issuers → Aggregator → Verifier → Protected Service
-        (receipts)  (scores)     (policy)     (enforcement)
+TTP models trust as a time-bounded function of observed behavior.
 
-TTP sits between identity and execution.
+Let:
 
-It answers:
-	•	Has this agent behaved reliably?
-	•	In this domain?
-	•	Recently?
-	•	Verified by whom?
-	•	Above this risk threshold?
+- A be an agent  
+- B(t) be the behavior stream of A  
+- Oᵢ(B) be issuer observations  
+- Rᵢ be signed receipts  
+- D be a trust domain  
+- W be a time window  
 
-⸻
+Trust score:
 
-Repository Structure
+T(A, D, W) = F({Rᵢ ∈ D, t ∈ W})
 
-/spec
-  └── rfc0001.md       # Protocol specification
+Where aggregation function F satisfies:
 
-/reference
-  └── go               # Verifier + minimal issuer
+- Temporal locality  
+- Issuer diversity weighting  
+- Bounded receipt influence  
+- Decay outside window  
 
-/sdk
-  ├── python           # Agent SDK (LangChain example)
-  └── js               # JS/TS SDK
+F is intentionally pluggable, enabling:
 
-/examples
-  ├── langchain
-  └── http-gateway
+- Statistical models  
+- Heuristic scoring  
+- Probabilistic inference  
+- ML-derived evaluation  
 
-/docs
-  └── whitepaper.md
+Protocol stability is maintained independent of scoring evolution.
 
+---
 
-⸻
+## Architecture Overview
 
-Quick Start
+Agent → Issuers → Aggregator → Verifier → Service
 
-1) Run the Verifier
+Trust Flow
 
-git clone https://github.com/ttp-protocol/ttp.git
-cd ttp/reference/go/verifier
-go run main.go --port 8080
+1. Agent acts  
+2. Issuers observe  
+3. Receipts produced  
+4. Agent requests token  
+5. Aggregator computes score  
+6. Token issued  
+7. Service verifies  
+8. Access granted/denied  
 
-2) Make a Protected Request
+---
 
-curl \
-  -H "Authorization: Trust eyJhbGciOiJFZERTQSIs..." \
-  https://api.example.com/sensitive
+## System Assumptions
 
-3) Generate a Token (Python)
+TTP assumes:
 
-from ttp.sdk.python import TTPClient
+1. Partial behavioral observability  
+2. Issuer independence  
+3. Signature integrity  
+4. Bounded clock drift  
+5. Behavioral correlation with reliability  
 
-client = TTPClient(
-    issuer_urls=[
-        "https://issuer1.example.com",
-        "https://issuer2.example.com"
-    ]
-)
+TTP does not assume:
 
-token = client.get_token(
-    min_score=70,
-    domain="research"
-)
+- Perfect observation  
+- Universal issuer honesty  
+- Deterministic agents  
+- Complete behavioral capture  
 
-SDKs automatically attach tokens to agent tool calls.
+Trust scores are probabilistic signals, not guarantees.
 
-⸻
+---
 
-Specification
+## Protocol Specification (Summary)
 
-Full protocol details:
-/spec/rfc0001.md
+### Receipt Schema
+Signed JSON:
 
-Includes:
-	•	token structure + claims
-	•	receipt model
-	•	issuer responsibilities
-	•	aggregation rules
-	•	verifier policy engine
-	•	HTTP Authorization binding
+- agent_id  
+- issuer_id  
+- event_type  
+- event_data  
+- timestamp  
+- domain  
+- score  
+- signature  
 
-⸻
+### Trust Tokens
+JWT containing:
 
-Where TTP Fits
+- subject  
+- issuer  
+- validity window  
+- trust claims  
 
-TTP complements — not replaces:
-	•	OAuth
-	•	API gateways
-	•	service meshes
-	•	agent frameworks
+### Policy Enforcement
+Services declare:
 
-Identity answers who you are.
-TTP answers whether you’re trustworthy right now.
+- minimum score  
+- required issuers  
+- domain  
+- token freshness  
 
-⸻
+---
 
-Contributing
+## Adversarial Considerations
 
-We’re actively building the ecosystem.
+Known research and engineering challenges:
 
-High-impact areas:
-	•	LangChain / CrewAI / LlamaIndex integrations
-	•	additional SDKs (Rust, Java)
-	•	issuer implementations
-	•	verification performance
-	•	adversarial testing + fuzzing
-	•	production deployment patterns
+- Issuer collusion  
+- Receipt flooding  
+- Observation bias  
+- Trust oscillation  
+- Strategic score gaming  
+- Timing boundary attacks  
 
-Start with issues labeled good first issue.
+Mitigations include:
 
-See: CONTRIBUTING.md
+- issuer diversity  
+- short token lifetime  
+- domain isolation  
+- stateless verification  
 
-⸻
+Full adversarial closure is not claimed.
 
-Governance
+---
 
-Spec-driven development with maintainer consensus.
+## Relationship to Prior Work
 
-Focus:
-	•	minimal core
-	•	strong interoperability
-	•	multiple independent implementations
+TTP builds upon ideas from:
 
-⸻
+- PKI attestation  
+- Reputation modeling  
+- Byzantine validation  
+- Zero Trust architecture  
+- Distributed attestation systems  
 
-Security
+It introduces:
 
-Security-first design priorities:
-	•	stateless verification
-	•	short token lifetimes
-	•	issuer diversity
-	•	anomaly resistance
-	•	verifiable signatures
+- Runtime behavioral trust  
+- Domain-scoped evaluation  
+- Temporal trust tokens  
+- Multi-issuer observation  
 
-Security reviews and audits are welcomed.
+TTP complements — not replaces — existing controls.
 
-⸻
+---
 
-License
+## Performance Characteristics
 
-Apache 2.0 — permissive for commercial and enterprise adoption.
+Performance benchmarking is in progress.
 
-⸻
+Results will be published alongside methodology,
+hardware configuration, and workload models once
+measurement infrastructure is complete.
 
-Community
-	•	Issues → design discussion
-	•	PRs → implementations
-	•	Early adopters → integrations
+---
 
-TTP is being built as neutral infrastructure for the agent ecosystem.
+## Open Research Directions
 
-⸻
+Areas for exploration:
 
-Vision
+- Aggregation convergence  
+- Issuer independence modeling  
+- Trust entropy metrics  
+- Behavioral portability limits  
+- Domain boundary formalization  
+- Trust decay optimization  
+- Observer reliability scoring  
 
-Agents will coordinate across organizations, networks, and environments.
+Academic and OSS collaboration welcomed.
 
-Trust cannot live inside platforms.
+---
 
-It must be:
-	•	portable
-	•	verifiable
-	•	privacy-preserving
-	•	open
+## Where TTP Fits
 
-TTP is the runtime trust layer for autonomous systems.
+| System | Function | TTP Contribution |
+|--------|----------|-----------------|
+OAuth | Identity | Runtime trust |
+IAM | Permission | Behavioral validation |
+API Gateway | Routing | Trust enforcement |
+Mesh | Connectivity | Context scoring |
+
+Identity answers who.  
+TTP answers should we trust now.
+
+---
+
+## Design Philosophy
+
+- Minimal core surface  
+- Cryptographic verification  
+- Scoring neutrality  
+- Ecosystem openness  
+- Deployment composability  
+- Governance decentralization  
+
+TTP enables trust evaluation without prescribing ideology.
+
+---
+
+## Governance
+
+Spec-driven evolution  
+Maintainer consensus  
+Independent implementations encouraged  
+Backward compatibility priority  
+
+---
+
+## Vision
+
+Autonomous agents will coordinate across organizations and environments.
+
+Trust must be:
+
+- Portable  
+- Verifiable  
+- Privacy-preserving  
+- Open  
+
+TTP aims to provide the runtime trust substrate enabling this future.
+
+---
+
+## License
+
+Apache 2.0
+
+---
+
+Trust Transfer Protocol © 2026 BlockSifr
