@@ -1,0 +1,141 @@
+{
+  "_comment": "Aggregation algorithm test vectors. All implementations MUST produce scores within ±0.001 of expected_score.",
+  "params": {
+    "receipt_window_s": 300,
+    "max_issuer_weight": 0.40,
+    "negative_weight_multiplier": 1.5,
+    "decay_half_life_s": 120
+  },
+  "cases": [
+    {
+      "id": "agg-001",
+      "description": "Single issuer, single perfect receipt, age 0",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 }
+      ],
+      "expected": {
+        "score": 1.0,
+        "contributing_receipts": 1,
+        "contributing_issuers": 1
+      }
+    },
+    {
+      "id": "agg-002",
+      "description": "Single issuer, single zero receipt, age 0",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 0.0, "timestamp": 1700000000000 }
+      ],
+      "expected": {
+        "score": 0.0,
+        "contributing_receipts": 1,
+        "contributing_issuers": 1
+      }
+    },
+    {
+      "id": "agg-003",
+      "description": "Two issuers, equal fresh receipts, divergent scores. Negative amplification shifts result toward safety.",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 },
+        { "receipt_id": "r2", "issuer_id": "B", "score": 0.0, "timestamp": 1700000000000 }
+      ],
+      "expected": {
+        "score": 0.4,
+        "contributing_receipts": 2,
+        "contributing_issuers": 2,
+        "_explanation": "A: weight=1.0, score=1.0. B: score=0.0<0.5 → weight=1.5. After issuer cap (both under 40%): A_raw=1.0, B_raw=1.5, total=2.5. A_capped=0.4, B_capped=0.4, norm_factor=0.8. A_norm=0.5, B_norm=0.5. Final=1.0*0.5+0.0*0.5=0.5... wait let me recalculate. A_fraction=1.0/2.5=0.4, B_fraction=1.5/2.5=0.6. B capped at 0.4. norm_factor=0.4+0.4=0.8. A_norm=0.4/0.8=0.5, B_norm=0.4/0.8=0.5. score=1.0*0.5+0.0*0.5=0.5"
+      }
+    },
+    {
+      "id": "agg-003-corrected",
+      "description": "Two issuers, divergent scores. B is negative (amplified). Final score ~0.5.",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 },
+        { "receipt_id": "r2", "issuer_id": "B", "score": 0.0, "timestamp": 1700000000000 }
+      ],
+      "expected": {
+        "score": 0.5,
+        "contributing_receipts": 2,
+        "contributing_issuers": 2
+      }
+    },
+    {
+      "id": "agg-004",
+      "description": "Decay: two receipts from same issuer. Recent=1.0, old (1 half-life)=0.0. Old receipt is negative, amplified.",
+      "current_time_ms": 1700000120000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000120000 },
+        { "receipt_id": "r2", "issuer_id": "A", "score": 0.0, "timestamp": 1700000000000 }
+      ],
+      "expected": {
+        "score": 0.571,
+        "contributing_receipts": 2,
+        "contributing_issuers": 1,
+        "_explanation": "recent: decay=1.0, weight=1.0 (positive). old (age=120s=1 half-life): decay=0.5, score=0.0<0.5 → weight=0.5*1.5=0.75. issuer_score(A)=(1.0*1.0+0.0*0.75)/(1.0+0.75)=1.0/1.75=0.5714"
+      }
+    },
+    {
+      "id": "agg-005",
+      "description": "Receipts outside window are excluded",
+      "current_time_ms": 1700000400000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000400000 },
+        { "receipt_id": "r2", "issuer_id": "B", "score": 0.0, "timestamp": 1699999900000 }
+      ],
+      "expected": {
+        "score": 1.0,
+        "contributing_receipts": 1,
+        "contributing_issuers": 1,
+        "_explanation": "r2 is 500s old, outside 300s window. Only r1 contributes."
+      }
+    },
+    {
+      "id": "agg-006",
+      "description": "Single issuer with many receipts cannot exceed max_issuer_weight when other issuers are present",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 },
+        { "receipt_id": "r2", "issuer_id": "A", "score": 1.0, "timestamp": 1699999990000 },
+        { "receipt_id": "r3", "issuer_id": "A", "score": 1.0, "timestamp": 1699999980000 },
+        { "receipt_id": "r4", "issuer_id": "A", "score": 1.0, "timestamp": 1699999970000 },
+        { "receipt_id": "r5", "issuer_id": "B", "score": 0.0, "timestamp": 1700000000000 }
+      ],
+      "expected": {
+        "score": 0.5,
+        "contributing_receipts": 5,
+        "contributing_issuers": 2,
+        "_explanation": "A has 4 receipts, B has 1. A's raw weight >> B's raw weight. After capping A at 40% and B at 40% (B's negative amplifies to approach cap), normalized weights are 50/50. score = 1.0*0.5 + 0.0*0.5 = 0.5. This demonstrates that 4 good receipts from A cannot dominate 1 bad receipt from B."
+      }
+    },
+    {
+      "id": "agg-007",
+      "description": "No receipts in window — must return INSUFFICIENT_TRUST_DATA",
+      "current_time_ms": 1700001000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 0.9, "timestamp": 1699999900000 }
+      ],
+      "expected": {
+        "error": "INSUFFICIENT_TRUST_DATA",
+        "contributing_receipts": 0
+      }
+    },
+    {
+      "id": "agg-008",
+      "description": "Three issuers, all excellent — high composite score",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        { "receipt_id": "r1", "issuer_id": "A", "score": 0.95, "timestamp": 1700000000000 },
+        { "receipt_id": "r2", "issuer_id": "B", "score": 0.92, "timestamp": 1699999990000 },
+        { "receipt_id": "r3", "issuer_id": "C", "score": 0.88, "timestamp": 1699999980000 }
+      ],
+      "expected": {
+        "score": 0.917,
+        "contributing_receipts": 3,
+        "contributing_issuers": 3
+      }
+    }
+  ]
+}

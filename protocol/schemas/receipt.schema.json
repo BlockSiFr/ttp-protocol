@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/blocksifr/ttp-protocol/protocol/schemas/receipt.schema.json",
+  "title": "TTP Behavioral Receipt",
+  "description": "A signed, tamper-evident record of observed agent behavior produced by an independent issuer.",
+  "type": "object",
+  "required": [
+    "ttp_version",
+    "receipt_id",
+    "agent_id",
+    "issuer_id",
+    "event_type",
+    "domain",
+    "timestamp",
+    "score",
+    "signature"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ttp_version": {
+      "type": "string",
+      "description": "Protocol version. MUST be '1.0' for this specification.",
+      "enum": ["1.0"],
+      "examples": ["1.0"]
+    },
+    "receipt_id": {
+      "type": "string",
+      "description": "UUID v4 uniquely identifying this receipt. Used for deduplication at the Trust Authority.",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "examples": ["550e8400-e29b-41d4-a716-446655440000"]
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Stable identifier of the agent this receipt attests to.",
+      "minLength": 1,
+      "maxLength": 256,
+      "examples": ["agent-prod-abc123"]
+    },
+    "issuer_id": {
+      "type": "string",
+      "description": "Identifier of the issuer that observed the behavior and produced this receipt.",
+      "minLength": 1,
+      "maxLength": 256,
+      "examples": ["issuer-api-gateway-01"]
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Category of the observed event. Standard types: api_call, tool_execution, inference_output, data_access, financial_transaction, safety_monitor. Custom types MUST use reverse-domain notation.",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["api_call", "tool_execution", "inference_output", "com.example.custom_event"]
+    },
+    "event_data": {
+      "type": "object",
+      "description": "Optional issuer-specific context for the observed event. MUST NOT contain PII.",
+      "additionalProperties": true
+    },
+    "domain": {
+      "type": "string",
+      "description": "Trust domain this receipt applies to. Must match the domain of any token that aggregates this receipt.",
+      "pattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$",
+      "minLength": 2,
+      "maxLength": 128,
+      "examples": ["retention", "financial", "infra", "financial.transactions"]
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Unix timestamp in milliseconds when the event was observed by the issuer.",
+      "minimum": 0,
+      "examples": [1700000000000]
+    },
+    "score": {
+      "type": "number",
+      "description": "Issuer's behavioral assessment: 0.0 (critical violation) to 1.0 (excellent behavior). See scoring-semantics.md for guidance.",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "examples": [0.92, 0.75, 0.20]
+    },
+    "signature": {
+      "type": "string",
+      "description": "Base64url-encoded Ed25519 signature over the canonical JSON payload (all fields except 'signature', keys sorted lexicographically, no whitespace). Signature covers SHA-256 of the canonical bytes.",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 86,
+      "maxLength": 88,
+      "examples": ["MEUCIQDexampleSignatureBase64urlEncodedHereXXXXXXXXXXXXXXXXXXXXX"]
+    }
+  },
+  "examples": [
+    {
+      "ttp_version": "1.0",
+      "receipt_id": "550e8400-e29b-41d4-a716-446655440000",
+      "agent_id": "agent-prod-abc123",
+      "issuer_id": "issuer-api-gateway-01",
+      "event_type": "api_call",
+      "event_data": {
+        "method": "POST",
+        "path": "/api/issue-discount",
+        "status_code": 200,
+        "latency_ms": 43,
+        "flags": []
+      },
+      "domain": "retention",
+      "timestamp": 1700000000000,
+      "score": 0.92,
+      "signature": "base64url-encoded-signature-here"
+    }
+  ]
+}
