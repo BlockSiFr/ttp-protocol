@@ -1,0 +1,195 @@
+{
+  "_comment": "Receipt validation test vectors. current_time_ms = 1700000100000 for all cases.",
+  "current_time_ms": 1700000100000,
+  "issuer_public_key_kid": "issuer-test-key-01",
+  "cases": [
+    {
+      "id": "recv-001",
+      "description": "Valid receipt — all fields present and correct",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440001",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "event_data": { "method": "GET", "path": "/api/data", "status_code": 200 },
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 0.92,
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "recv-002",
+      "description": "Invalid: unsupported ttp_version",
+      "input": {
+        "ttp_version": "2.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440002",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 0.92,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "UNSUPPORTED_VERSION"
+      }
+    },
+    {
+      "id": "recv-003",
+      "description": "Invalid: score out of range (> 1.0)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440003",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 1.1,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "SCORE_OUT_OF_RANGE"
+      }
+    },
+    {
+      "id": "recv-004",
+      "description": "Invalid: score out of range (< 0.0)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440004",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": -0.1,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "SCORE_OUT_OF_RANGE"
+      }
+    },
+    {
+      "id": "recv-005",
+      "description": "Invalid: timestamp too old (> max receipt age of 86400s)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440005",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1699900000000,
+        "score": 0.90,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "RECEIPT_TOO_OLD"
+      }
+    },
+    {
+      "id": "recv-006",
+      "description": "Invalid: timestamp in the future (> 300s ahead)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440006",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700005000000,
+        "score": 0.90,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "RECEIPT_FUTURE_DATED"
+      }
+    },
+    {
+      "id": "recv-007",
+      "description": "Invalid: missing required field (agent_id absent)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440007",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 0.90,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "INVALID_SCHEMA"
+      }
+    },
+    {
+      "id": "recv-008",
+      "description": "Invalid: bad signature (tampered payload)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440008",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 0.92,
+        "signature": "aGVsbG8td29ybGQtdGhpcy1pcy1ub3QtYS12YWxpZC1zaWduYXR1cmU"
+      },
+      "expected": {
+        "valid": false,
+        "error": "INVALID_SIGNATURE"
+      }
+    },
+    {
+      "id": "recv-009",
+      "description": "Valid: receipt with no event_data (optional field)",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440009",
+        "agent_id": "agent-test-001",
+        "issuer_id": "issuer-test-key-01",
+        "event_type": "safety_monitor",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 1.0,
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "recv-010",
+      "description": "Invalid: unregistered issuer",
+      "input": {
+        "ttp_version": "1.0",
+        "receipt_id": "550e8400-e29b-41d4-a716-446655440010",
+        "agent_id": "agent-test-001",
+        "issuer_id": "unregistered-issuer-xyz",
+        "event_type": "api_call",
+        "domain": "retention",
+        "timestamp": 1700000000000,
+        "score": 0.92,
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "error": "ISSUER_NOT_REGISTERED"
+      }
+    }
+  ]
+}

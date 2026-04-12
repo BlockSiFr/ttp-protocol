@@ -1,0 +1,25 @@
+{
+  "_comment": "TEST KEYS ONLY — DO NOT USE IN PRODUCTION",
+  "keys": {
+    "issuer-test-key-01": {
+      "kid": "issuer-test-key-01",
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "use": "sig",
+      "role": "issuer",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "d": "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A",
+      "_note": "Public key (x) and private key (d) — test use only"
+    },
+    "authority-test-key-01": {
+      "kid": "authority-test-key-01",
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "use": "sig",
+      "role": "trust_authority",
+      "x": "JHm6f7XwQkdh3b5WGPexSrb4BcQKLj9A1aOm2oEr4RM",
+      "d": "MC4CAQAwBQYDK2VwBCIEIBiU_nzS7t4F3_qm5xMxK6yW8pTjdUgNslSBCqkQrVps",
+      "_note": "Public key (x) and private key (d) — test use only"
+    }
+  }
+}

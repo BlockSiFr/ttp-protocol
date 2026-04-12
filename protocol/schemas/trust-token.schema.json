@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/blocksifr/ttp-protocol/protocol/schemas/trust-token.schema.json",
+  "title": "TTP Trust Token JWT Payload",
+  "description": "The decoded payload of a TTP trust token JWT. The full token is a signed JWT (alg: EdDSA) containing these claims.",
+  "type": "object",
+  "required": [
+    "ttp_version",
+    "sub",
+    "iss",
+    "iat",
+    "exp",
+    "jti",
+    "ttp_domain",
+    "ttp_score",
+    "ttp_issuer_count",
+    "ttp_receipt_window"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "ttp_version": {
+      "type": "string",
+      "description": "Protocol version used to produce this token.",
+      "enum": ["1.0"],
+      "examples": ["1.0"]
+    },
+    "sub": {
+      "type": "string",
+      "description": "Agent identifier. Matches the agent_id in contributing receipts.",
+      "minLength": 1,
+      "maxLength": 256,
+      "examples": ["agent-prod-abc123"]
+    },
+    "iss": {
+      "type": "string",
+      "description": "Trust Authority base URL. Verifiers MUST match this against their configured authority URL.",
+      "format": "uri",
+      "examples": ["https://authority.example.com"]
+    },
+    "iat": {
+      "type": "integer",
+      "description": "Unix timestamp (seconds) of token issuance.",
+      "minimum": 0,
+      "examples": [1700000000]
+    },
+    "exp": {
+      "type": "integer",
+      "description": "Unix timestamp (seconds) of token expiration. MUST be ≤ iat + 600.",
+      "minimum": 0,
+      "examples": [1700000300]
+    },
+    "jti": {
+      "type": "string",
+      "description": "Unique token identifier. Used by verifiers for replay detection. Format: 'tok_' followed by 16 hex chars.",
+      "pattern": "^tok_[0-9a-f]{16}$",
+      "examples": ["tok_7f3d9a2b1e4c8f6a"]
+    },
+    "ttp_domain": {
+      "type": "string",
+      "description": "Trust domain this token is valid for. Verifiers MUST reject tokens where this does not match their required domain.",
+      "pattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$",
+      "minLength": 2,
+      "maxLength": 128,
+      "examples": ["retention", "financial", "infra"]
+    },
+    "ttp_score": {
+      "type": "number",
+      "description": "Aggregated trust score [0.0, 1.0] as computed by the Trust Authority aggregation algorithm.",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "examples": [0.91, 0.75]
+    },
+    "ttp_issuer_count": {
+      "type": "integer",
+      "description": "Number of distinct issuers whose receipts contributed to this score. Verifiers MAY require a minimum.",
+      "minimum": 1,
+      "examples": [3]
+    },
+    "ttp_receipt_window": {
+      "type": "integer",
+      "description": "Seconds of behavioral history reflected in this score. A window of 300 means the score covers the last 5 minutes of receipts.",
+      "minimum": 1,
+      "examples": [300]
+    }
+  },
+  "examples": [
+    {
+      "ttp_version": "1.0",
+      "sub": "agent-prod-abc123",
+      "iss": "https://authority.example.com",
+      "iat": 1700000000,
+      "exp": 1700000300,
+      "jti": "tok_7f3d9a2b1e4c8f6a",
+      "ttp_domain": "retention",
+      "ttp_score": 0.91,
+      "ttp_issuer_count": 3,
+      "ttp_receipt_window": 300
+    }
+  ],
+  "$defs": {
+    "TTPTokenHeader": {
+      "title": "TTP Trust Token JWT Header",
+      "description": "The JWT header for a TTP trust token.",
+      "type": "object",
+      "required": ["alg", "kid", "typ"],
+      "properties": {
+        "alg": {
+          "type": "string",
+          "description": "JWT algorithm. MUST be 'EdDSA' (Ed25519).",
+          "enum": ["EdDSA"]
+        },
+        "kid": {
+          "type": "string",
+          "description": "Key ID of the Trust Authority signing key. Used by verifiers to select the correct public key.",
+          "examples": ["authority-key-2026-01"]
+        },
+        "typ": {
+          "type": "string",
+          "description": "Token type. MUST be 'JWT'.",
+          "enum": ["JWT"]
+        }
+      }
+    },
+    "TrustAuthorityPublicKey": {
+      "title": "Trust Authority Public Key (JWK)",
+      "description": "A Trust Authority signing key in JWK format, as returned from /.well-known/ttp-keys",
+      "type": "object",
+      "required": ["kid", "kty", "crv", "x", "use"],
+      "properties": {
+        "kid": {
+          "type": "string",
+          "description": "Key identifier. Matches the 'kid' in trust token headers.",
+          "examples": ["authority-key-2026-01"]
+        },
+        "kty": {
+          "type": "string",
+          "description": "Key type. MUST be 'OKP' for Ed25519.",
+          "enum": ["OKP"]
+        },
+        "crv": {
+          "type": "string",
+          "description": "Curve. MUST be 'Ed25519'.",
+          "enum": ["Ed25519"]
+        },
+        "x": {
+          "type": "string",
+          "description": "Base64url-encoded public key bytes.",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "use": {
+          "type": "string",
+          "description": "Intended use. MUST be 'sig'.",
+          "enum": ["sig"]
+        }
+      }
+    }
+  }
+}

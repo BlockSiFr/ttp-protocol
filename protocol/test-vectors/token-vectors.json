@@ -1,0 +1,224 @@
+{
+  "_comment": "Token verification test vectors. current_time = 1700000100 (Unix seconds) for all cases.",
+  "current_time_s": 1700000100,
+  "authority_public_key_kid": "authority-test-key-01",
+  "required_domain": "retention",
+  "required_min_score": 0.85,
+  "cases": [
+    {
+      "id": "tok-001",
+      "description": "Valid token — all checks pass",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1700000000,
+          "exp": 1700000300,
+          "jti": "tok_7f3d9a2b1e4c8f6a",
+          "ttp_domain": "retention",
+          "ttp_score": 0.91,
+          "ttp_issuer_count": 3,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "tok-002",
+      "description": "Invalid: token expired (exp < current_time)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1699999700,
+          "exp": 1700000000,
+          "jti": "tok_expired000001",
+          "ttp_domain": "retention",
+          "ttp_score": 0.91,
+          "ttp_issuer_count": 3,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": false,
+        "reason": "TOKEN_EXPIRED"
+      }
+    },
+    {
+      "id": "tok-003",
+      "description": "Invalid: domain mismatch (financial != retention)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1700000000,
+          "exp": 1700000300,
+          "jti": "tok_wrongdomain001",
+          "ttp_domain": "financial",
+          "ttp_score": 0.91,
+          "ttp_issuer_count": 3,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": false,
+        "reason": "DOMAIN_MISMATCH"
+      }
+    },
+    {
+      "id": "tok-004",
+      "description": "Invalid: score below threshold (0.72 < 0.85 required)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1700000000,
+          "exp": 1700000300,
+          "jti": "tok_lowscore00001",
+          "ttp_domain": "retention",
+          "ttp_score": 0.72,
+          "ttp_issuer_count": 3,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": false,
+        "reason": "SCORE_BELOW_THRESHOLD"
+      }
+    },
+    {
+      "id": "tok-005",
+      "description": "Invalid: bad signature (tampered payload)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1700000000,
+          "exp": 1700000300,
+          "jti": "tok_badsig000001",
+          "ttp_domain": "retention",
+          "ttp_score": 0.91,
+          "ttp_issuer_count": 3,
+          "ttp_receipt_window": 300
+        },
+        "signature": "aGVsbG8td29ybGQtdGhpcy1pcy1ub3QtYS12YWxpZC1zaWduYXR1cmU"
+      },
+      "expected": {
+        "valid": false,
+        "reason": "INVALID_SIGNATURE"
+      }
+    },
+    {
+      "id": "tok-006",
+      "description": "Invalid: unsupported ttp_version",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "9.9",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1700000000,
+          "exp": 1700000300,
+          "jti": "tok_badversion001",
+          "ttp_domain": "retention",
+          "ttp_score": 0.91,
+          "ttp_issuer_count": 3,
+          "ttp_receipt_window": 300
+        },
+        "signature": "ANY"
+      },
+      "expected": {
+        "valid": false,
+        "reason": "UNSUPPORTED_VERSION"
+      }
+    },
+    {
+      "id": "tok-007",
+      "description": "Valid: score exactly at threshold (0.85 == 0.85 required)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1700000000,
+          "exp": 1700000300,
+          "jti": "tok_exactthresh01",
+          "ttp_domain": "retention",
+          "ttp_score": 0.85,
+          "ttp_issuer_count": 2,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "tok-008",
+      "description": "Valid: within 30s clock skew (exp = current_time - 20)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1699999800,
+          "exp": 1700000080,
+          "jti": "tok_clockskew001",
+          "ttp_domain": "retention",
+          "ttp_score": 0.90,
+          "ttp_issuer_count": 2,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": true,
+        "_note": "exp=1700000080, current=1700000100, diff=20s. Within 30s tolerance."
+      }
+    },
+    {
+      "id": "tok-009",
+      "description": "Invalid: expired beyond clock skew tolerance (exp = current_time - 45)",
+      "input": {
+        "header": { "alg": "EdDSA", "kid": "authority-test-key-01", "typ": "JWT" },
+        "payload": {
+          "ttp_version": "1.0",
+          "sub": "agent-test-001",
+          "iss": "https://authority.example.com",
+          "iat": 1699999700,
+          "exp": 1700000055,
+          "jti": "tok_beyondskew01",
+          "ttp_domain": "retention",
+          "ttp_score": 0.90,
+          "ttp_issuer_count": 2,
+          "ttp_receipt_window": 300
+        },
+        "signature": "VALID_SIGNATURE_PLACEHOLDER"
+      },
+      "expected": {
+        "valid": false,
+        "reason": "TOKEN_EXPIRED",
+        "_note": "exp=1700000055, current=1700000100, diff=45s. Beyond 30s tolerance."
+      }
+    }
+  ]
+}

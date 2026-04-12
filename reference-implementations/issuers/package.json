@@ -1,0 +1,20 @@
+{
+  "name": "@ttp/issuer-reference",
+  "version": "1.0.0",
+  "description": "TTP Reference Issuer Implementations — API Gateway, Inference Monitor",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/api-gateway-issuer.ts"
+  },
+  "dependencies": {
+    "@ttp/sdk": "^1.0.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.2"
+  }
+}
