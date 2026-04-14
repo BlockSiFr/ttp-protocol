@@ -362,6 +362,179 @@ app.post("/api/issue-discount", async (req, res) => {
 
 -----
 
+## Quickstart (Simple Path)
+
+If you want the fastest path from zero to first protected action:
+
+1. **Run the Trust Authority** using the reference implementation.
+1. **Register one agent + one issuer** using admin endpoints.
+1. **Submit receipts** from your issuer as the agent performs actions.
+1. **Request a trust token** from the agent.
+1. **Verify token in your service** and enforce `minScore`.
+
+Use this guide for full commands and environment setup:
+- [docs/integration-guide.md](docs/integration-guide.md)
+
+-----
+
+## Integration Paths (Choose One)
+
+### Path A — Agent builder
+You own an autonomous agent and need runtime trust gating.
+
+- Integrate `TTPClient` in the agent runtime.
+- Request domain-scoped trust tokens before sensitive actions.
+- Pass `X-TTP-Token` to downstream protected services.
+
+### Path B — Service/API owner
+You operate APIs and need behavior-aware authorization.
+
+- Add TTP middleware or manual token verification.
+- Configure per-route `domain` and `minScore` policies.
+- Enforce deny/degrade/cached fallback by operation risk.
+
+### Path C — Platform/security operator
+You run shared infrastructure for many agents.
+
+- Deploy and operate the Trust Authority.
+- Register issuers and agents.
+- Define score thresholds, quarantine policies, and domain boundaries.
+
+-----
+
+## Build the Network (Core -> Edge Participation Model)
+
+TTP adoption works best when participants can join at different layers. You do **not** need to run everything on day one.
+
+### Role 1 — Network Core Operator
+Owns shared trust infrastructure for a domain/ecosystem.
+
+- Stand up and operate a Trust Authority.
+- Publish verification keys and operational policies.
+- Curate issuer admission, diversity, and governance.
+
+### Role 2 — Issuer Operator
+Contributes signed behavioral evidence.
+
+- Run one or more issuers (gateway, runtime, monitor, sandbox).
+- Submit high-quality receipts with clear event semantics.
+- Maintain independent operational control to reduce collusion risk.
+
+### Role 3 — Verifier / Service Owner
+Enforces trust at execution boundaries.
+
+- Verify TTP tokens at API, tool, or workflow boundaries.
+- Apply domain-specific `minScore` thresholds.
+- Use fallback modes appropriate to business risk.
+
+### Role 4 — Agent Builder / Integrator
+Makes autonomous systems TTP-aware.
+
+- Request short-lived trust tokens per domain.
+- Present tokens to protected services.
+- Tune behavior and controls using trust feedback loops.
+
+### Start where you are
+
+- If you're an enterprise platform team: start as **Network Core + Verifier**.
+- If you're an infra/security vendor: start as **Issuer + Verifier**.
+- If you're an agent framework/vendor: start as **Agent Builder + Issuer**.
+- If you're a single product team: start as **Verifier**, then add issuer coverage.
+
+This core-to-edge model lets the network expand outward without forcing every team to adopt every component at once.
+
+-----
+
+## Identity Assurance (Cover All Bases)
+
+TTP must treat identity as an end-to-end discipline, not a single claim in a token.
+
+- **Methodology:** define canonical `agent_id`, lifecycle states, and domain boundaries.
+- **Workflow:** enforce registration, issuance controls, verification gates, and incident playbooks.
+- **Code:** normalize identities, reject unknown principals early, enforce replay/clock protections.
+- **Reasoning:** keep deterministic policy decisions and explicit threshold rationale per domain.
+
+Use the full implementation checklist here:
+- [docs/integration-guide.md#67-identity-gap-closure-checklist-methodology-workflow-code-reasoning](docs/integration-guide.md#67-identity-gap-closure-checklist-methodology-workflow-code-reasoning)
+
+-----
+
+## Agent Registry & Trust Operations (Reference API)
+
+The reference Trust Authority includes admin endpoints that act as an operator-facing registry for known agents and operational trust state.
+
+### Register known agents
+
+```bash
+curl -X POST http://localhost:3000/v1/admin/agents \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "agent-retention-001",
+    "description": "Retention agent for production"
+  }'
+```
+
+### List known agents (+ optional metrics)
+
+```bash
+# Basic registry listing
+curl -X GET http://localhost:3000/v1/admin/agents \
+  -H "Authorization: Bearer $ADMIN_KEY"
+
+# Include receipt-based metrics for a specific domain
+curl -X GET "http://localhost:3000/v1/admin/agents?include_metrics=true&domain=retention" \
+  -H "Authorization: Bearer $ADMIN_KEY"
+```
+
+### Check agent status (active/quarantined/blocked)
+
+```bash
+curl -X GET http://localhost:3000/v1/admin/agents/agent-retention-001/status \
+  -H "Authorization: Bearer $ADMIN_KEY"
+```
+
+### Quarantine or block when behavior degrades
+
+```bash
+# Quarantine (temporary)
+curl -X POST http://localhost:3000/v1/admin/agents/agent-retention-001/quarantine \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"manual","reason":"investigating anomalous tool calls"}'
+
+# Block (hard stop)
+curl -X POST http://localhost:3000/v1/admin/agents/agent-retention-001/block \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"confirmed compromise"}'
+```
+
+### Capture trust score and behavior metrics
+
+- Use `POST /v1/tokens` responses for **current trust score** and **issuer participation** (`score`, `issuer_count`).
+- Use behavioral receipts as your event-level audit stream (`event_type`, `event_data`, `score`, `timestamp`).
+- Build dashboards around score trend, issuer diversity, and domain-specific trust drift.
+
+-----
+
+## Repo Readiness Assessment (Intent, Onboarding, Integration)
+
+This repository is structured to support the intended platform model (open protocol + reference implementation + integration docs):
+
+- **Protocol clarity**: normative protocol and schemas under `protocol/`.
+- **Integration docs**: architecture, security, and integration guidance under `docs/`.
+- **Runnable reference stack**: trust authority and issuer reference implementations under `reference-implementations/`.
+- **Practical examples**: starter integration examples under `examples/`.
+
+Recommended next documentation improvements for onboarding at scale:
+
+- Add an "operator runbook" with production SLOs, backup/restore, and incident workflows.
+- Add a standard metrics spec for dashboards (score trend, quarantine rate, issuer coverage, replay rejects).
+- Add a single-page "day-0 to day-30" rollout checklist for platform teams.
+
+-----
+
 ## Where TTP Fits
 
 |System         |Role                 |Relationship to TTP                                  |
@@ -371,10 +544,32 @@ app.post("/api/issue-discount", async (req, res) => {
 |API Gateway    |Routing & rate limit |Integration point — gateway acts as an issuer        |
 |Service Mesh   |Connectivity (mTLS)  |Complementary — mesh verifies identity, TTP verifies behavior |
 |SPIFFE / SPIRE |Workload identity    |Complementary — SPIFFE issues SVIDs, TTP adds behavioral layer on top |
+|Network Security Platforms (Zscaler, Palo Alto, Juniper) |Network/session controls|Complementary — network controls enforce transport/session policy; TTP enforces behavior-aware action trust |
 |ZTNA           |Network access       |Complementary — ZTNA controls the network, TTP controls the action |
 |AI Agent Frameworks | Execution      |Integration point — LangChain, CrewAI agents become TTP-aware |
 
 TTP fills the gap between *authenticated* and *trustworthy*. It does not replace any layer in this stack — it adds the behavioral trust dimension that none of them provide.
+
+-----
+
+## Network-Level Agent Infrastructure (Zscaler, Palo Alto, Juniper)
+
+Short answer:
+- **Is it possible?** Yes.
+- **Is it in this repo today as first-party connectors?** Not yet.
+- **Is it a valid deployment pattern happening in practice?** Yes — via standard integration seams (gateways, identity, logs, policy engines).
+
+Practical integration model:
+1. Network/security platform observes session and policy events.
+2. An issuer adapter converts those events into signed TTP receipts.
+3. Trust Authority aggregates with other issuers (runtime, tool, API gateway).
+4. Verifiers enforce action-level trust with TTP tokens at service boundaries.
+
+This preserves clear responsibility layers:
+- Network stack decides connection/session posture.
+- TTP decides whether a specific autonomous action should execute now.
+
+If you need vendor-specific blueprints, start with the issuer adapter pattern in the integration guide and implement per-vendor event mappers.
 
 -----
 
