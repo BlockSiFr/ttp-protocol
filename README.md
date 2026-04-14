@@ -752,7 +752,10 @@ ttp-protocol/
 │   ├── security.md
 │   ├── governance.md
 │   ├── patent-strategy.md
-│   └── integration-guide.md
+│   ├── integration-guide.md
+│   ├── getting-started.md
+│   ├── operator-guide.md
+│   └── ecosystem-integrations.md
 ├── reference-implementations/
 │   ├── trust-authority/
 │   ├── issuers/
