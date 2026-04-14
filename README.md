@@ -445,20 +445,6 @@ This core-to-edge model lets the network expand outward without forcing every te
 
 -----
 
-## Identity Assurance (Cover All Bases)
-
-TTP must treat identity as an end-to-end discipline, not a single claim in a token.
-
-- **Methodology:** define canonical `agent_id`, lifecycle states, and domain boundaries.
-- **Workflow:** enforce registration, issuance controls, verification gates, and incident playbooks.
-- **Code:** normalize identities, reject unknown principals early, enforce replay/clock protections.
-- **Reasoning:** keep deterministic policy decisions and explicit threshold rationale per domain.
-
-Use the full implementation checklist here:
-- [docs/integration-guide.md#67-identity-gap-closure-checklist-methodology-workflow-code-reasoning](docs/integration-guide.md#67-identity-gap-closure-checklist-methodology-workflow-code-reasoning)
-
------
-
 ## Agent Registry & Trust Operations (Reference API)
 
 The reference Trust Authority includes admin endpoints that act as an operator-facing registry for known agents and operational trust state.
@@ -473,18 +459,6 @@ curl -X POST http://localhost:3000/v1/admin/agents \
     "agent_id": "agent-retention-001",
     "description": "Retention agent for production"
   }'
-```
-
-### List known agents (+ optional metrics)
-
-```bash
-# Basic registry listing
-curl -X GET http://localhost:3000/v1/admin/agents \
-  -H "Authorization: Bearer $ADMIN_KEY"
-
-# Include receipt-based metrics for a specific domain
-curl -X GET "http://localhost:3000/v1/admin/agents?include_metrics=true&domain=retention" \
-  -H "Authorization: Bearer $ADMIN_KEY"
 ```
 
 ### Check agent status (active/quarantined/blocked)
