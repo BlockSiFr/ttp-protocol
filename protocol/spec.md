@@ -643,6 +643,7 @@ Changes follow the RFC process documented in [docs/governance.md](../docs/govern
 | `ISSUER_NOT_REGISTERED` | 401 | Issuer is not registered with this Trust Authority. |
 | `AGENT_NOT_FOUND` | 404 | No agent with this ID is known to the Trust Authority. |
 | `AGENT_BLOCKED` | 403 | Agent has been administratively blocked. |
+| `AGENT_QUARANTINED` | 403 | Agent is under quarantine and the verifier has `denyQuarantined: true`. |
 | `INSUFFICIENT_TRUST_DATA` | 403 | Not enough receipts to compute a trust score. |
 | `UNSUPPORTED_VERSION` | 400 | The `ttp_version` is not supported. |
 | `TOKEN_EXPIRED` | 403 | Trust token has expired. |
@@ -846,6 +847,214 @@ When peer receipts are later contradicted by infrastructure issuer receipts, ope
 - Reduce `min_attester_score` or add a confirmation gate.
 
 Peer issuers whose attestations consistently agree with infrastructure observations MAY be considered for elevated trust by operators, but the protocol does not define automatic promotion — this is an operator policy decision.
+
+---
+
+---
+
+## 18. Quarantine and Trust Provisioning
+
+### 18.1 Agent States
+
+Every agent tracked by the Trust Authority exists in one of three states:
+
+| State | Description | Token Issuance |
+|-------|-------------|----------------|
+| `active` | Normal operation | Standard TTL (≤600s) |
+| `quarantined` | Restricted access; token carries `ttp_quarantined: true` | Reduced TTL (≤60s) |
+| `blocked` | Hard deny | Rejected with 403 `AGENT_BLOCKED` |
+
+State transitions:
+
+```
+active ──────────────────────────────────────────► quarantined (auto)
+  ↑  score < AUTO_QUARANTINE_THRESHOLD (0.35)        │
+  │  score ≥ AUTO_LIFT_THRESHOLD (0.65)              │
+  └──────────────────────────────────────────────────┘
+
+active ──── admin action ────────────────────────► quarantined (manual | supervised)
+quarantined (manual | supervised) ── admin action ──► active
+
+any state ── admin action ──────────────────────────► blocked
+```
+
+Auto-quarantine is triggered and resolved automatically during token issuance, based on the aggregated score. Manual and supervised quarantines persist until an administrator explicitly lifts them.
+
+### 18.2 Quarantine Modes
+
+| Mode | Triggered By | Lifted By |
+|------|--------------|-----------|
+| `auto` | Trust Authority — score fell below threshold | Trust Authority — score recovered above threshold |
+| `manual` | Administrator | Administrator only |
+| `supervised` | Administrator — marks human review required | Administrator after review |
+
+### 18.3 Auto-Quarantine Thresholds
+
+| Threshold | Value | Description |
+|-----------|-------|-------------|
+| `AUTO_QUARANTINE_THRESHOLD` | 0.35 | Score below this triggers auto-quarantine |
+| `AUTO_LIFT_THRESHOLD` | 0.65 | Score above this lifts auto-quarantine |
+
+These values are RECOMMENDED defaults. Operators MAY configure different thresholds per domain via the Trust Authority configuration.
+
+The auto-quarantine check runs during every token issuance:
+
+```
+score = aggregate(receipts)
+if agent.status == "active" AND score < 0.35:
+    quarantine(agent, mode="auto")
+if agent.status == "quarantined" AND agent.quarantine_mode == "auto" AND score >= 0.65:
+    lift_quarantine(agent)
+```
+
+### 18.4 Quarantine Token Claims
+
+When a Trust Authority issues a token for a quarantined agent, it MUST include:
+
+```json
+{
+  "ttp_quarantined": true,
+  "ttp_quarantine_mode": "auto"
+}
+```
+
+The Trust Authority MUST reduce the token TTL to a maximum of **60 seconds** for quarantined agents. The reduced TTL ensures trust recovery propagates quickly — within one minute of the agent's score recovering above the lift threshold, the next token will reflect the restored status.
+
+### 18.5 Quarantine HTTP Endpoints
+
+**Quarantine an agent (manual):**
+```
+POST /v1/admin/agents/:agentId/quarantine
+Authorization: Bearer <admin-api-key>
+
+{
+  "reason": "Repeated boundary violations in CRM domain",
+  "mode": "supervised",
+  "duration_s": 86400
+}
+```
+
+`duration_s` is OPTIONAL. If omitted, quarantine persists until explicitly lifted.
+
+**Lift quarantine:**
+```
+POST /v1/admin/agents/:agentId/lift-quarantine
+Authorization: Bearer <admin-api-key>
+```
+
+**Get agent status:**
+```
+GET /v1/admin/agents/:agentId/status
+Authorization: Bearer <admin-api-key>
+```
+
+Response:
+```json
+{
+  "agent_id": "agent-prod-abc123",
+  "status": "quarantined",
+  "registered_at": 1700000000000,
+  "quarantine": {
+    "mode": "supervised",
+    "reason": "Repeated boundary violations in CRM domain",
+    "quarantined_at": 1700001000000,
+    "expires_at": 1700087400000
+  }
+}
+```
+
+### 18.6 Verifier Behavior for Quarantined Agents
+
+Verifiers MUST expose the quarantine state to operators. The RECOMMENDED behavior:
+
+- **Default**: Allow quarantined agents through if their score meets the threshold (with quarantine status visible on `req.ttp.quarantined`). Operators should log quarantined access for audit.
+- **`denyQuarantined: true`**: Reject quarantined agents with 403 `AGENT_QUARANTINED` regardless of score. Appropriate for high-security endpoints.
+
+```typescript
+// Allow quarantined agents through, but log them
+app.post("/api/send-notification",
+  createTTPMiddleware({ domain: "retention", minScore: 0.70, authorityPublicKey }),
+  (req, res) => {
+    if (req.ttp!.quarantined) {
+      auditLog.warn("Quarantined agent accessing endpoint", {
+        agentId: req.ttp!.agentId,
+        quarantineMode: req.ttp!.quarantineMode
+      })
+    }
+    // ... proceed
+  }
+)
+
+// Block quarantined agents entirely
+app.post("/api/issue-discount",
+  createTTPMiddleware({
+    domain: "retention",
+    minScore: 0.85,
+    authorityPublicKey,
+    denyQuarantined: true   // §18 hard gate for high-value actions
+  }),
+  handler
+)
+```
+
+### 18.7 Trust Provisioning
+
+Trust provisioning allows operators to assign a baseline trust score to an agent before it has earned behavioral receipts. Primary use cases:
+
+- **Cold-start bootstrap**: New agents that need to operate immediately before behavioral history accumulates.
+- **Recovery assistance**: Post-quarantine recovery where an agent needs a modest trust boost to start earning receipts again.
+- **Role-based baseline**: Certain agent roles (auditors, monitors) should start with a trusted baseline appropriate to their function.
+
+### 18.8 Provisioning Mechanism
+
+Provisioning creates synthetic behavioral receipts issued by the Trust Authority itself via a built-in issuer: `ttp-authority-provisioned`.
+
+```
+POST /v1/admin/agents/:agentId/provision-trust
+Authorization: Bearer <admin-api-key>
+
+{
+  "domain": "retention",
+  "score": 0.80,
+  "duration_s": 3600,
+  "reason": "Cold-start bootstrap for agent-prod-new"
+}
+```
+
+Response:
+```json
+{
+  "status": "provisioned",
+  "grant_id": "7f3d9a2b-...",
+  "agent_id": "agent-prod-new",
+  "domain": "retention",
+  "score": 0.80,
+  "duration_s": 3600,
+  "receipt_ids": ["...", "...", "..."]
+}
+```
+
+The Trust Authority creates multiple synthetic receipts staggered across the receipt window for stable aggregation. These receipts have `event_type: "authority_provisioned"` and expire naturally as they age out of the receipt window.
+
+### 18.9 Provisioned Trust Weight Cap
+
+The `ttp-authority-provisioned` issuer is subject to a **30% weight cap** (between infrastructure at 40% and peer at 20%):
+
+| Issuer Type | Max Issuer Weight |
+|-------------|-------------------|
+| `infrastructure` | 0.40 (40%) |
+| `ttp-authority-provisioned` | 0.30 (30%) |
+| `agent_peer` | 0.20 (20%) |
+
+This ensures provisioned trust cannot dominate the aggregated score — once behavioral receipts accumulate, they progressively outweigh the provisioned baseline.
+
+### 18.10 Provisioning Constraints
+
+- `score` MUST be in [0.0, 1.0].
+- `duration_s` MUST be between 1 and 604800 (7 days).
+- Provisioned receipts have `event_type: "authority_provisioned"` and are distinguishable in audit logs.
+- Operators SHOULD NOT provision scores above 0.85 — this would grant high-security action access before behavioral evidence accumulates.
+- Provisioned trust is not a substitute for real behavioral receipts. Operators SHOULD treat it as scaffolding while issuers come online.
 
 ---
 

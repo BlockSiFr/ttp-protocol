@@ -14,6 +14,10 @@ export interface TTPTokenClaims {
   ttp_score: number
   ttp_issuer_count: number
   ttp_receipt_window: number
+  /** Present and true when the agent is under quarantine (§18.4) */
+  ttp_quarantined?: boolean
+  /** Quarantine mode when ttp_quarantined is true: "auto" | "manual" | "supervised" */
+  ttp_quarantine_mode?: string
 }
 
 export interface TrustToken {
@@ -99,6 +103,7 @@ export type VerificationRejectionReason =
   | "SCORE_BELOW_THRESHOLD"
   | "UNSUPPORTED_VERSION"
   | "INSUFFICIENT_ISSUERS"
+  | "AGENT_QUARANTINED"
   | "MALFORMED_TOKEN"
 
 // ─── Middleware Options ───────────────────────────────────────────────────────
@@ -110,6 +115,12 @@ export interface MiddlewareOptions extends VerificationOptions {
   fallback?: FallbackPolicy
   /** For "cached" fallback: accept expired tokens up to this many ms old */
   cachedFallbackMaxAgeMs?: number
+  /**
+   * If true, reject requests from quarantined agents with 403 AGENT_QUARANTINED.
+   * Default: false — quarantined agents are allowed through if their score meets
+   * the threshold (operators may want to allow access with extra audit logging).
+   */
+  denyQuarantined?: boolean
 }
 
 // ─── Issuer Options ───────────────────────────────────────────────────────────

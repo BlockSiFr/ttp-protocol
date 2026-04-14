@@ -11,7 +11,9 @@
 import {
   StoredReceipt,
   RegisteredIssuer,
-  RegisteredAgent
+  RegisteredAgent,
+  AgentStatus,
+  QuarantineMode
 } from "./types"
 
 export class TTPStore {
@@ -63,6 +65,54 @@ export class TTPStore {
     }
   }
 
+  /**
+   * Returns the effective status of an agent, accounting for expired quarantines.
+   */
+  getAgentStatus(agentId: string): AgentStatus {
+    const agent = this.agents.get(agentId)
+    if (!agent) return "active"
+    if (agent.blocked) return "blocked"
+    if (agent.quarantine_mode !== undefined) {
+      // Check if a timed quarantine has expired
+      if (agent.quarantine_expires_at && agent.quarantine_expires_at < Date.now()) {
+        // Auto-expired — lift it silently
+        this.liftQuarantine(agentId)
+        return "active"
+      }
+      return "quarantined"
+    }
+    return "active"
+  }
+
+  quarantineAgent(
+    agentId: string,
+    mode: QuarantineMode,
+    reason: string,
+    expiresAt?: number
+  ): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent || agent.blocked) return false
+    agent.quarantine_mode = mode
+    agent.quarantine_reason = reason
+    agent.quarantined_at = Date.now()
+    agent.quarantine_expires_at = expiresAt
+    return true
+  }
+
+  /**
+   * Lift quarantine. Returns false if the agent is not found or is hard-blocked.
+   * Manual/supervised quarantines can only be lifted explicitly via this method.
+   */
+  liftQuarantine(agentId: string): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent || agent.blocked) return false
+    agent.quarantine_mode = undefined
+    agent.quarantine_reason = undefined
+    agent.quarantined_at = undefined
+    agent.quarantine_expires_at = undefined
+    return true
+  }
+
   // -------------------------
   // Receipt storage
   // -------------------------
@@ -83,6 +133,14 @@ export class TTPStore {
   getReceipts(agentId: string, domain: string): StoredReceipt[] {
     const key = `${agentId}:${domain}`
     return this.receipts.get(key) ?? []
+  }
+
+  /**
+   * Store a provisioned trust receipt created internally by the Trust Authority.
+   * These bypass the normal submission flow — they're trusted by construction.
+   */
+  storeProvisionedReceipt(receipt: StoredReceipt): void {
+    this.storeReceipt(receipt)
   }
 
   /**

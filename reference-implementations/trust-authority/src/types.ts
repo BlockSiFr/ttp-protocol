@@ -60,6 +60,9 @@ export interface RegisteredIssuer {
   confirmation_url?: string
 }
 
+export type AgentStatus = "active" | "quarantined" | "blocked"
+export type QuarantineMode = "auto" | "manual" | "supervised"
+
 export interface RegisteredAgent {
   agent_id: string
   api_key: string
@@ -67,6 +70,24 @@ export interface RegisteredAgent {
   registered_at: number
   blocked: boolean
   blocked_reason?: string
+  // Quarantine fields (§18)
+  quarantine_mode?: QuarantineMode
+  quarantine_reason?: string
+  quarantined_at?: number
+  /** Unix ms. If set and in the past, the quarantine has expired and is auto-lifted. */
+  quarantine_expires_at?: number
+}
+
+export interface TrustProvisioningGrant {
+  grant_id: string
+  agent_id: string
+  domain: string
+  score: number
+  duration_s: number
+  reason: string
+  granted_at: number
+  /** receipt_id values of the synthetic receipts created by this grant */
+  receipt_ids: string[]
 }
 
 export interface StoredReceipt extends BehavioralReceipt {
@@ -117,6 +138,7 @@ export type VerificationRejectionReason =
   | "RECEIPT_FUTURE_DATED"
   | "ISSUER_NOT_REGISTERED"
   | "AGENT_BLOCKED"
+  | "AGENT_QUARANTINED"
   | "INSUFFICIENT_TRUST_DATA"
   | "PEER_ATTESTER_INELIGIBLE"
   | "PEER_CONFIRMATION_DENIED"

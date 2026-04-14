@@ -2,13 +2,17 @@
  * TTP Trust Authority — HTTP Route Handlers
  *
  * Implements the protocol endpoints from protocol/spec.md:
- *   POST /v1/receipts          — Submit a behavioral receipt
- *   POST /v1/receipts/batch    — Batch receipt submission
- *   POST /v1/peer-receipts     — Submit a peer receipt (Agent-as-Issuer, §17)
- *   POST /v1/tokens            — Request a trust token
- *   GET  /.well-known/ttp-keys — Trust Authority public key
- *   POST /v1/admin/issuers     — Register an issuer (admin)
- *   POST /v1/admin/agents      — Register an agent (admin)
+ *   POST /v1/receipts                          — Submit a behavioral receipt
+ *   POST /v1/receipts/batch                    — Batch receipt submission
+ *   POST /v1/peer-receipts                     — Submit a peer receipt (§17)
+ *   POST /v1/tokens                            — Request a trust token
+ *   GET  /.well-known/ttp-keys                 — Trust Authority public key
+ *   POST /v1/admin/issuers                     — Register an issuer (admin)
+ *   POST /v1/admin/agents                      — Register an agent (admin)
+ *   GET  /v1/admin/agents/:agentId/status      — Agent quarantine status (admin, §18)
+ *   POST /v1/admin/agents/:agentId/quarantine  — Quarantine an agent (admin, §18)
+ *   POST /v1/admin/agents/:agentId/lift-quarantine — Lift quarantine (admin, §18)
+ *   POST /v1/admin/agents/:agentId/provision-trust — Provision baseline trust (admin, §18)
  */
 
 import { Router, Request, Response } from "express"
@@ -24,8 +28,10 @@ import {
   StoredReceipt,
   TTP_VERSION,
   IssuerType,
+  QuarantineMode,
   RegisteredIssuer,
   RegisteredAgent,
+  TrustProvisioningGrant,
   PeerReceiptSubmission,
   PeerConfirmationRequest,
   PeerConfirmationResponse
@@ -42,6 +48,13 @@ const MIN_ISSUER_COUNT = 1
 const PEER_MIN_ATTESTER_SCORE = 0.90
 const PEER_MAX_ISSUER_WEIGHT = 0.20   // 20% cap vs 40% for infrastructure
 const PEER_CONFIRMATION_TIMEOUT_MS = 2000
+
+// Quarantine constants (§18)
+const AUTO_QUARANTINE_THRESHOLD = 0.35  // score below this triggers auto-quarantine
+const AUTO_LIFT_THRESHOLD = 0.65        // score above this lifts auto-quarantine
+const QUARANTINE_TOKEN_TTL_S = 60       // quarantined agents get short-lived tokens
+const PROVISIONED_ISSUER_ID = "ttp-authority-provisioned"
+const PROVISIONED_MAX_ISSUER_WEIGHT = 0.30  // 30% cap for provisioned trust
 
 export function createRouter(
   store: TTPStore,
@@ -339,8 +352,11 @@ export function createRouter(
     // Load receipts
     const receipts = store.getReceipts(agent_id, domain)
 
-    // Build issuer weight overrides: peer issuers get a lower cap (20% vs 40%)
+    // Build issuer weight overrides:
+    //   - peer issuers capped at 20%
+    //   - provisioned trust issuer capped at 30%
     const issuerWeightOverrides = new Map<string, number>()
+    issuerWeightOverrides.set(PROVISIONED_ISSUER_ID, PROVISIONED_MAX_ISSUER_WEIGHT)
     for (const receipt of receipts) {
       const ri = store.getIssuer(receipt.issuer_id)
       if (ri?.issuer_type === "agent_peer") {
@@ -353,7 +369,7 @@ export function createRouter(
     try {
       aggregation = aggregateTrustScore(receipts, Date.now(), {
         receiptWindowS: RECEIPT_WINDOW_S,
-        issuerWeightOverrides: issuerWeightOverrides.size > 0 ? issuerWeightOverrides : undefined
+        issuerWeightOverrides
       })
     } catch (err) {
       if ((err as Error).message === "INSUFFICIENT_TRUST_DATA") {
@@ -368,31 +384,47 @@ export function createRouter(
       throw err
     }
 
-    // Determine TTL
+    // ── Auto-quarantine / auto-lift logic (§18.3) ──────────────────────────
+    const currentStatus = store.getAgentStatus(agent_id)
+    if (currentStatus === "active" && aggregation.score < AUTO_QUARANTINE_THRESHOLD) {
+      store.quarantineAgent(
+        agent_id,
+        "auto",
+        `Score ${aggregation.score.toFixed(3)} fell below auto-quarantine threshold ${AUTO_QUARANTINE_THRESHOLD}`
+      )
+    } else if (currentStatus === "quarantined" && agent.quarantine_mode === "auto") {
+      if (aggregation.score >= AUTO_LIFT_THRESHOLD) {
+        store.liftQuarantine(agent_id)
+      }
+    }
+
+    const effectiveStatus = store.getAgentStatus(agent_id)
+    const isQuarantined = effectiveStatus === "quarantined"
+
+    // Quarantined agents get a shorter token TTL for faster signal propagation
     const ttl = Math.min(
       requested_ttl ?? DEFAULT_TOKEN_TTL_S,
-      MAX_TOKEN_TTL_S
+      isQuarantined ? QUARANTINE_TOKEN_TTL_S : MAX_TOKEN_TTL_S
     )
 
     const now = Math.floor(Date.now() / 1000)
     const jti = `tok_${uuidv4().replace(/-/g, "").slice(0, 16)}`
 
-    // Sign the JWT using EdDSA
-    const privateKey = await ed.etc.sha512Sync  // get the configured signer
-    const jwk = {
-      kty: "OKP",
-      crv: "Ed25519",
-      x: base64urlEncode(authorityPublicKeyBytes),
-      d: base64urlEncode(authorityPrivateKeyBytes)
-    }
-
-    const token = await new SignJWT({
+    const jwtPayload: Record<string, unknown> = {
       ttp_version: TTP_VERSION,
       ttp_domain: domain,
       ttp_score: Math.round(aggregation.score * 1000) / 1000,
       ttp_issuer_count: aggregation.contributingIssuers,
       ttp_receipt_window: RECEIPT_WINDOW_S
-    } as Record<string, unknown>)
+    }
+
+    // Add quarantine claims when applicable (§18.4)
+    if (isQuarantined) {
+      jwtPayload["ttp_quarantined"] = true
+      jwtPayload["ttp_quarantine_mode"] = agent.quarantine_mode ?? "auto"
+    }
+
+    const token = await new SignJWT(jwtPayload)
       .setProtectedHeader({ alg: "EdDSA", kid: authorityKeyId, typ: "JWT" })
       .setSubject(agent_id)
       .setIssuer(authorityUrl)
@@ -405,7 +437,12 @@ export function createRouter(
       token,
       expires_at: now + ttl,
       score: aggregation.score,
-      issuer_count: aggregation.contributingIssuers
+      issuer_count: aggregation.contributingIssuers,
+      ...(isQuarantined && {
+        quarantined: true,
+        quarantine_mode: agent.quarantine_mode ?? "auto",
+        quarantine_reason: agent.quarantine_reason
+      })
     })
   })
 
@@ -534,6 +571,202 @@ export function createRouter(
 
     store.blockAgent(agentId, reason ?? "Administratively blocked")
     return res.json({ status: "blocked", agent_id: agentId })
+  })
+
+  // ─── Admin: Agent Status (§18) ────────────────────────────────────────────
+
+  router.get("/v1/admin/agents/:agentId/status", (req: Request, res: Response) => {
+    const authKey = req.headers["authorization"]?.replace("Bearer ", "")
+    if (!authKey || authKey !== adminApiKey) {
+      return res.status(401).json({ error: "UNAUTHORIZED" })
+    }
+
+    const { agentId } = req.params
+    const agent = store.getAgent(agentId)
+    if (!agent) {
+      return res.status(404).json({ error: "AGENT_NOT_FOUND" })
+    }
+
+    const effectiveStatus = store.getAgentStatus(agentId)
+
+    return res.json({
+      agent_id: agentId,
+      status: effectiveStatus,
+      description: agent.description,
+      registered_at: agent.registered_at,
+      blocked: agent.blocked,
+      blocked_reason: agent.blocked_reason,
+      quarantine: effectiveStatus === "quarantined" ? {
+        mode: agent.quarantine_mode,
+        reason: agent.quarantine_reason,
+        quarantined_at: agent.quarantined_at,
+        expires_at: agent.quarantine_expires_at ?? null
+      } : null
+    })
+  })
+
+  // ─── Admin: Quarantine Agent (§18) ───────────────────────────────────────
+
+  router.post("/v1/admin/agents/:agentId/quarantine", (req: Request, res: Response) => {
+    const authKey = req.headers["authorization"]?.replace("Bearer ", "")
+    if (!authKey || authKey !== adminApiKey) {
+      return res.status(401).json({ error: "UNAUTHORIZED" })
+    }
+
+    const { agentId } = req.params
+    const { reason, mode = "manual", duration_s } = req.body as {
+      reason?: string
+      mode?: QuarantineMode
+      duration_s?: number
+    }
+
+    const agent = store.getAgent(agentId)
+    if (!agent) {
+      return res.status(404).json({ error: "AGENT_NOT_FOUND" })
+    }
+    if (agent.blocked) {
+      return res.status(409).json({
+        error: "AGENT_BLOCKED",
+        message: "Agent is hard-blocked — use unblock before quarantining"
+      })
+    }
+
+    const expiresAt = duration_s ? Date.now() + duration_s * 1000 : undefined
+    store.quarantineAgent(agentId, mode, reason ?? "Administratively quarantined", expiresAt)
+
+    return res.status(200).json({
+      status: "quarantined",
+      agent_id: agentId,
+      mode,
+      reason: reason ?? "Administratively quarantined",
+      expires_at: expiresAt ?? null
+    })
+  })
+
+  // ─── Admin: Lift Quarantine (§18) ────────────────────────────────────────
+
+  router.post("/v1/admin/agents/:agentId/lift-quarantine", (req: Request, res: Response) => {
+    const authKey = req.headers["authorization"]?.replace("Bearer ", "")
+    if (!authKey || authKey !== adminApiKey) {
+      return res.status(401).json({ error: "UNAUTHORIZED" })
+    }
+
+    const { agentId } = req.params
+    const agent = store.getAgent(agentId)
+    if (!agent) {
+      return res.status(404).json({ error: "AGENT_NOT_FOUND" })
+    }
+
+    const currentStatus = store.getAgentStatus(agentId)
+    if (currentStatus !== "quarantined") {
+      return res.status(409).json({
+        error: "NOT_QUARANTINED",
+        message: `Agent '${agentId}' is not currently quarantined (status: ${currentStatus})`
+      })
+    }
+
+    store.liftQuarantine(agentId)
+    return res.status(200).json({ status: "active", agent_id: agentId })
+  })
+
+  // ─── Admin: Provision Trust (§18) ────────────────────────────────────────
+
+  router.post("/v1/admin/agents/:agentId/provision-trust", async (req: Request, res: Response) => {
+    const authKey = req.headers["authorization"]?.replace("Bearer ", "")
+    if (!authKey || authKey !== adminApiKey) {
+      return res.status(401).json({ error: "UNAUTHORIZED" })
+    }
+
+    const { agentId } = req.params
+    const { domain, score, duration_s = 3600, reason = "Operator provisioned" } = req.body as {
+      domain: string
+      score: number
+      duration_s?: number
+      reason?: string
+    }
+
+    if (!domain || score === undefined) {
+      return res.status(400).json({
+        error: "INVALID_REQUEST",
+        message: "domain and score are required"
+      })
+    }
+
+    if (typeof score !== "number" || score < 0 || score > 1) {
+      return res.status(400).json({
+        error: "INVALID_REQUEST",
+        message: "score must be a number in [0.0, 1.0]"
+      })
+    }
+
+    if (duration_s <= 0 || duration_s > 86400 * 7) {
+      return res.status(400).json({
+        error: "INVALID_REQUEST",
+        message: "duration_s must be between 1 and 604800 (7 days)"
+      })
+    }
+
+    const agent = store.getAgent(agentId)
+    if (!agent) {
+      return res.status(404).json({ error: "AGENT_NOT_FOUND" })
+    }
+
+    // Create synthetic provisioned receipts spread across the receipt window
+    // to ensure they contribute to aggregation immediately. Three receipts
+    // with staggered timestamps give a stable signal.
+    const now = Date.now()
+    const grantId = uuidv4()
+    const receiptIds: string[] = []
+
+    // Stagger three receipts across the duration window for stable aggregation
+    const receiptCount = 3
+    for (let i = 0; i < receiptCount; i++) {
+      const receiptId = uuidv4()
+      const timestamp = now - Math.floor((duration_s * 1000 * i) / (receiptCount * 2))
+
+      const provisioned: StoredReceipt = {
+        ttp_version: TTP_VERSION,
+        receipt_id: receiptId,
+        agent_id: agentId,
+        issuer_id: PROVISIONED_ISSUER_ID,
+        event_type: "authority_provisioned",
+        event_data: {
+          grant_id: grantId,
+          reason,
+          duration_s
+        },
+        domain,
+        timestamp,
+        score,
+        signature: "provisioned",   // Internal receipts are TA-authoritative; no external key needed
+        accepted_at: now
+      }
+
+      store.storeProvisionedReceipt(provisioned)
+      receiptIds.push(receiptId)
+    }
+
+    const grant: TrustProvisioningGrant = {
+      grant_id: grantId,
+      agent_id: agentId,
+      domain,
+      score,
+      duration_s,
+      reason,
+      granted_at: now,
+      receipt_ids: receiptIds
+    }
+
+    return res.status(201).json({
+      status: "provisioned",
+      grant_id: grantId,
+      agent_id: agentId,
+      domain,
+      score,
+      duration_s,
+      receipt_ids: receiptIds,
+      message: `${receiptCount} provisioned receipts created. Weight cap: ${PROVISIONED_MAX_ISSUER_WEIGHT * 100}%.`
+    })
   })
 
   return router
