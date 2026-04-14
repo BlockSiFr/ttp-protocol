@@ -133,6 +133,47 @@ export interface ReceiptSubmissionOptions {
   timestamp?: number  // defaults to now
 }
 
+// ─── Peer Issuer Options (Agent-as-Issuer, §17) ───────────────────────────────
+
+export interface PeerIssuerOptions {
+  /**
+   * The attesting agent's ID — MUST match the issuer_id registered with the TA.
+   * Typically identical to the agent's own agent_id.
+   */
+  issuerId: string
+  /** base64url-encoded Ed25519 private key for signing peer receipts */
+  privateKey: string
+  authorityUrl: string
+  /**
+   * A TTPClient instance for the attesting agent.
+   * Used to obtain the current trust token required for peer receipt submission.
+   */
+  ttpClient: {
+    getTrustToken(opts: { domain: string }): Promise<{ value: string; score: number }>
+  }
+  domain: string
+  /**
+   * Minimum trust score the attesting agent must hold before submitting.
+   * Defaults to 0.90 (the protocol minimum). Peer receipts are skipped if
+   * the agent's current score is below this threshold.
+   */
+  minAttesterScore?: number
+  /** Fetch implementation (default: global fetch) */
+  fetch?: typeof fetch
+}
+
+export interface PeerReceiptSubmissionOptions {
+  /** Agent being observed (subject) */
+  agentId: string
+  /** Behavioral score for the observed agent [0.0–1.0] */
+  score: number
+  /** Context for the observation — included in event_data */
+  observationContext?: string
+  /** Additional safe, non-PII event metadata */
+  eventData?: Record<string, unknown>
+  timestamp?: number
+}
+
 // ─── Error Types ──────────────────────────────────────────────────────────────
 
 export class TTPUnavailableError extends Error {

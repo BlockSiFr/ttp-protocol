@@ -30,6 +30,8 @@ export interface TrustTokenPayload {
   ttp_receipt_window: number
 }
 
+export type IssuerType = "infrastructure" | "agent_peer"
+
 export interface RegisteredIssuer {
   issuer_id: string
   public_key_b64: string  // base64url-encoded Ed25519 public key
@@ -37,6 +39,25 @@ export interface RegisteredIssuer {
   description?: string
   registered_at: number
   active: boolean
+  /** Issuer type — defaults to "infrastructure" if omitted */
+  issuer_type?: IssuerType
+  /**
+   * For agent_peer issuers: the agent_id of the attesting agent.
+   * MUST match an agent registered in the Trust Authority.
+   * SHOULD be identical to issuer_id.
+   */
+  peer_agent_id?: string
+  /**
+   * Minimum trust score the attesting agent must hold at submission time.
+   * Defaults to 0.90 (the protocol minimum for peer issuers).
+   */
+  min_attester_score?: number
+  /**
+   * External confirmation URL. If set, the Trust Authority POSTs a
+   * confirmation request before accepting any peer receipt from this issuer.
+   * A non-approved response MUST cause the receipt to be rejected.
+   */
+  confirmation_url?: string
 }
 
 export interface RegisteredAgent {
@@ -95,6 +116,32 @@ export type VerificationRejectionReason =
   | "RECEIPT_TOO_OLD"
   | "RECEIPT_FUTURE_DATED"
   | "ISSUER_NOT_REGISTERED"
-  | "UNSUPPORTED_VERSION"
   | "AGENT_BLOCKED"
   | "INSUFFICIENT_TRUST_DATA"
+  | "PEER_ATTESTER_INELIGIBLE"
+  | "PEER_CONFIRMATION_DENIED"
+  | "PEER_CONFIRMATION_TIMEOUT"
+
+// ─── Peer Receipt ─────────────────────────────────────────────────────────────
+
+export interface PeerReceiptSubmission {
+  receipt: BehavioralReceipt
+  /** The attesting agent's current trust token (JWT string) */
+  attester_token: string
+}
+
+export interface PeerConfirmationRequest {
+  receipt_id: string
+  attesting_agent_id: string
+  subject_agent_id: string
+  score: number
+  domain: string
+  observation_context?: string
+  attester_score: number
+  timestamp: number
+}
+
+export interface PeerConfirmationResponse {
+  approved: boolean
+  reason?: string
+}

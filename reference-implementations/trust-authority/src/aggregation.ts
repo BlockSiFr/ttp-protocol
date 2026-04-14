@@ -11,6 +11,12 @@ import { StoredReceipt, AggregationResult } from "./types"
 export interface AggregationParams {
   receiptWindowS?: number          // default: 300
   maxIssuerWeight?: number         // default: 0.40
+  /**
+   * Per-issuer weight cap overrides. Peer issuers should be passed here
+   * with a reduced cap (e.g. 0.20) to limit their influence on the final score.
+   * Takes precedence over maxIssuerWeight for matched issuer IDs.
+   */
+  issuerWeightOverrides?: Map<string, number>
   negativeWeightMultiplier?: number // default: 1.5
   decayHalfLifeS?: number          // default: 120
 }
@@ -23,6 +29,7 @@ export function aggregateTrustScore(
   const {
     receiptWindowS = 300,
     maxIssuerWeight = 0.40,
+    issuerWeightOverrides,
     negativeWeightMultiplier = 1.5,
     decayHalfLifeS = 120
   } = params
@@ -64,13 +71,17 @@ export function aggregateTrustScore(
     rawWeight: totalWeight
   }))
 
-  // Step 5: Cap per-issuer weights to prevent single-issuer domination
+  // Step 5: Cap per-issuer weights to prevent single-issuer domination.
+  // Peer issuers may have a lower cap (e.g. 0.20) passed via issuerWeightOverrides.
   const totalRawWeight = issuers.reduce((sum, i) => sum + i.rawWeight, 0)
 
-  const capped = issuers.map(i => ({
-    ...i,
-    cappedFraction: Math.min(i.rawWeight / totalRawWeight, maxIssuerWeight)
-  }))
+  const capped = issuers.map(i => {
+    const cap = issuerWeightOverrides?.get(i.id) ?? maxIssuerWeight
+    return {
+      ...i,
+      cappedFraction: Math.min(i.rawWeight / totalRawWeight, cap)
+    }
+  })
 
   const normalizationFactor = capped.reduce((sum, i) => sum + i.cappedFraction, 0)
 

@@ -29,7 +29,7 @@
 export { TTPClient } from "./client"
 export { TTPVerifier, verifyTTPToken } from "./verifier"
 export { createTTPMiddleware } from "./middleware"
-export { TTPIssuer } from "./issuer"
+export { TTPIssuer, TTPPeerIssuer } from "./issuer"
 export type {
   TTPClientOptions,
   GetTrustTokenOptions,
@@ -39,6 +39,8 @@ export type {
   MiddlewareOptions,
   IssuerOptions,
   ReceiptSubmissionOptions,
+  PeerIssuerOptions,
+  PeerReceiptSubmissionOptions,
   TTPTokenClaims,
   TTPUnavailableError,
   TTPVerificationError

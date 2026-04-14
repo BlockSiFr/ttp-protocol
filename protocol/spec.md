@@ -650,6 +650,9 @@ Changes follow the RFC process documented in [docs/governance.md](../docs/govern
 | `SCORE_BELOW_THRESHOLD` | 403 | Token score is below the required threshold. |
 | `MISSING_TOKEN` | 401 | No trust token was presented. |
 | `INSUFFICIENT_ISSUERS` | 403 | Token was issued with fewer issuers than required. |
+| `PEER_ATTESTER_INELIGIBLE` | 403 | Attesting agent does not meet peer issuer eligibility requirements. |
+| `PEER_CONFIRMATION_DENIED` | 403 | External confirmation API rejected the peer receipt. |
+| `PEER_CONFIRMATION_TIMEOUT` | 403 | External confirmation API did not respond within 2 seconds. |
 
 ---
 
@@ -680,9 +683,171 @@ An implementation is a **conformant Issuer** if it:
 - Uses unique `receipt_id` values per receipt
 - Submits receipts via the protocol defined in Section 6
 
+A Trust Authority is **conformant for peer receipts** (Section 17) if it:
+
+- Accepts peer receipt submissions at `POST /v1/peer-receipts`
+- Validates attester eligibility (score ≥ 0.90, issuer_type registration)
+- Calls the confirmation API when configured and fails closed on non-approval
+- Applies the reduced 20% issuer weight cap for peer issuers during aggregation
+
 Conformance test vectors are provided in [test-vectors/](test-vectors/).
 
 ---
 
-*Trust Transfer Protocol Specification v1.0*  
+## 17. Agent-as-Issuer (Peer Receipts)
+
+### 17.1 Overview
+
+In multi-agent workflows, agents observe each other's behavior directly. This section defines how a trusted agent can act as a behavioral issuer and submit signed receipts attesting to another agent's conduct.
+
+A **peer receipt** is a behavioral receipt submitted by a registered agent (not an infrastructure issuer) on behalf of another agent it has directly observed. Peer receipts enable trust propagation across agent networks without requiring human-operated observation infrastructure.
+
+### 17.2 Eligibility
+
+An agent MAY be registered as a peer issuer if:
+
+1. It is explicitly registered by an operator with `issuer_type: "agent_peer"` via the admin API.
+2. At receipt submission time, the attesting agent holds a current trust token with `ttp_score >= 0.90` in the target domain.
+3. The attesting agent is not blocked.
+
+A Trust Authority MUST NOT accept peer receipts from agents that do not meet all eligibility requirements at the time of submission.
+
+### 17.3 Peer Receipt Submission
+
+Peer receipts are submitted via a dedicated endpoint:
+
+```
+POST /v1/peer-receipts
+```
+
+The request body includes the standard behavioral receipt fields plus an `attester_token` field:
+
+```json
+{
+  "receipt": {
+    "ttp_version": "1.0",
+    "receipt_id": "7f3d9a2b-1e4c-8f6a-...",
+    "agent_id": "agent-b-456",
+    "issuer_id": "agent-a-123",
+    "event_type": "agent_peer_observation",
+    "event_data": {
+      "observation_context": "pipeline-step-3",
+      "behaviors_observed": ["tool_call", "api_request"]
+    },
+    "domain": "retention",
+    "timestamp": 1700000000000,
+    "score": 0.93,
+    "signature": "base64url..."
+  },
+  "attester_token": "eyJhbGciOiJFZERTQSIs..."
+}
+```
+
+The `event_type` for peer receipts MUST be `"agent_peer_observation"`.
+
+The `attester_token` MUST be a valid, non-expired trust token issued by the Trust Authority for the attesting agent in the same domain as the receipt.
+
+### 17.4 Trust Authority Validation
+
+Upon receiving a peer receipt, the Trust Authority MUST:
+
+1. Verify the receipt structure and all required fields.
+2. Verify the receipt event_type is `"agent_peer_observation"`.
+3. Verify the receipt signature against the attesting agent's registered public key.
+4. Decode the `attester_token` and check it has not expired.
+5. Confirm `attester_token.ttp_score >= 0.90` (or the issuer's configured `min_attester_score`).
+6. Confirm `attester_token.sub` matches `receipt.issuer_id`.
+7. Confirm `receipt.issuer_id` is registered as `issuer_type: "agent_peer"`.
+8. If a `confirmation_url` is configured for this peer issuer, call the Peer Receipt Confirmation API (§17.5). A non-approved response MUST cause the receipt to be rejected.
+
+Steps 1–7 are mandatory. Step 8 is conditional on operator configuration.
+
+### 17.5 Peer Receipt Confirmation API
+
+Operators MAY configure a `confirmation_url` per peer issuer. When configured, the Trust Authority POSTs a confirmation request before accepting any peer receipt — **no means no**.
+
+**Request (POST to `confirmation_url`):**
+```json
+{
+  "receipt_id": "7f3d9a2b-...",
+  "attesting_agent_id": "agent-a-123",
+  "subject_agent_id": "agent-b-456",
+  "score": 0.93,
+  "domain": "retention",
+  "observation_context": "pipeline-step-3",
+  "attester_score": 0.94,
+  "timestamp": 1700000000000
+}
+```
+
+**Approved response (200 OK):**
+```json
+{ "approved": true }
+```
+
+**Denied response (200 OK with `approved: false`, or any non-200):**
+```json
+{ "approved": false, "reason": "score_inconsistent_with_known_behavior" }
+```
+
+The Trust Authority MUST:
+- Complete the confirmation API call within **2 seconds**.
+- On timeout, treat as `approved: false` (fail closed).
+- On DNS or network failure, treat as `approved: false` (fail closed).
+- NEVER retry a denied confirmation for the same receipt.
+- Return `PEER_CONFIRMATION_DENIED` with the external reason in the response.
+
+### 17.6 Peer Receipt Weight Cap
+
+Peer receipts are subject to a reduced issuer weight cap in the aggregation algorithm:
+
+| Issuer Type | Max Issuer Weight |
+|-------------|-------------------|
+| `infrastructure` | 0.40 (40%) |
+| `agent_peer` | 0.20 (20%) |
+
+This cap ensures that no single peer attester can dominate an agent's trust score, even when submitting many receipts. The reduced cap limits coordinated manipulation risk in agent networks.
+
+### 17.7 Peer Issuer Registration
+
+Peer issuers are registered via the admin API:
+
+```
+POST /v1/admin/issuers
+Authorization: Bearer <admin-api-key>
+
+{
+  "issuer_id": "agent-a-123",
+  "issuer_type": "agent_peer",
+  "public_key": "base64url-encoded-ed25519-public-key",
+  "domain": "retention",
+  "peer_agent_id": "agent-a-123",
+  "confirmation_url": "https://confirmation.internal/peer-confirm",
+  "min_attester_score": 0.90,
+  "description": "Agent A peer attestation"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `issuer_type` | Yes | Must be `"agent_peer"` |
+| `peer_agent_id` | Yes | `agent_id` of the attesting agent. MUST match a registered agent. |
+| `confirmation_url` | No | External confirmation gate URL. If omitted, only internal eligibility checks apply. |
+| `min_attester_score` | No | Minimum attester score (default: 0.90). |
+
+The `issuer_id` SHOULD be identical to `peer_agent_id` — the agent and the issuer share the same identity.
+
+### 17.8 Attester Accountability
+
+When peer receipts are later contradicted by infrastructure issuer receipts, operators SHOULD investigate the discrepancy and MAY:
+
+- Revoke the peer issuer's registration.
+- Submit a low-score receipt for the attesting agent via a safety monitor issuer.
+- Reduce `min_attester_score` or add a confirmation gate.
+
+Peer issuers whose attestations consistently agree with infrastructure observations MAY be considered for elevated trust by operators, but the protocol does not define automatic promotion — this is an operator policy decision.
+
+---
+
+*Trust Transfer Protocol Specification v1.0*
 *Copyright 2026 BlockSiFr. Licensed under Apache 2.0.*
