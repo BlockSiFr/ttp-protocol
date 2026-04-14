@@ -345,6 +345,79 @@ createTTPMiddleware({
 
 Choose `deny` for high-stakes operations. Choose `cached` when availability is critical and short windows of stale trust are acceptable.
 
+
+---
+
+## Part 6: AGT-Native Integration (Recommended Priority)
+
+If you are integrating with Microsoft AGT-style runtime controls, position TTP as the **behavioral evidence layer** in AGT's trust chain.
+
+### 6.1 Closed-Loop Trust Control
+
+Recommended control loop:
+1. **AGT enforces pre-execution policy** (prevent unsafe actions before execution).
+2. **TTP issuers observe post-execution behavior** and submit signed receipts.
+3. **Trust Authority recomputes behavioral trust** and issues updated trust tokens.
+4. **AGT consumes updated trust evidence** and adjusts future permissions.
+
+This gives you deterministic policy enforcement with continuously refreshed behavioral evidence.
+
+### 6.2 OPA/Rego Bridge (Tier 1)
+
+Treat TTP token claims as direct OPA inputs so AGT policy decisions can evaluate current behavioral trust.
+
+```rego
+package agt.authz
+
+# Example: allow high-impact action only for high-behavioral-trust agents
+allow {
+  input.ttp.ttp_domain == "prod-change"
+  input.ttp.ttp_score >= 0.92
+  input.ttp.issuer_count >= 2
+}
+```
+
+Implementation guidance:
+- Parse and verify the TTP token at the policy gateway.
+- Expose verified claims under `input.ttp`.
+- Keep Rego policies authoritative for allow/deny; use TTP as the runtime evidence feed.
+
+### 6.3 SPIFFE/SVID Identity Compatibility (Tier 1)
+
+TTP supports identity-layer composition. In SPIFFE-native deployments, use SPIFFE SVID identities as `agent_id` values (for example, SPIFFE URI subject values).
+
+Benefits:
+- No new identity silo.
+- Immediate compatibility with SPIFFE-based workload identity.
+- TTP augments SPIFFE identity with behavioral trust.
+
+### 6.4 Canonical Score Adapter: TTP -> AGT
+
+When downstream AGT components expect a 0-1000 trust scale, use the canonical mapping:
+
+```text
+agt_trust_score = round(ttp_score * 1000)
+```
+
+Reference adapter behavior:
+- Input: `ttp_score` in `[0.0, 1.0]`.
+- Output: integer `agt_trust_score` in `[0, 1000]`.
+- Preserve original `ttp_score` in logs/telemetry for auditability.
+
+### 6.5 AgentMesh / Peer Trust Attestation Bridge
+
+For inter-agent networks, map TTP peer receipts into AgentMesh trust attestations:
+- Use peer attestation receipts as evidence inputs for mesh-level trust decisions.
+- Carry receipt identifiers into mesh telemetry for cryptographic traceability.
+- Prefer this bridge over standalone demos when integrating with existing AgentMesh gateways.
+
+### 6.6 Integration Prioritization Notes
+
+For AGT-centric deployments:
+- Prioritize **OPA/Rego bridge**, **SPIFFE compatibility**, **score adapter**, and **AgentMesh bridge**.
+- Treat issuer circuit-breakers as operational hardening (useful, but not the core AGT value).
+- Avoid parallel privilege models; map TTP scores into existing AGT trust/ring constructs instead.
+
 ---
 
 ## Troubleshooting
