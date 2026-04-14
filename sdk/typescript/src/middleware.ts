@@ -27,6 +27,10 @@ declare global {
         domain: string
         issuerCount: number
         claims: TTPTokenClaims
+        /** True if the agent is currently under quarantine (§18) */
+        quarantined: boolean
+        /** Quarantine mode when quarantined is true */
+        quarantineMode?: string
       }
     }
   }
@@ -42,6 +46,7 @@ export function createTTPMiddleware(options: MiddlewareOptions) {
   const {
     fallback = "deny",
     cachedFallbackMaxAgeMs = 300_000,
+    denyQuarantined = false,
     ...verificationOptions
   } = options
 
@@ -84,13 +89,29 @@ export function createTTPMiddleware(options: MiddlewareOptions) {
       })
     }
 
+    const claims = result.claims!
+    const isQuarantined = claims.ttp_quarantined === true
+
+    // Optionally deny quarantined agents regardless of score (§18.4)
+    if (denyQuarantined && isQuarantined) {
+      return res.status(403).json({
+        error: "TTP_VERIFICATION_FAILED",
+        reason: "AGENT_QUARANTINED",
+        quarantine_mode: claims.ttp_quarantine_mode,
+        domain: options.domain,
+        message: "Agent is under quarantine and is not permitted to perform this action"
+      })
+    }
+
     // Attach verified claims to request
     req.ttp = {
-      agentId: result.claims!.sub,
-      score: result.claims!.ttp_score,
-      domain: result.claims!.ttp_domain,
-      issuerCount: result.claims!.ttp_issuer_count,
-      claims: result.claims!
+      agentId: claims.sub,
+      score: claims.ttp_score,
+      domain: claims.ttp_domain,
+      issuerCount: claims.ttp_issuer_count,
+      claims,
+      quarantined: isQuarantined,
+      quarantineMode: claims.ttp_quarantine_mode
     }
 
     next()

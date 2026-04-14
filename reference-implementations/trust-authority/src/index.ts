@@ -53,6 +53,19 @@ async function main() {
   // Initialize store
   const store = new TTPStore()
 
+  // Register the built-in provisioned trust issuer (§18).
+  // This is a Trust Authority-internal issuer used for operator-assigned baseline trust.
+  // It uses the authority's own public key — provisioned receipts are TA-authoritative.
+  store.registerIssuer({
+    issuer_id: "ttp-authority-provisioned",
+    public_key_b64: base64urlEncode(publicKeyBytes),
+    domain: "*",   // wildcard: provisioned trust can apply to any domain
+    description: "Built-in Trust Authority provisioned trust issuer (§18)",
+    registered_at: Date.now(),
+    active: true,
+    issuer_type: "infrastructure"
+  })
+
   // Seed with a test issuer and agent in development
   if (process.env.NODE_ENV !== "production") {
     const testIssuerPrivKey = ed.utils.randomPrivateKey()
@@ -63,7 +76,8 @@ async function main() {
       domain: "retention",
       description: "Dev issuer",
       registered_at: Date.now(),
-      active: true
+      active: true,
+      issuer_type: "infrastructure"
     })
     store.registerAgent({
       agent_id: "agent-dev-001",
@@ -114,8 +128,12 @@ async function main() {
     console.log(`  POST ${AUTHORITY_URL}/v1/receipts/batch   — Batch submit receipts`)
     console.log(`  POST ${AUTHORITY_URL}/v1/tokens           — Request trust token`)
     console.log(`  GET  ${AUTHORITY_URL}/.well-known/ttp-keys — Public key`)
-    console.log(`  POST ${AUTHORITY_URL}/v1/admin/issuers    — Register issuer`)
-    console.log(`  POST ${AUTHORITY_URL}/v1/admin/agents     — Register agent`)
+    console.log(`  POST ${AUTHORITY_URL}/v1/admin/issuers                       — Register issuer`)
+    console.log(`  POST ${AUTHORITY_URL}/v1/admin/agents                        — Register agent`)
+    console.log(`  GET  ${AUTHORITY_URL}/v1/admin/agents/:id/status             — Agent status`)
+    console.log(`  POST ${AUTHORITY_URL}/v1/admin/agents/:id/quarantine         — Quarantine agent`)
+    console.log(`  POST ${AUTHORITY_URL}/v1/admin/agents/:id/lift-quarantine    — Lift quarantine`)
+    console.log(`  POST ${AUTHORITY_URL}/v1/admin/agents/:id/provision-trust    — Provision trust`)
   })
 }
 
