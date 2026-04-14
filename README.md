@@ -518,10 +518,32 @@ Recommended next documentation improvements for onboarding at scale:
 |API Gateway    |Routing & rate limit |Integration point — gateway acts as an issuer        |
 |Service Mesh   |Connectivity (mTLS)  |Complementary — mesh verifies identity, TTP verifies behavior |
 |SPIFFE / SPIRE |Workload identity    |Complementary — SPIFFE issues SVIDs, TTP adds behavioral layer on top |
+|Network Security Platforms (Zscaler, Palo Alto, Juniper) |Network/session controls|Complementary — network controls enforce transport/session policy; TTP enforces behavior-aware action trust |
 |ZTNA           |Network access       |Complementary — ZTNA controls the network, TTP controls the action |
 |AI Agent Frameworks | Execution      |Integration point — LangChain, CrewAI agents become TTP-aware |
 
 TTP fills the gap between *authenticated* and *trustworthy*. It does not replace any layer in this stack — it adds the behavioral trust dimension that none of them provide.
+
+-----
+
+## Network-Level Agent Infrastructure (Zscaler, Palo Alto, Juniper)
+
+Short answer:
+- **Is it possible?** Yes.
+- **Is it in this repo today as first-party connectors?** Not yet.
+- **Is it a valid deployment pattern happening in practice?** Yes — via standard integration seams (gateways, identity, logs, policy engines).
+
+Practical integration model:
+1. Network/security platform observes session and policy events.
+2. An issuer adapter converts those events into signed TTP receipts.
+3. Trust Authority aggregates with other issuers (runtime, tool, API gateway).
+4. Verifiers enforce action-level trust with TTP tokens at service boundaries.
+
+This preserves clear responsibility layers:
+- Network stack decides connection/session posture.
+- TTP decides whether a specific autonomous action should execute now.
+
+If you need vendor-specific blueprints, start with the issuer adapter pattern in the integration guide and implement per-vendor event mappers.
 
 -----
 
