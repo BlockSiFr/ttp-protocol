@@ -1,114 +1,149 @@
-Contributing to TTP
-Thanks for your interest in contributing to the Trust Transfer Protocol.
+# Contributing to TTP
 
-TTP is infrastructure. Clarity, correctness, and interoperability matter more than speed. We prioritize minimalism, security, and real-world usability.
+Thanks for your interest in contributing to the Trust Transfer Protocol (TTP).
 
-Ways to Contribute
+TTP is security-critical infrastructure. We optimize for **clarity**, **correctness**, and **interoperability** over speed.
 
-1) Specification
+---
 
-Clarifications
-Missing edge cases
-Attack modeling
-Formalization
-RFC proposals
-2) Implementations
+## Role-Based Contribution Paths
 
-Verifier performance
-Issuer services
-Aggregation strategies
-SDK improvements
-Tooling + CLI
-3) Integrations
+You can contribute from different roles in the trust network:
 
-LangChain
-CrewAI
-LlamaIndex
-API gateways
-Service meshes
-4) Security
+### 1) Trust Authority / Network Core Contributors
 
-Threat modeling
-Fuzzing
-Signature validation hardening
-Replay resistance
-Adversarial simulations
-5) Documentation
+Focus areas:
+- aggregation correctness and determinism
+- key management and signing flows
+- admin/operator workflows (registration, quarantine, block, provisioning)
+- scalability, persistence, and reliability hardening
 
-Examples
-Tutorials
-Deployment guides
-Architecture diagrams
-Getting Started
+### 2) Issuer Contributors
 
-Fork the repo
-Create a branch:
-Make focused changes
-Open a PR with:
-context
-rationale
-tradeoffs
-Development Principles
+Focus areas:
+- issuer adapters (API gateways, runtime monitors, network telemetry)
+- receipt quality and event taxonomy
+- signature integrity and replay resistance
+- independent issuer deployment patterns
 
-Minimal core Avoid unnecessary abstraction or scope creep.
+### 3) Verifier / Service Contributors
 
-Interoperability first Multiple independent implementations must be possible.
+Focus areas:
+- middleware and policy adapters
+- low-latency token verification
+- fallback behavior by risk tier
+- action-level enforcement patterns
 
-Security over convenience Assume adversarial environments.
+### 4) Agent / SDK Contributors
 
-Stateless preference Verification should not require persistent trust state.
+Focus areas:
+- token lifecycle UX (cache, refresh, expiry handling)
+- framework integrations (agent runtimes, orchestration platforms)
+- typed SDK ergonomics and docs
+- secure defaults for application developers
 
-Transport agnostic HTTP is primary, but not required.
+### 5) Security Contributors
 
-Spec Changes
+Focus areas:
+- threat modeling and adversarial scenarios
+- fuzzing and malformed input handling
+- signature validation hardening
+- trust-manipulation and collusion resilience
+
+### 6) Documentation & Adoption Contributors
+
+Focus areas:
+- quickstarts and tutorials
+- operator runbooks
+- architecture diagrams and reference deployments
+- migration and interoperability guides
+
+---
+
+## Getting Started
+
+1. Fork the repository.
+2. Create a focused branch.
+3. Make atomic changes.
+4. Run relevant checks/tests.
+5. Open a PR with:
+   - context/problem statement
+   - rationale and tradeoffs
+   - test/validation notes
+
+---
+
+## Development Principles
+
+- **Minimal core:** avoid unnecessary abstraction and scope creep.
+- **Interoperability first:** multiple independent implementations must remain possible.
+- **Security over convenience:** assume adversarial environments.
+- **Stateless preference:** verification should not require persistent trust state.
+- **Deterministic behavior:** trust decisions should be explainable and reproducible.
+
+---
+
+## Spec Changes (RFC Process)
 
 For protocol-level changes:
 
-Open an issue labeled rfc
-Propose:
-problem
-proposed change
-alternatives
-compatibility impact
-Discussion with maintainers
-Merge only after consensus
-Pull Request Guidelines
+1. Open an issue labeled `rfc`.
+2. Propose:
+   - problem statement
+   - proposed change
+   - alternatives considered
+   - compatibility impact
+3. Discuss with maintainers/community.
+4. Merge only after consensus.
+
+---
+
+## Pull Request Guidelines
 
 PRs should:
+- be scoped and atomic
+- include tests when applicable
+- avoid unrelated refactors
+- document behavioral or API changes
 
-be scoped and atomic
-include tests when applicable
-avoid unrelated refactors
-document behavioral changes
-Code Standards
+---
 
-Explicit > implicit
-Readability > cleverness
-Deterministic behavior
-Clear error handling
-Secure defaults
-Good First Contributions
+## Code Standards
 
-Look for:
+- Explicit > implicit
+- Readability > cleverness
+- Secure defaults
+- Clear error handling
+- Backward compatibility awareness
 
-good first issue
-documentation
-sdk
-examples
-These are intentionally scoped for quick onboarding.
+---
 
-Reporting Security Issues
+## Good First Contributions
 
-Do NOT open public issues for vulnerabilities.
+Look for issues labeled:
+- `good first issue`
+- `documentation`
+- `sdk`
+- `examples`
 
-Email maintainers directly with:
+These are intentionally scoped for faster onboarding.
 
-reproduction steps
-impact
-proposed mitigation (if known)
+---
+
+## Reporting Security Issues
+
+Do **not** open public issues for vulnerabilities.
+
+Report privately to maintainers with:
+- reproduction steps
+- impact assessment
+- mitigation ideas (if available)
+
 We will coordinate responsible disclosure.
 
-Community Expectations
+---
+
+## Community Expectations
 
 Be constructive. Challenge ideas, not people. Bias toward collaboration.
 

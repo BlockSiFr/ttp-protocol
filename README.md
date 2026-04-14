@@ -858,11 +858,12 @@ Contributions welcome.
 
 Areas of interest:
 
-- SDK implementations
-- Issuer integrations
-- Security analysis
-- Performance optimization
-- Documentation
+- Trust Authority / network core operations
+- Issuer integrations and adapters
+- Verifier enforcement patterns
+- Agent SDK/runtime integrations
+- Security analysis and threat modeling
+- Documentation and onboarding
 
 See <CONTRIBUTING.md> for guidelines.
 
