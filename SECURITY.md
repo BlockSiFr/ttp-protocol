@@ -1,88 +1,61 @@
 # Security Policy
 
-TTP is security-critical infrastructure, and I take its security seriously.
+This repository contains security-sensitive trust protocol and reference implementation code.
 
-If you discover a vulnerability or weakness, please reach out directly.  
-Responsible disclosure and external review are welcome and appreciated.
+## Supported Scope
 
----
+Security reports are accepted for:
+- protocol semantics and verification logic
+- reference Trust Authority, issuer, and verifier code
+- cryptographic handling, token validation, and replay protections
+- admin/authz controls in reference APIs
 
-## Reporting Vulnerabilities
+## Reporting a Vulnerability
 
-Please report suspected vulnerabilities privately via email:
+Please **do not** open public GitHub issues for vulnerabilities.
 
-maurice@blocksifr.com
+Report privately to: **maurice@blocksifr.com**
 
-Include where possible:
+Include:
+1. affected component/path
+2. reproduction steps / proof of concept
+3. impact and exploit conditions
+4. suggested mitigation (if available)
 
-- Description of the issue  
-- Reproduction steps or proof of concept  
-- Affected components or versions  
-- Potential impact or exploitation scenario  
+We aim to acknowledge reports within 48 hours.
 
-Please do not open public issues for security vulnerabilities.
+## Repository Access Controls (Pre-Public Invite)
 
----
+Before inviting external users/collaborators:
 
-## Scope
+1. Enforce least privilege:
+   - default role: Read
+   - Write/Maintain only for trusted maintainers
+   - Admin restricted to core owners
+2. Require branch protection on default branch:
+   - PR required (no direct pushes)
+   - required review approvals
+   - required status checks
+   - dismiss stale approvals on new commits
+3. Require CODEOWNERS review for protocol/security-critical paths.
+4. Require 2FA for org members and outside collaborators.
+5. Protect secrets:
+   - enable secret scanning + push protection
+   - no long-lived credentials in repo
+   - rotate keys on any suspicion of exposure
+6. Protect release integrity:
+   - tag protection
+   - signed release artifacts where possible
 
-Security-sensitive areas include, but are not limited to:
+## Safe External Collaboration Model
 
-- Trust token validation  
-- Cryptographic signature handling  
-- Aggregation logic integrity  
-- Receipt replay protection  
-- Issuer trust and federation assumptions  
-- SDK token lifecycle handling  
-- Verifier policy enforcement boundaries  
+- Use issue templates and scoped labels for newcomer tasks.
+- Keep security-sensitive discussions private until patched.
+- Prefer small, auditable PRs for protocol or authz changes.
+- Require explicit security review for changes touching trust semantics.
 
-Out-of-scope items may include feature requests or documentation issues unless they introduce security risk.
+## Additional References
 
----
-
-## Response Process
-
-I aim to:
-
-- Acknowledge reports within 48 hours  
-- Assess severity and impact  
-- Coordinate responsible disclosure  
-- Release fixes or mitigations promptly  
-- Credit reporters when appropriate  
-
-Timelines may vary depending on complexity and ecosystem impact.
-
----
-
-## Disclosure Philosophy
-
-TTP follows coordinated disclosure practices prioritizing ecosystem safety and transparency.
-
-External review, critique, and academic analysis are encouraged.  
-Security findings are viewed as contributions to the protocol’s maturity.
-
----
-
-## Security Design Principles
-
-TTP development is guided by:
-
-- Minimize state  
-- Minimize credential lifetime  
-- Cryptographic verification of assertions  
-- Explicit trust boundaries  
-- Defense in depth  
-- Adversarial mindset by default  
-
-No system is assumed secure by design alone — scrutiny and iteration are expected.
-
----
-
-## Safe Harbor
-
-Good-faith research conducted responsibly and ethically is supported.  
-Researchers acting without malicious intent and avoiding harm will not face punitive action for disclosure.
-
----
-
-Thank you for helping strengthen the security posture of the TTP ecosystem.
+- Security model: `docs/security.md`
+- Public release checklist: `docs/public-readiness.md`
+- Repo access model: `docs/repo-access-control.md`
