@@ -7,7 +7,6 @@ This roadmap aligns technical delivery with a role-based collaboration model so 
 1. Keep protocol trust semantics open and interoperable.
 2. Let different contributor/operator roles build in parallel.
 3. Separate open standards from premium operational products.
-4. Keep implementation language/semantics docs aligned with the actual protocol surface.
 
 ---
 
@@ -165,21 +164,3 @@ Track scale and health with:
 - Mean time to quarantine / mitigate risky agents
 - Number of independent conformant implementations
 - % production deployments using multi-issuer evidence
-
----
-
-## Documentation Accuracy Milestone
-
-To prevent drift between aspirational concepts and implemented behavior:
-
-- maintain `ttp-language.md` as a semantics document tied to current protocol artifacts,
-- require doc updates when endpoint/claim semantics change,
-- include doc-accuracy checks in release readiness review.
-
-## Public Release Boundary Milestone
-
-To keep the public repository open and interoperable while allowing commercial offerings outside the repo:
-
-- enforce the boundary rules in `docs/open-source-boundary.md`,
-- add release-time audits for accidental premium artifact inclusion,
-- keep protocol-critical semantics and conformance artifacts in public scope.
