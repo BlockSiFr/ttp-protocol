@@ -11,9 +11,8 @@ This checklist is used to decide whether TTP is ready for a public launch.
 ### 1) Build & Test Reliability
 
 - [x] Trust Authority TypeScript build compiles in local reference environment.
-- [x] Automated CI workflow exists for Trust Authority build/test on PRs (`.github/workflows/ci.yml`).
+- [ ] Automated CI workflow for build/test/docs checks on every PR.
 - [ ] Basic smoke tests for key admin/token endpoints.
-- [x] Baseline unit tests exist for aggregation logic (`src/aggregation.test.ts`).
 
 ### 2) Documentation Quality
 
@@ -38,7 +37,7 @@ This checklist is used to decide whether TTP is ready for a public launch.
 ### 5) Repo Hygiene
 
 - [x] Core docs references resolve (roadmap, guides, contributing).
-- [ ] Add CI badge/status in README.
+- [ ] Add CI badge/status in README once workflow is live.
 - [x] CODEOWNERS exists for protocol/security/runtime critical paths.
 
 ### 6) Open-Source Boundary Integrity
@@ -49,7 +48,7 @@ This checklist is used to decide whether TTP is ready for a public launch.
 
 ## Recommended Pre-Public Action Plan (Fast)
 
-1. Expand CI coverage (docs checks + smoke tests in addition to build/test).
+1. Add CI workflow (build + test + markdown/link checks).
 2. Enforce branch protection + required checks in repository settings.
 3. Add one smoke-test script for core Trust Authority endpoints.
 4. Cut a tagged pre-release (`v1.0.0-rc1`) with changelog.
