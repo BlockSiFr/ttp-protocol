@@ -1,0 +1,46 @@
+name: TTP Governed PR Action (Skeleton)
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  governed-action:
+    if: contains(github.event.comment.body, '/ttp')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build /re/authorize request context
+        run: |
+          echo '{"todo":"collect action, paths, actor, branch, run id"}' > request.json
+
+      - name: Runtime Authority Gate
+        env:
+          RUNTIME_AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          RUNTIME_AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+        run: |
+          curl -sS -X POST "$RUNTIME_AUTH_URL/re/authorize" \
+            -H "Authorization: Bearer $RUNTIME_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @request.json > decision.json
+          cat decision.json
+
+      - name: Enforce decision
+        run: |
+          DECISION=$(jq -r '.decision' decision.json)
+          case "$DECISION" in
+            PERMIT) echo "execute allowed action" ;;
+            CONSTRAIN) echo "execute constrained action" ;;
+            STEP_UP) echo "request human step-up approval" ; exit 1 ;;
+            ESCALATE) echo "escalate to maintainers/security owners" ; exit 1 ;;
+            DENY|*) echo "deny action" ; exit 1 ;;
+          esac
+
+      - name: Persist receipt reference
+        run: |
+          jq -r '.receipt.receipt_id' decision.json
