@@ -8,6 +8,7 @@
  *   POST /v1/tokens                            — Request a trust token
  *   GET  /.well-known/ttp-keys                 — Trust Authority public key
  *   POST /v1/admin/issuers                     — Register an issuer (admin)
+ *   GET  /v1/admin/agents                      — List registered agents (admin)
  *   POST /v1/admin/agents                      — Register an agent (admin)
  *   GET  /v1/admin/agents/:agentId/status      — Agent quarantine status (admin, §18)
  *   POST /v1/admin/agents/:agentId/quarantine  — Quarantine an agent (admin, §18)
@@ -523,6 +524,61 @@ export function createRouter(
   })
 
   // ─── Admin: Register Agent ────────────────────────────────────────────────
+
+  router.get("/v1/admin/agents", (req: Request, res: Response) => {
+    const authKey = req.headers["authorization"]?.replace("Bearer ", "")
+    if (!authKey || authKey !== adminApiKey) {
+      return res.status(401).json({ error: "UNAUTHORIZED" })
+    }
+
+    const domain = req.query["domain"]
+    const includeMetrics = req.query["include_metrics"] === "true"
+
+    if (domain !== undefined && typeof domain !== "string") {
+      return res.status(400).json({
+        error: "INVALID_REQUEST",
+        message: "domain query parameter must be a string"
+      })
+    }
+
+    const agents = store.listAgents().map(agent => {
+      const status = store.getAgentStatus(agent.agent_id)
+      const response: Record<string, unknown> = {
+        agent_id: agent.agent_id,
+        description: agent.description,
+        registered_at: agent.registered_at,
+        status
+      }
+
+      if (includeMetrics) {
+        const allReceipts = store.getAgentReceiptsAcrossDomains(agent.agent_id)
+        const filteredReceipts = domain
+          ? allReceipts.filter(r => r.domain === domain)
+          : allReceipts
+
+        const domains = Array.from(new Set(filteredReceipts.map(r => r.domain))).sort()
+        const latestTimestamp = filteredReceipts.length > 0
+          ? Math.max(...filteredReceipts.map(r => r.timestamp))
+          : null
+
+        response["metrics"] = {
+          domain: domain ?? null,
+          domains,
+          receipt_count: filteredReceipts.length,
+          latest_receipt_at: latestTimestamp
+        }
+      }
+
+      return response
+    })
+
+    return res.json({
+      agents,
+      total: agents.length,
+      include_metrics: includeMetrics,
+      domain: domain ?? null
+    })
+  })
 
   router.post("/v1/admin/agents", (req: Request, res: Response) => {
     const authKey = req.headers["authorization"]?.replace("Bearer ", "")

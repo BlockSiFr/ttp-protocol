@@ -1,0 +1,100 @@
+name: TTP / Protected Action Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  protected-action-gate:
+    name: TTP / Protected Action Gate
+    runs-on: ubuntu-latest
+    outputs:
+      decision: ${{ steps.evaluate.outputs.decision }}
+      receipt_id: ${{ steps.evaluate.outputs.receipt_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1 || true
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.sha }}"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt
+          cat changed.txt
+          echo "paths=$(paste -sd, changed.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate protected change
+        id: evaluate
+        env:
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+        run: |
+          PATHS_JSON=$(awk '{printf "\"%s\",", $0}' changed.txt | sed 's/,$//')
+          cat > request.json <<JSON
+          {
+            "subject": "wi://ttp/github/security-review-agent",
+            "action": "merge request",
+            "resource": "repo:${{ github.repository }}:pr/${{ github.event.pull_request.number }}",
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.head_ref }}",
+            "pathsTouched": [${PATHS_JSON}],
+            "commitSha": "${{ github.sha }}",
+            "invokingActor": "${{ github.actor }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "attestationRef": "att-pr-${{ github.run_id }}",
+            "authorityGrantRef": "grant-pr-${{ github.run_id }}",
+            "trustScore": 0.91,
+            "freshnessSeconds": 120,
+            "context": {"event":"pull_request"}
+          }
+          JSON
+
+          curl -sS -X POST "$AUTH_URL/re/authorize" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @request.json > decision.json
+
+          DECISION=$(jq -r '.decision' decision.json)
+          RECEIPT=$(jq -r '.receiptId' decision.json)
+          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+          echo "receipt_id=$RECEIPT" >> "$GITHUB_OUTPUT"
+
+          if [ "$DECISION" != "PERMIT" ]; then
+            echo "Fail-closed: decision=$DECISION receipt=$RECEIPT"
+            exit 1
+          fi
+
+  receipt-required:
+    name: TTP / Receipt Required
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate]
+    steps:
+      - name: Validate receipt id exists
+        run: |
+          test -n "${{ needs.protected-action-gate.outputs.receipt_id }}"
+
+  step-up-approval:
+    name: TTP / Step-Up Approval
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate]
+    if: needs.protected-action-gate.outputs.decision == 'STEP_UP' || needs.protected-action-gate.outputs.decision == 'ESCALATE'
+    environment:
+      name: protected-action-approval
+    steps:
+      - run: echo "Human step-up required for protected action"
+
+  merge-authority:
+    name: TTP / Merge Authority
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate, receipt-required]
+    steps:
+      - name: Verify merge authority decision
+        run: |
+          DECISION="${{ needs.protected-action-gate.outputs.decision }}"
+          if [ "$DECISION" != "PERMIT" ]; then
+            echo "Merge authority denied: $DECISION"
+            exit 1
+          fi

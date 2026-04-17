@@ -1,0 +1,20 @@
+version: 1
+protected_paths:
+  - .github/workflows/**
+  - policy/**
+  - receipts/schemas/**
+  - protocol/**
+  - reference-implementations/trust-authority/src/crypto.ts
+  - reference-implementations/trust-authority/src/index.ts
+  - reference-implementations/trust-authority/src/routes.ts
+  - reference-implementations/trust-authority/src/store.ts
+  - reference-implementations/trust-authority/src/scripts/**
+
+protected_actions:
+  - merge to main
+  - release tag request
+  - release workflow request
+  - workflow modification request
+  - policy modification request
+  - receipt schema modification request
+  - trust model modification request
