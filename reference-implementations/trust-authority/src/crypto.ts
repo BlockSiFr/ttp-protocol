@@ -10,7 +10,7 @@ import { sha512 } from "@noble/hashes/sha512"
 import { BehavioralReceipt } from "./types"
 
 // Configure @noble/ed25519 to use SHA-512 (required for Ed25519)
-ed.etc.sha512Sync = (...m) => sha512(...m)
+ed.etc.sha512Sync = (message) => sha512(message)
 
 /**
  * Compute the canonical signing payload for a receipt.
