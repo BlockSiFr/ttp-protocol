@@ -1,51 +1,166 @@
 # TTP Roadmap
 
-This roadmap focuses on adoption, trust, and execution speed.
+This roadmap aligns technical delivery with a role-based collaboration model so the ecosystem can scale quickly without central bottlenecks.
 
-## What we optimize for
+## Guiding outcomes
 
-- Open, portable protocol semantics.
-- Fast ecosystem execution across multiple contributor roles.
-- Clear separation between open protocol assets and commercial operations.
-- Documentation that stays aligned with what is actually implemented.
+1. Keep protocol trust semantics open and interoperable.
+2. Let different contributor/operator roles build in parallel.
+3. Separate open standards from premium operational products.
 
-## Delivery tracks
+---
 
-- **Core protocol/runtime**: trust authority behavior, scoring correctness, token semantics.
-- **Issuer ecosystem**: real adapters and stronger evidence coverage.
-- **Verifier adoption**: policy adapters, middleware, deterministic enforcement defaults.
-- **Agent/framework integration**: SDK ergonomics and runtime hooks.
-- **Governance/security**: RFC process, conformance checks, threat updates.
+## Role Lanes for Fast Scaling
 
-## Phases
+### Lane A — Trust Authority / Network Core
 
-### Now (foundation)
+Focus:
+- protocol-conformant trust scoring and token issuance
+- high-availability deployment patterns
+- operator controls (registration, quarantine, incident response)
+
+Scale impact:
+- creates stable trust infrastructure others can build on
+- enables shared enterprise or sector-wide deployments
+
+### Lane B — Issuer Ecosystem
+
+Focus:
+- adapters for API gateways, runtimes, security monitors, network telemetry
+- receipt quality and event taxonomies
+- anti-collusion deployment guidance
+
+Scale impact:
+- grows evidence coverage quickly across tools/vendors
+- improves trust quality without changing protocol core
+
+### Lane C — Verifier Adoption
+
+Focus:
+- service middleware, policy-engine adapters, SDK helpers
+- deterministic allow/deny patterns by domain
+- low-latency verification and resilient fallback policies
+
+Scale impact:
+- turns protocol adoption into direct production enforcement
+- reduces time-to-value for application teams
+
+### Lane D — Agent & Framework Integration
+
+Focus:
+- token lifecycle UX in agent frameworks
+- default-safe runtime integration
+- observability hooks for trust feedback loops
+
+Scale impact:
+- increases developer reach and day-1 usability
+- makes trust-aware behavior the default in agent tooling
+
+### Lane E — Governance, Security, and Adoption
+
+Focus:
+- RFC governance, conformance tests, threat-model updates
+- docs, runbooks, and implementation examples
+- ecosystem coordination across vendors and enterprises
+
+Scale impact:
+- keeps multi-implementation trust high
+- prevents fragmentation while adoption accelerates
+
+---
+
+## Collaboration Model
+
+To move quickly, we collaborate via:
+
+- **Spec track:** RFC issues + conformance vectors.
+- **Implementation track:** reference components and adapter repos.
+- **Operator track:** runbooks, incident drills, SLO templates.
+- **Ecosystem track:** partner-maintained adapters and verifier modules.
+
+This model allows independent teams to ship in parallel while preserving a stable core protocol.
+
+---
+
+## Phased Delivery
+
+### Phase 1 — Foundation (Now)
 - Stable spec + schemas
-- Reference TA/issuer/verifier baseline
+- Reference Trust Authority and issuer implementations
+- Basic verifier middleware patterns
 - Role-based docs and operator onboarding
-- Initial CI and baseline tests
 
-### Next (ecosystem expansion)
-- More issuer adapters (tool/runtime/cloud telemetry)
-- More verifier integrations (policy engines/frameworks)
-- Conformance coverage and repeatable interop checks
-- Better ops metrics and runbooks
+### Phase 2 — Ecosystem Expansion
+- More issuer adapters (gateway/runtime/network)
+- More verifier integrations (policy engines, service frameworks)
+- Conformance suite publication for independent implementations
+- Baseline operational dashboards and metrics definitions
 
-### Later (enterprise + standardization)
+### Phase 3 — Enterprise Scale
 - Multi-tenant operational controls
-- Compliance/audit workflow maturity
-- Institutional standardization track (CNCF and/or IETF)
+- Audit/compliance packaging
+- Advanced reliability and disaster-recovery patterns
+- Mature operator playbooks and incident automation
 
-## Near-term priorities from assessment
+### Phase 4 — Standardization
+- Formal standardization track
+- Cross-vendor interop certifications
+- Large-scale ecosystem governance model
 
-1. Increase test coverage for verification, authz routes, and failure modes.
-2. Ship Python SDK parity for the agent ecosystem.
-3. Replace stub issuers with practical adapters.
-4. Publish one measurable real-world case study.
-5. Add maintainer depth and strengthen external credibility.
+---
 
-## Public release guardrails
+## Open Stewardship and Commercialization Decision Framework
 
-- Keep protocol-critical semantics and conformance assets public.
-- Run open-source boundary audits before each release.
-- Keep `ttp-language.md` and security/integration docs synchronized with implementation changes.
+To avoid reactive or ad-hoc packaging decisions, use a repeatable framework:
+
+### 1) Protocol Integrity Test
+
+A capability should stay in the open protocol commons if removing it would:
+- break independent interoperability,
+- weaken auditability of trust semantics, or
+- create vendor lock-in around trust decisions.
+
+### 2) Operational Differentiation Test
+
+A capability may be commercialized if value is primarily from:
+- reliability and scale operations,
+- enterprise process depth (governance/workflow),
+- support commitments, or
+- convenience acceleration that does not alter protocol semantics.
+
+### 3) Portability Test
+
+For any paid feature, ensure customers can still:
+- export evidence and policy-relevant artifacts,
+- migrate to another compliant implementation,
+- preserve continuity of trust semantics and verification outcomes.
+
+### 4) Ecosystem Fairness Test
+
+Before launch, check whether the feature:
+- suppresses third-party adapter ecosystem growth,
+- creates asymmetric access to safety-critical primitives,
+- conflicts with neutral governance goals.
+
+### 5) Governance Review Gate
+
+Run new packaging decisions through a governance checkpoint:
+- publish rationale,
+- document boundary assumptions,
+- gather community feedback,
+- re-evaluate after adoption telemetry.
+
+Outcome: commercialization remains aligned with ecosystem trust, while open stewardship protects interoperability at scale.
+
+---
+
+## Success Metrics
+
+Track scale and health with:
+
+- Number of active issuers per deployment/domain
+- Verifier-enforced protected actions/day
+- Time-to-onboard for new teams
+- Mean time to quarantine / mitigate risky agents
+- Number of independent conformant implementations
+- % production deployments using multi-issuer evidence
