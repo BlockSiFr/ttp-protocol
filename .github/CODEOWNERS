@@ -1,0 +1,17 @@
+# Global fallback
+* @blocksifr/maintainers
+
+# Protocol and security-critical artifacts
+/protocol/ @blocksifr/protocol-owners @blocksifr/security
+/docs/security.md @blocksifr/security
+/ttp-language @blocksifr/protocol-owners @blocksifr/security
+/ttp-language.md @blocksifr/protocol-owners @blocksifr/security
+
+# Reference implementation
+/reference-implementations/trust-authority/ @blocksifr/runtime-owners @blocksifr/security
+/reference-implementations/issuers/ @blocksifr/runtime-owners
+
+# Governance and release docs
+/CONTRIBUTING.md @blocksifr/maintainers
+/docs/public-readiness.md @blocksifr/maintainers @blocksifr/security
+/docs/open-source-boundary.md @blocksifr/maintainers

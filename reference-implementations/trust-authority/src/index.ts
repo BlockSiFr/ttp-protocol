@@ -25,7 +25,7 @@ import { createRouter } from "./routes"
 import { base64urlDecode, base64urlEncode } from "./crypto"
 
 // Configure @noble/ed25519 to use SHA-512
-ed.etc.sha512Sync = (...m) => sha512(...m)
+ed.etc.sha512Sync = (message) => sha512(message)
 
 async function main() {
   const PORT = parseInt(process.env.PORT ?? "3000")

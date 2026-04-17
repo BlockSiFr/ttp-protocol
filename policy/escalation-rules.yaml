@@ -1,0 +1,24 @@
+version: 1
+rules:
+  - name: critical_path_change
+    when:
+      risk: critical
+    outcome: STEP_UP
+    required_approvals:
+      - security-owner
+      - codeowner
+
+  - name: insufficient_trust_or_stale_attestation
+    when:
+      trust_below_threshold: true
+    outcome: ESCALATE
+
+  - name: invalid_authority_grant
+    when:
+      authority_valid: false
+    outcome: DENY
+
+  - name: ambiguous_context
+    when:
+      context_ambiguous: true
+    outcome: DENY
