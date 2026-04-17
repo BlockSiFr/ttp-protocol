@@ -1,37 +1,77 @@
-# Repository Access Controls
+# Repository Access Control Model
 
-How we invite collaborators safely before full public launch.
+This document defines how to safely invite users before full public release.
 
-## Roles
+## Goals
 
-- **Reader**: read-only access.
-- **Contributor**: fork + PR workflow, no direct writes.
-- **Maintainer**: merge rights with protected-branch workflow.
-- **Security owner**: admin-level settings, release integrity, incident response.
+- Enable collaboration without exposing security-critical control paths.
+- Preserve release integrity of protocol and reference implementations.
+- Reduce insider and supply-chain risk during pre-public phase.
 
-## Required controls
+---
 
-- Protected default branch (PR required, approvals required, status checks required).
-- CODEOWNERS review on critical paths.
-- 2FA required for org members/collaborators.
-- Secret scanning + push protection.
-- Protected release tags.
+## Permission Tiers
 
-## PR handling by risk
+### Tier 0 — Public/Invited Readers
+- Access: read-only
+- Use cases: evaluators, early adopters, documentation review
 
-- **Low risk**: docs/examples only -> maintainer review.
-- **Medium risk**: SDK/middleware/admin UX -> maintainer + domain owner.
-- **High risk**: protocol semantics, crypto, token verification, authz -> mandatory security-owner review.
+### Tier 1 — Contributors
+- Access: fork + PR only (no direct write)
+- Use cases: docs, examples, non-critical tooling
 
-## Invite process
+### Tier 2 — Maintainers
+- Access: write/maintain with protected-branch workflow
+- Use cases: merge reviewed PRs, manage milestones/issues
 
-1. Start everyone at read-only.
-2. Move trusted contributors to fork+PR.
-3. Grant write only after sustained high-quality contributions.
-4. Remove elevated access immediately if risk posture changes.
+### Tier 3 — Core Security Owners
+- Access: admin for protected settings/releases only
+- Use cases: branch protection, secrets settings, security response, release signing
 
-## Audit cadence
+---
 
-- Weekly: collaborator/role review.
-- Per release: branch protection + CODEOWNERS validation.
-- Quarterly: permission and secret-rotation audit.
+## Required Repo Controls
+
+1. **Branch protections** on default branch
+   - require PR
+   - require status checks
+   - require approvals
+   - block force-push and deletion
+2. **CODEOWNERS** for critical paths
+   - protocol, security docs, trust authority runtime
+3. **2FA enforcement** for org members/collaborators
+4. **Secret scanning + push protection**
+5. **Tag/release protection** for official versions
+
+---
+
+## PR Risk Routing
+
+### Low risk
+- docs/examples, no protocol or authz changes
+- standard maintainer review
+
+### Medium risk
+- SDK behavior, middleware, admin endpoint UX
+- maintainer + domain owner review
+
+### High risk
+- protocol semantics, token verification, authz gates, crypto, trust scoring
+- mandatory security owner review + regression checks
+
+---
+
+## Invite Workflow (Pre-Public)
+
+1. Invite as read-only by default.
+2. After contribution quality review, allow fork+PR collaboration.
+3. Grant write only when sustained trusted contribution is demonstrated.
+4. Revoke elevated access quickly if risk posture changes.
+
+---
+
+## Audit Cadence
+
+- Weekly: collaborator list + role review.
+- Per release: CODEOWNERS coverage and branch protection validation.
+- Quarterly: full permission and secret rotation audit.
