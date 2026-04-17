@@ -255,6 +255,18 @@ See [examples/service-integration](../examples/service-integration/) for Kong an
 
 ---
 
+## 10. GitHub Self-Governance Extension (TTP Governing TTP)
+
+TTP can be applied to its own repository operations by treating AI role-agents as governed workload identities and routing meaningful GitHub actions through a Runtime Authority Gate (`POST /re/authorize`) before execution.
+
+Reference materials:
+- [GitHub Self-Governance Reference Architecture](github-self-governance-reference-architecture.md)
+- [SCIM-RE Mapping Appendix](scim-re-github-role-agent-mapping.md)
+- [ExecutionReceipt schema extension](../spec/extensions/execution-receipt-v2.schema.json)
+- [Role-agent manifests](../agents/manifests/role-agents.yaml)
+
+---
+
 ## Performance Considerations
 
 ### Token Verification Latency
