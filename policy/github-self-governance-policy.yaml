@@ -1,0 +1,29 @@
+version: 1
+protected_actions:
+  - merge to main
+  - release tag request
+  - workflow modification request
+  - policy modification request
+  - receipt schema modification request
+  - edits to signing, key, or verification paths
+  - edits to core runtime authorization behavior
+
+risk_classes:
+  low: [issue.comment, pull_request.review, label.apply]
+  medium: [workflow.dispatch, merge recommendation]
+  high: [workflow modification request, policy modification request]
+  critical: [protected merge approval request, release tag request, receipt schema modification request]
+
+default_decision: DENY
+
+outcome_rules:
+  - when: risk == low && trust.score >= 0.8 && authority.valid == true
+    outcome: PERMIT
+  - when: risk == medium && trust.score >= 0.85 && compliance.human_oversight in [none,single]
+    outcome: CONSTRAIN
+  - when: action in protected_actions && trust.score >= 0.9 && attestation.fresh == true
+    outcome: STEP_UP
+  - when: action in protected_actions && (trust.score < 0.9 || compliance.human_oversight == dual)
+    outcome: ESCALATE
+  - when: authority.valid == false || attestation.fresh == false || context.ambiguous == true
+    outcome: DENY
