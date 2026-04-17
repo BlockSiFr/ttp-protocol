@@ -72,6 +72,27 @@ function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: De
   if (!context.authority.subjectValid || !context.authority.actionAligned || !context.authority.grantValid) {
     return { decision: "DENY", reason: "invalid_authority", context }
   }
+
+  if (req.action === "merge request reauthorize") {
+    if (!req.priorReceiptId) {
+      return { decision: "DENY", reason: "missing_prior_receipt", context }
+    }
+    const prior = receipts.get(req.priorReceiptId)
+    if (!prior) {
+      return { decision: "DENY", reason: "prior_receipt_not_found", context }
+    }
+    if (!(prior.decision === "STEP_UP" || prior.decision === "ESCALATE")) {
+      return { decision: "DENY", reason: "prior_decision_not_reauthorizable", context }
+    }
+    if (!req.approval?.approved || !req.approval.approvedBy) {
+      return { decision: "DENY", reason: "step_up_approval_missing", context }
+    }
+    if (!context.trust.attestationValid) {
+      return { decision: "ESCALATE", reason: "stale_attestation_after_step_up", context }
+    }
+    return { decision: "PERMIT", reason: "step_up_approved_reauthorize_permit", context }
+  }
+
   if (!context.trust.attestationValid) {
     return { decision: "ESCALATE", reason: "stale_attestation", context }
   }

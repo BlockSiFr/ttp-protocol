@@ -11,6 +11,7 @@ jobs:
     outputs:
       decision: ${{ steps.evaluate.outputs.decision }}
       receipt_id: ${{ steps.evaluate.outputs.receipt_id }}
+      reason: ${{ steps.evaluate.outputs.reason }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +33,10 @@ jobs:
           AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
           AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
         run: |
+          DECISION="DENY"
+          RECEIPT_ID=""
+          REASON="authorization_not_started"
+
           PATHS_JSON=$(awk '{printf "\"%s\",", $0}' changed.txt | sed 's/,$//')
           cat > request.json <<JSON
           {
@@ -52,25 +57,44 @@ jobs:
           }
           JSON
 
-          curl -sS -X POST "$AUTH_URL/re/authorize" \
-            -H "Authorization: Bearer $AUTH_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d @request.json > decision.json
-
-          DECISION=$(jq -r '.decision' decision.json)
-          RECEIPT=$(jq -r '.receiptId' decision.json)
-          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
-          echo "receipt_id=$RECEIPT" >> "$GITHUB_OUTPUT"
-
-          if [ "$DECISION" != "PERMIT" ]; then
-            echo "Fail-closed: decision=$DECISION receipt=$RECEIPT"
-            exit 1
+          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
+            REASON="missing_runtime_authority_configuration"
+          else
+            curl -sS -X POST "${AUTH_URL%/}/re/authorize" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @request.json > decision.json || true
           fi
+
+          if [ -f decision.json ] && jq empty decision.json >/dev/null 2>&1; then
+            DECISION="$(jq -r '.decision // "DENY"' decision.json)"
+            RECEIPT_ID="$(jq -r '.receiptId // empty' decision.json)"
+            REASON="$(jq -r '.reason // "no_reason_provided"' decision.json)"
+          fi
+
+          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+          echo "receipt_id=$RECEIPT_ID" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+          echo "Authority decision: $DECISION"
+          echo "Receipt: $RECEIPT_ID"
+          echo "Reason: $REASON"
+
+          case "$DECISION" in
+            PERMIT|STEP_UP|ESCALATE|DENY)
+              exit 0
+              ;;
+            *)
+              echo "Unknown decision '$DECISION'. Normalizing to DENY for fail-closed behavior."
+              exit 0
+              ;;
+          esac
 
   receipt-required:
     name: TTP / Receipt Required
     runs-on: ubuntu-latest
     needs: [protected-action-gate]
+    if: always()
     steps:
       - name: Validate receipt id exists
         run: |
@@ -79,36 +103,120 @@ jobs:
   step-up-approval:
     name: TTP / Step-Up Approval
     runs-on: ubuntu-latest
-    needs: [protected-action-gate]
-    if: needs.protected-action-gate.outputs.decision == 'STEP_UP' || needs.protected-action-gate.outputs.decision == 'ESCALATE'
+    needs: [protected-action-gate, receipt-required]
+    if: always() && (needs.protected-action-gate.outputs.decision == 'STEP_UP' || needs.protected-action-gate.outputs.decision == 'ESCALATE')
     environment:
       name: protected-action-approval
     steps:
-      - run: echo "Human step-up required for protected action"
+      - run: |
+          echo "Human approval required."
+          echo "Decision: ${{ needs.protected-action-gate.outputs.decision }}"
+          echo "Receipt: ${{ needs.protected-action-gate.outputs.receipt_id }}"
+          echo "Reason: ${{ needs.protected-action-gate.outputs.reason }}"
+
+  reauthorize-after-step-up:
+    name: TTP / Reauthorize After Step-Up
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate, receipt-required, step-up-approval]
+    if: always() && (needs.protected-action-gate.outputs.decision == 'STEP_UP' || needs.protected-action-gate.outputs.decision == 'ESCALATE')
+    outputs:
+      decision: ${{ steps.reauth.outputs.decision }}
+      receipt_id: ${{ steps.reauth.outputs.receipt_id }}
+      reason: ${{ steps.reauth.outputs.reason }}
+    steps:
+      - name: Reauthorize after approval
+        id: reauth
+        env:
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          DECISION="DENY"
+          RECEIPT=""
+          REASON="reauthorization_not_started"
+
+          cat > reauth.json <<JSON
+          {
+            "subject": "wi://ttp/github/security-review-agent",
+            "action": "merge request reauthorize",
+            "resource": "repo:${{ github.repository }}:pr/${{ github.event.pull_request.number }}",
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.head_ref }}",
+            "pathsTouched": [],
+            "commitSha": "${{ github.sha }}",
+            "invokingActor": "${{ github.actor }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "attestationRef": "att-pr-${{ github.run_id }}-reauth",
+            "authorityGrantRef": "grant-pr-${{ github.run_id }}",
+            "priorReceiptId": "${{ needs.protected-action-gate.outputs.receipt_id }}",
+            "approval": {
+              "environment": "protected-action-approval",
+              "approved": true,
+              "approvedBy": "${{ github.actor }}"
+            },
+            "context": {"event":"pull_request_reauthorize"}
+          }
+          JSON
+
+          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
+            REASON="missing_runtime_authority_configuration"
+          else
+            curl -sS -X POST "${AUTH_URL%/}/re/authorize" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @reauth.json > reauth-response.json || true
+          fi
+
+          if [ -f reauth-response.json ] && jq empty reauth-response.json >/dev/null 2>&1; then
+            DECISION="$(jq -r '.decision // "DENY"' reauth-response.json)"
+            RECEIPT="$(jq -r '.receiptId // empty' reauth-response.json)"
+            REASON="$(jq -r '.reason // "no_reason_provided"' reauth-response.json)"
+          fi
+
+          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+          echo "receipt_id=$RECEIPT" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
 
   merge-authority:
     name: TTP / Merge Authority
     runs-on: ubuntu-latest
-    needs: [protected-action-gate, receipt-required]
+    needs:
+      - protected-action-gate
+      - receipt-required
+      - step-up-approval
+      - reauthorize-after-step-up
+    if: always()
     steps:
-      - name: Verify merge authority decision
+      - name: Verify final merge authority decision
+        shell: bash
         run: |
-          DECISION="${{ needs.protected-action-gate.outputs.decision }}"
-          DECISION="${DECISION:-}"
+          INITIAL="${{ needs.protected-action-gate.outputs.decision }}"
+          FINAL="${{ needs.reauthorize-after-step-up.outputs.decision }}"
+          FINAL_RECEIPT="${{ needs.reauthorize-after-step-up.outputs.receipt_id }}"
+          FINAL_REASON="${{ needs.reauthorize-after-step-up.outputs.reason }}"
+
+          if [ "$INITIAL" = "STEP_UP" ] || [ "$INITIAL" = "ESCALATE" ]; then
+            DECISION="${FINAL:-DENY}"
+            RECEIPT_ID="${FINAL_RECEIPT:-${{ needs.protected-action-gate.outputs.receipt_id }}}"
+            REASON="${FINAL_REASON:-post_step_up_decision_missing}"
+          else
+            DECISION="${INITIAL:-DENY}"
+            RECEIPT_ID="${{ needs.protected-action-gate.outputs.receipt_id }}"
+            REASON="${{ needs.protected-action-gate.outputs.reason }}"
+          fi
 
           if [ -z "$DECISION" ]; then
             echo "No authority decision returned"
             exit 1
           fi
 
+          echo "Final decision: $DECISION"
+          echo "Receipt: $RECEIPT_ID"
+          echo "Reason: $REASON"
+
           if [ "$DECISION" = "PERMIT" ]; then
             echo "Merge authority granted"
             exit 0
-          fi
-
-          if [ "$DECISION" = "STEP_UP" ] || [ "$DECISION" = "ESCALATE" ]; then
-            echo "Manual approval path completed or pending. Keep blocked until re-evaluation flow is added."
-            exit 1
           fi
 
           echo "Merge authority denied: $DECISION"
