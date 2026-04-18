@@ -1,46 +1,171 @@
-name: TTP Governed PR Action (Skeleton)
+name: TTP / Protected Action Gate
 
 on:
-  issue_comment:
-    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
-  governed-action:
-    if: contains(github.event.comment.body, '/ttp')
+  protected-action-gate:
+    name: TTP / Protected Action Gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      issues: write
+      checks: write
+    outputs:
+      decision: ${{ steps.evaluate.outputs.decision }}
+      receipt_id: ${{ steps.evaluate.outputs.receipt_id }}
+      reason: ${{ steps.evaluate.outputs.reason }}
+      paths: ${{ steps.changes.outputs.paths }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build /re/authorize request context
+      - name: Fetch PR base branch
         run: |
-          echo '{"todo":"collect action, paths, actor, branch, run id"}' > request.json
+          git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=0
 
-      - name: Runtime Authority Gate
+      - name: Detect changed paths
+        id: changes
+        shell: bash
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "BASE_SHA=$BASE_SHA"
+          echo "HEAD_SHA=$HEAD_SHA"
+
+          if git merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null 2>&1; then
+            MERGE_BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+            echo "Merge base: $MERGE_BASE"
+          else
+            echo "No merge base found. Falling back to direct two-point diff."
+          fi
+
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt || true
+
+          echo "Changed files:"
+          cat changed.txt || true
+
+          PATHS=$(paste -sd, changed.txt)
+          echo "paths=$PATHS" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate protected change
+        id: evaluate
         env:
-          RUNTIME_AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
-          RUNTIME_AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+        shell: bash
         run: |
-          curl -sS -X POST "$RUNTIME_AUTH_URL/re/authorize" \
-            -H "Authorization: Bearer $RUNTIME_AUTH_TOKEN" \
+          if [ ! -s changed.txt ]; then
+            echo "No changed files detected."
+            echo "decision=DENY" >> "$GITHUB_OUTPUT"
+            echo "receipt_id=" >> "$GITHUB_OUTPUT"
+            echo "reason=no_changed_files_detected" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PATHS_JSON=$(jq -R . < changed.txt | jq -s .)
+
+          cat > request.json <<JSON
+          {
+            "subject": "wi://ttp/github/security-review-agent",
+            "action": "merge request",
+            "resource": "repo:${{ github.repository }}:pr/${{ github.event.pull_request.number }}",
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.head_ref }}",
+            "pathsTouched": ${PATHS_JSON},
+            "commitSha": "${{ github.event.pull_request.head.sha }}",
+            "invokingActor": "${{ github.actor }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "attestationRef": "att-pr-${{ github.run_id }}",
+            "authorityGrantRef": "grant-pr-${{ github.run_id }}",
+            "trustScore": 0.91,
+            "freshnessSeconds": 120,
+            "context": {
+              "event": "pull_request",
+              "baseRef": "${{ github.event.pull_request.base.ref }}",
+              "baseSha": "${{ github.event.pull_request.base.sha }}",
+              "headRef": "${{ github.event.pull_request.head.ref }}",
+              "headSha": "${{ github.event.pull_request.head.sha }}"
+            }
+          }
+          JSON
+
+          curl -sS -X POST "$AUTH_URL/re/authorize" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
             -H "Content-Type: application/json" \
             -d @request.json > decision.json
+
           cat decision.json
 
-      - name: Enforce decision
-        run: |
-          DECISION=$(jq -r '.decision' decision.json)
+          DECISION=$(jq -r '.decision // "DENY"' decision.json)
+          RECEIPT=$(jq -r '.receiptId // empty' decision.json)
+          REASON=$(jq -r '.reason // "no_reason_provided"' decision.json)
+
+          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+          echo "receipt_id=$RECEIPT" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
           case "$DECISION" in
-            PERMIT) echo "execute allowed action" ;;
-            CONSTRAIN) echo "execute constrained action" ;;
-            STEP_UP) echo "request human step-up approval" ; exit 1 ;;
-            ESCALATE) echo "escalate to maintainers/security owners" ; exit 1 ;;
-            DENY|*) echo "deny action" ; exit 1 ;;
+            PERMIT|STEP_UP|ESCALATE)
+              exit 0
+              ;;
+            DENY|*)
+              exit 0
+              ;;
           esac
 
-      - name: Persist receipt reference
+  receipt-required:
+    name: TTP / Receipt Required
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate]
+    if: always()
+    steps:
+      - name: Validate receipt id exists
         run: |
-          jq -r '.receipt.receipt_id' decision.json
+          RECEIPT="${{ needs.protected-action-gate.outputs.receipt_id }}"
+          if [ -z "$RECEIPT" ]; then
+            echo "Missing receipt id"
+            exit 1
+          fi
+
+  step-up-approval:
+    name: TTP / Step-Up Approval
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate, receipt-required]
+    if: always() && (needs.protected-action-gate.outputs.decision == 'STEP_UP' || needs.protected-action-gate.outputs.decision == 'ESCALATE')
+    environment:
+      name: protected-action-approval
+    steps:
+      - run: |
+          echo "Human approval required."
+          echo "Decision: ${{ needs.protected-action-gate.outputs.decision }}"
+          echo "Receipt: ${{ needs.protected-action-gate.outputs.receipt_id }}"
+          echo "Reason: ${{ needs.protected-action-gate.outputs.reason }}"
+
+  merge-authority:
+    name: TTP / Merge Authority
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate, receipt-required, step-up-approval]
+    if: always()
+    steps:
+      - name: Verify merge authority decision
+        run: |
+          DECISION="${{ needs.protected-action-gate.outputs.decision }}"
+
+          if [ "$DECISION" = "PERMIT" ]; then
+            echo "Merge authority granted"
+            exit 0
+          fi
+
+          if [ "$DECISION" = "STEP_UP" ] || [ "$DECISION" = "ESCALATE" ]; then
+            echo "Manual approval path completed or pending. Keep blocked until re-evaluation flow is added."
+            exit 1
+          fi
+
+          echo "Merge authority denied: $DECISION"
+          exit 1
