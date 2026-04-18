@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ttp.dev/spec/extensions/execution-receipt-v2.schema.json",
+  "title": "ExecutionReceiptV2",
+  "type": "object",
+  "required": [
+    "receipt_id",
+    "subject",
+    "decision",
+    "action",
+    "resource",
+    "trust",
+    "authority",
+    "risk",
+    "compliance",
+    "cost",
+    "github_context",
+    "chain_hash",
+    "signature",
+    "issued_at"
+  ],
+  "properties": {
+    "receipt_id": { "type": "string" },
+    "subject": {
+      "type": "object",
+      "required": ["workload_identity", "invoking_actor"],
+      "properties": {
+        "workload_identity": { "type": "string" },
+        "invoking_actor": { "type": "string" }
+      }
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["PERMIT", "CONSTRAIN", "STEP_UP", "ESCALATE", "DENY"]
+    },
+    "action": { "type": "string" },
+    "resource": { "type": "string" },
+    "trust": {
+      "type": "object",
+      "required": ["score", "freshness_s"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "freshness_s": { "type": "integer", "minimum": 0 },
+        "decay_model": { "type": "string" },
+        "anomaly_score": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": ["grant_id", "grant_valid", "constraints"],
+      "properties": {
+        "grant_id": { "type": "string" },
+        "grant_valid": { "type": "boolean" },
+        "constraints": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "required": ["tier", "criticality", "blast_radius"],
+      "properties": {
+        "tier": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "criticality": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blast_radius": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reversible": { "type": "boolean" },
+        "delegation_depth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "compliance": {
+      "type": "object",
+      "required": ["frameworks", "controls", "evidence_mode", "retention_tier", "human_oversight"],
+      "properties": {
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "controls": { "type": "array", "items": { "type": "string" } },
+        "evidence_mode": { "type": "string" },
+        "retention_tier": { "type": "string" },
+        "human_oversight": { "type": "string", "enum": ["none", "single", "dual"] }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "required": ["execution_cost", "review_cost", "evidence_cost", "avoided_loss_estimate", "overhead_class"],
+      "properties": {
+        "execution_cost": { "type": "number", "minimum": 0 },
+        "review_cost": { "type": "number", "minimum": 0 },
+        "evidence_cost": { "type": "number", "minimum": 0 },
+        "avoided_loss_estimate": { "type": "number", "minimum": 0 },
+        "overhead_class": { "type": "string", "enum": ["light", "standard", "heavy"] }
+      }
+    },
+    "github_context": {
+      "type": "object",
+      "required": ["repo", "branch", "paths_touched", "workflow_run_id", "commit_sha"],
+      "properties": {
+        "repo": { "type": "string" },
+        "branch": { "type": "string" },
+        "paths_touched": { "type": "array", "items": { "type": "string" } },
+        "workflow_run_id": { "type": "string" },
+        "commit_sha": { "type": "string" }
+      }
+    },
+    "approval_chain": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["actor", "action", "timestamp"],
+        "properties": {
+          "actor": { "type": "string" },
+          "action": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "chain_hash": { "type": "string" },
+    "signature": { "type": "string" },
+    "issued_at": { "type": "string", "format": "date-time" }
+  }
+}
