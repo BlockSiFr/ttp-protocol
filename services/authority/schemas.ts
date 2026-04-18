@@ -16,6 +16,12 @@ export interface AuthorizeRequest {
   trustScore?: number
   freshnessSeconds?: number
   anomalyScore?: number
+  priorReceiptId?: string
+  approval?: {
+    environment: string
+    approved: boolean
+    approvedBy: string
+  }
 }
 
 export interface DecisionContext {
