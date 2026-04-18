@@ -29,3 +29,5 @@ Evaluation and enforcement are intentionally separated:
 - `step-up-approval` runs only for `STEP_UP`/`ESCALATE`.
 - `reauthorize-after-step-up` requests a second decision after approval.
 - `merge-authority` is the only terminal enforcement gate.
+
+Workflow contract details: `docs/protected-gate-workflow-contract.md`.
