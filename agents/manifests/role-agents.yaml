@@ -1,0 +1,141 @@
+version: 1
+agents:
+  - name: Protocol Editor Agent
+    workload_identity: wi://ttp/github/protocol-editor
+    purpose: Maintain protocol core text and schemas.
+    allowed_actions: [issue.comment, pull_request.review, merge recommendation, policy modification request]
+    forbidden_actions: [release tag request, protected merge approval request]
+    allowed_paths: [protocol/**, spec/**, rfcs/**]
+    protected_actions_requiring_step_up: [receipt schema modification request, policy modification request]
+    minimum_trust_score: 0.90
+    freshness_s: 600
+    risk_tier: high
+    compliance_implications: [integrity-control, change-management]
+    cost_profile: standard
+    receipt_requirements: [authority_basis, trust_context, risk_posture, compliance_posture, cost_posture, chain_hash]
+
+  - name: Spec & RFC Maintainer Agent
+    workload_identity: wi://ttp/github/spec-rfc-maintainer
+    purpose: Curate RFC lifecycle and spec consistency.
+    allowed_actions: [issue.comment, pull_request.review, label.apply]
+    forbidden_actions: [workflow modification request, release tag request]
+    allowed_paths: [rfcs/**, protocol/**, docs/**]
+    protected_actions_requiring_step_up: [merge to main]
+    minimum_trust_score: 0.85
+    freshness_s: 900
+    risk_tier: medium
+    compliance_implications: [review-evidence]
+    cost_profile: light
+    receipt_requirements: [authority_basis, trust_context, github_context]
+
+  - name: Rust Compiler Agent
+    workload_identity: wi://ttp/github/rust-compiler
+    purpose: Build/compiler integration and CI runtime checks.
+    allowed_actions: [workflow.dispatch, issue.comment, pull_request.review]
+    forbidden_actions: [policy modification request, receipt schema modification request]
+    allowed_paths: [compiler/**, .github/workflows/**]
+    protected_actions_requiring_step_up: [workflow modification request]
+    minimum_trust_score: 0.88
+    freshness_s: 300
+    risk_tier: high
+    compliance_implications: [build-integrity]
+    cost_profile: standard
+    receipt_requirements: [risk_posture, cost_posture, chain_hash]
+
+  - name: Runtime Systems Agent
+    workload_identity: wi://ttp/github/runtime-systems
+    purpose: Maintain runtime authority and verifier paths.
+    allowed_actions: [pull_request.review, issue.comment, workflow.dispatch]
+    forbidden_actions: [release tag request]
+    allowed_paths: [runtime/**, reference-implementations/**]
+    protected_actions_requiring_step_up: [edits to core runtime authorization behavior, merge to main]
+    minimum_trust_score: 0.92
+    freshness_s: 300
+    risk_tier: critical
+    compliance_implications: [runtime-control, security-review]
+    cost_profile: heavy
+    receipt_requirements: [authority_basis, approval_chain, risk_posture, compliance_posture, chain_hash, signature]
+
+  - name: ZK / Proof Systems Agent
+    workload_identity: wi://ttp/github/zk-proof-systems
+    purpose: Maintain proof-related semantics and references.
+    allowed_actions: [issue.comment, pull_request.review]
+    forbidden_actions: [workflow modification request, release tag request]
+    allowed_paths: [spec/**, docs/**]
+    protected_actions_requiring_step_up: [merge to main]
+    minimum_trust_score: 0.87
+    freshness_s: 1200
+    risk_tier: medium
+    compliance_implications: [evidence-quality]
+    cost_profile: standard
+    receipt_requirements: [trust_context, risk_posture, github_context]
+
+  - name: Identity / SCIM-RE Architect Agent
+    workload_identity: wi://ttp/github/scim-re-architect
+    purpose: Maintain identity and authority-plane mappings.
+    allowed_actions: [pull_request.review, issue.comment, policy modification request]
+    forbidden_actions: [release tag request]
+    allowed_paths: [docs/**, policy/**, spec/**]
+    protected_actions_requiring_step_up: [policy modification request, receipt schema modification request]
+    minimum_trust_score: 0.91
+    freshness_s: 600
+    risk_tier: high
+    compliance_implications: [identity-governance]
+    cost_profile: standard
+    receipt_requirements: [authority_basis, compliance_posture, approval_chain]
+
+  - name: Security Research Agent
+    workload_identity: wi://ttp/github/security-research
+    purpose: Analyze threats, controls, and verification logic.
+    allowed_actions: [issue.comment, pull_request.review, label.apply]
+    forbidden_actions: [merge to main, release tag request]
+    allowed_paths: [docs/security.md, protocol/**, reference-implementations/**]
+    protected_actions_requiring_step_up: [edits to signing, key, or verification paths]
+    minimum_trust_score: 0.93
+    freshness_s: 300
+    risk_tier: critical
+    compliance_implications: [security-review, evidence-retention]
+    cost_profile: heavy
+    receipt_requirements: [risk_posture, compliance_posture, chain_hash, signature]
+
+  - name: Agent Framework Integration Agent
+    workload_identity: wi://ttp/github/framework-integration
+    purpose: Integrate TTP with agent frameworks and callbacks.
+    allowed_actions: [issue.comment, pull_request.review, workflow.dispatch]
+    forbidden_actions: [policy modification request, receipt schema modification request]
+    allowed_paths: [sdk/**, examples/**, docs/**]
+    protected_actions_requiring_step_up: [workflow modification request]
+    minimum_trust_score: 0.84
+    freshness_s: 900
+    risk_tier: medium
+    compliance_implications: [integration-evidence]
+    cost_profile: standard
+    receipt_requirements: [trust_context, risk_posture, github_context]
+
+  - name: Docs / DX Agent
+    workload_identity: wi://ttp/github/docs-dx
+    purpose: Maintain docs quality and contributor experience.
+    allowed_actions: [issue.comment, pull_request.review, label.apply]
+    forbidden_actions: [workflow modification request, merge to main, release tag request]
+    allowed_paths: [docs/**, README.md, CONTRIBUTING.md]
+    protected_actions_requiring_step_up: [merge recommendation for protected paths]
+    minimum_trust_score: 0.80
+    freshness_s: 1800
+    risk_tier: low
+    compliance_implications: [change-traceability]
+    cost_profile: light
+    receipt_requirements: [authority_basis, github_context]
+
+  - name: Standards / Ecosystem Agent
+    workload_identity: wi://ttp/github/standards-ecosystem
+    purpose: Coordinate standards-track and ecosystem alignment.
+    allowed_actions: [issue.comment, pull_request.review, label.apply, merge recommendation]
+    forbidden_actions: [release tag request]
+    allowed_paths: [rfcs/**, docs/**, protocol/**]
+    protected_actions_requiring_step_up: [merge to main, policy modification request]
+    minimum_trust_score: 0.89
+    freshness_s: 1200
+    risk_tier: high
+    compliance_implications: [governance-evidence]
+    cost_profile: standard
+    receipt_requirements: [authority_basis, approval_chain, risk_posture, compliance_posture]
