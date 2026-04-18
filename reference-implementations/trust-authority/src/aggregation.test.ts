@@ -1,5 +1,6 @@
 import { aggregateTrustScore } from './aggregation'
 import { StoredReceipt, TTP_VERSION } from './types'
+import { describe, it, expect } from '@jest/globals'
 
 function r(overrides: Partial<StoredReceipt>): StoredReceipt {
   return {
