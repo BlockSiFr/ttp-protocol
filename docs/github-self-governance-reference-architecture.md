@@ -192,17 +192,21 @@ Reference schema extension: `spec/extensions/execution-receipt-v2.schema.json`.
 
 ## 11. Agent Role Manifests
 
-V1 enforcement scope starts with three agents only:
-1. `protocol-editor-agent`
-2. `security-review-agent`
-3. `docs-dx-agent` (optional / low priority)
+Source of truth: `agents/manifests/role-agents.yaml`.
 
-Starter manifests:
-- `agents/protocol-editor/manifest.json`
-- `agents/security/manifest.json`
-- `agents/docs-dx/manifest.json`
+The ten role-agents modeled:
+1. Protocol Editor Agent
+2. Spec & RFC Maintainer Agent
+3. Rust Compiler Agent
+4. Runtime Systems Agent
+5. ZK / Proof Systems Agent
+6. Identity / SCIM-RE Architect Agent
+7. Security Research Agent
+8. Agent Framework Integration Agent
+9. Docs / DX Agent
+10. Standards / Ecosystem Agent
 
-These agents do not get direct merge authority in v1. They request execution, annotate/recommend, and trigger step-up/escalation under grant and receipt controls.
+Each manifest defines purpose, workload identity, allowed/forbidden actions, path scope, protected actions, trust threshold, freshness, risk tier, compliance implications, cost profile, and receipt requirements.
 
 ## 12. Protected Actions and Step-Up Policy
 
@@ -230,7 +234,6 @@ receipts/
 rfcs/
 spec/
 runtime/
-services/
 compiler/
 docs/
 examples/
@@ -240,7 +243,6 @@ This repository adds initial seeds for:
 - `agents/manifests/`
 - `policy/`
 - `runtime/api/`
-- `services/authority/`
 - `rfcs/`
 - `spec/extensions/`
 
