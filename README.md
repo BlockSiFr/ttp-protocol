@@ -103,6 +103,19 @@ Verification at the service boundary is stateless and cryptographic.
 
 -----
 
+## Trust Routing Subsystem (New)
+
+TTP now includes a runtime **Trust Routing** subsystem for trust-before-execution:
+
+`execution request -> route resolution -> authority decision -> execution receipt -> enforcement`
+
+Core implementation entry points:
+- `apps/trust-route-resolver/src/server.mjs` (runtime APIs)
+- `packages/trust-routing-engine/src/*` (resolver, decay, policy, receipt logic)
+- `.github/workflows/trust-routing-governed-steps.yml` (GitHub Actions wedge demo)
+
+-----
+
 ## Core Components
 
 ### Behavioral Receipts
