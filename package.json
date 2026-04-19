@@ -1,0 +1,8 @@
+{
+  "name": "ttp-protocol-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs"
+  }
+}

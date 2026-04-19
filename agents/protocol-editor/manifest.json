@@ -1,0 +1,11 @@
+{
+  "name": "protocol-editor-agent",
+  "purpose": "propose protocol/spec changes under authority gating",
+  "workloadIdentity": "wi://ttp/github/protocol-editor-agent",
+  "allowedActions": ["issue.comment", "pull_request.review", "merge request"],
+  "forbiddenActions": ["merge approval", "release tag request"],
+  "allowedPaths": ["protocol/**", "rfcs/**", "spec/**"],
+  "minTrustScore": 0.9,
+  "freshnessMaxSeconds": 600,
+  "riskTier": "high"
+}

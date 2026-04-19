@@ -103,6 +103,19 @@ Verification at the service boundary is stateless and cryptographic.
 
 -----
 
+## Trust Routing Subsystem (New)
+
+TTP now includes a runtime **Trust Routing** subsystem for trust-before-execution:
+
+`execution request -> route resolution -> authority decision -> execution receipt -> enforcement`
+
+Core implementation entry points:
+- `apps/trust-route-resolver/src/server.mjs` (runtime APIs)
+- `packages/trust-routing-engine/src/*` (resolver, decay, policy, receipt logic)
+- `.github/workflows/trust-routing-governed-steps.yml` (GitHub Actions wedge demo)
+
+-----
+
 ## Core Components
 
 ### Behavioral Receipts
@@ -362,6 +375,43 @@ app.post("/api/issue-discount", async (req, res) => {
 
 -----
 
+## Start Here (Docs Split by Audience)
+
+To keep this README concise, onboarding and operations are split into focused guides:
+
+- **Getting Started:** [docs/getting-started.md](docs/getting-started.md)
+  - quickstart path
+  - role-based integration paths
+  - core-to-edge participation model
+  - identity assurance checklist
+- **Operator Guide:** [docs/operator-guide.md](docs/operator-guide.md)
+  - agent registry operations
+  - admin API examples
+  - status / quarantine / block workflows
+  - registry metrics usage
+- **Easy Connect API:** [docs/easy-connect-api.md](docs/easy-connect-api.md)
+  - one-call bootstrap via `POST /v1/connect`
+  - sample authorize payload + copy/paste curl
+  - quickest path for external integrators
+- **Ecosystem Integrations:** [docs/ecosystem-integrations.md](docs/ecosystem-integrations.md)
+  - AGT-native integration patterns (OPA/Rego, SPIFFE, score mapping, AgentMesh)
+  - network security integration patterns (Zscaler/Palo Alto/Juniper)
+- **Roadmap & Collaboration Model:** [docs/roadmap.md](docs/roadmap.md)
+  - role lanes for scaling adoption quickly
+  - stewardship and commercialization decision framework
+- **Public Launch Checklist:** [docs/public-readiness.md](docs/public-readiness.md)
+  - release gates for docs, security, CI, and operations
+- **Open-Source Boundary:** [docs/open-source-boundary.md](docs/open-source-boundary.md)
+  - keeps protocol/interoperability public while premium ops stay external
+- **Repo Access Controls:** [docs/repo-access-control.md](docs/repo-access-control.md)
+  - safe collaborator permissions and branch/release protection model
+- **GitHub Self-Governance (TTP governing TTP):** [docs/github-self-governance-reference-architecture.md](docs/github-self-governance-reference-architecture.md)
+  - runtime authority gate, SCIM-RE mapping, protected actions, receipts
+
+For end-to-end implementation details, use [docs/integration-guide.md](docs/integration-guide.md).
+
+-----
+
 ## Where TTP Fits
 
 |System         |Role                 |Relationship to TTP                                  |
@@ -371,6 +421,7 @@ app.post("/api/issue-discount", async (req, res) => {
 |API Gateway    |Routing & rate limit |Integration point — gateway acts as an issuer        |
 |Service Mesh   |Connectivity (mTLS)  |Complementary — mesh verifies identity, TTP verifies behavior |
 |SPIFFE / SPIRE |Workload identity    |Complementary — SPIFFE issues SVIDs, TTP adds behavioral layer on top |
+|Network Security Platforms (Zscaler, Palo Alto, Juniper) |Network/session controls|Complementary — network controls enforce transport/session policy; TTP enforces behavior-aware action trust |
 |ZTNA           |Network access       |Complementary — ZTNA controls the network, TTP controls the action |
 |AI Agent Frameworks | Execution      |Integration point — LangChain, CrewAI agents become TTP-aware |
 
@@ -583,7 +634,16 @@ ttp-protocol/
 │   ├── security.md
 │   ├── governance.md
 │   ├── patent-strategy.md
-│   └── integration-guide.md
+│   ├── roadmap.md
+│   ├── public-readiness.md
+│   ├── open-source-boundary.md
+│   ├── repo-access-control.md
+│   ├── github-self-governance-reference-architecture.md
+│   ├── integration-guide.md
+│   ├── easy-connect-api.md
+│   ├── getting-started.md
+│   ├── operator-guide.md
+│   └── ecosystem-integrations.md
 ├── reference-implementations/
 │   ├── trust-authority/
 │   ├── issuers/
@@ -686,11 +746,12 @@ Contributions welcome.
 
 Areas of interest:
 
-- SDK implementations
-- Issuer integrations
-- Security analysis
-- Performance optimization
-- Documentation
+- Trust Authority / network core operations
+- Issuer integrations and adapters
+- Verifier enforcement patterns
+- Agent SDK/runtime integrations
+- Security analysis and threat modeling
+- Documentation and onboarding
 
 See <CONTRIBUTING.md> for guidelines.
 

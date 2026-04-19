@@ -1,0 +1,73 @@
+name: TTP / Trust Routing Governed Steps (Demo)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  governed-steps:
+    runs-on: ubuntu-latest
+    env:
+      TRUST_ROUTER_URL: http://localhost:8090
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start local trust route resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/trust-route-resolver/src/server.mjs > trust-router.log 2>&1 &
+          echo $! > trust-router.pid
+          sleep 1
+
+      - name: Governed build step
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTION="build.run"
+          RESOURCE="github:repo/job/build"
+          PARAMS_HASH="sha256:build"
+          BUCKET="$(date -u +'%Y-%m-%dT%H:%M')"
+          BINDING_HASH="$(curl -sS -X POST "$TRUST_ROUTER_URL/utils/binding-hash" -H 'Content-Type: application/json' -d "{\"subject\":\"wl-build\",\"action\":\"$ACTION\",\"resource\":\"$RESOURCE\",\"paramsHash\":\"$PARAMS_HASH\",\"timestampBucket\":\"$BUCKET\"}" | jq -r '.bindingHash')"
+
+          curl -sS -X POST "$TRUST_ROUTER_URL/re/authorize" \
+            -H 'Content-Type: application/json' \
+            -d "{\"subject\":\"wl-build\",\"action\":\"$ACTION\",\"resource\":\"$RESOURCE\",\"context\":{\"environment\":\"ci\",\"step\":\"build\"},\"requestedBy\":\"github-actions\",\"attestationRef\":\"att-build\",\"paramsHash\":\"$PARAMS_HASH\",\"bindingHash\":\"$BINDING_HASH\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > decision-build.json
+
+          DECISION="$(jq -r '.decision' decision-build.json)"
+          RECEIPT="$(jq -r '.receiptId' decision-build.json)"
+          echo "build decision=$DECISION receipt=$RECEIPT"
+          [ "$DECISION" = "PERMIT" ] || (echo "build denied" && exit 1)
+          npm --version
+
+      - name: Governed test step
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTION="test.run"
+          RESOURCE="github:repo/job/test"
+          PARAMS_HASH="sha256:test"
+          BUCKET="$(date -u +'%Y-%m-%dT%H:%M')"
+          BINDING_HASH="$(curl -sS -X POST "$TRUST_ROUTER_URL/utils/binding-hash" -H 'Content-Type: application/json' -d "{\"subject\":\"wl-test\",\"action\":\"$ACTION\",\"resource\":\"$RESOURCE\",\"paramsHash\":\"$PARAMS_HASH\",\"timestampBucket\":\"$BUCKET\"}" | jq -r '.bindingHash')"
+          curl -sS -X POST "$TRUST_ROUTER_URL/re/authorize" -H 'Content-Type: application/json' -d "{\"subject\":\"wl-test\",\"action\":\"$ACTION\",\"resource\":\"$RESOURCE\",\"context\":{\"environment\":\"ci\",\"step\":\"test\"},\"requestedBy\":\"github-actions\",\"attestationRef\":\"att-test\",\"paramsHash\":\"$PARAMS_HASH\",\"bindingHash\":\"$BINDING_HASH\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > decision-test.json
+          [ "$(jq -r '.decision' decision-test.json)" = "PERMIT" ] || (echo "test denied" && exit 1)
+          echo "tests would run here"
+
+      - name: Governed deploy step (expects STEP_UP)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTION="deploy.production"
+          RESOURCE="github:repo/environment/prod"
+          PARAMS_HASH="sha256:deploy"
+          BUCKET="$(date -u +'%Y-%m-%dT%H:%M')"
+          BINDING_HASH="$(curl -sS -X POST "$TRUST_ROUTER_URL/utils/binding-hash" -H 'Content-Type: application/json' -d "{\"subject\":\"wl-deploy\",\"action\":\"$ACTION\",\"resource\":\"$RESOURCE\",\"paramsHash\":\"$PARAMS_HASH\",\"timestampBucket\":\"$BUCKET\"}" | jq -r '.bindingHash')"
+          curl -sS -X POST "$TRUST_ROUTER_URL/re/authorize" -H 'Content-Type: application/json' -d "{\"subject\":\"wl-deploy\",\"action\":\"$ACTION\",\"resource\":\"$RESOURCE\",\"context\":{\"environment\":\"production\",\"step\":\"deploy\"},\"requestedBy\":\"github-actions\",\"attestationRef\":\"att-deploy\",\"paramsHash\":\"$PARAMS_HASH\",\"bindingHash\":\"$BINDING_HASH\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > decision-deploy.json
+          DECISION="$(jq -r '.decision' decision-deploy.json)"
+          echo "deploy decision=$DECISION"
+          [ "$DECISION" = "STEP_UP" ] || (echo "expected step-up for production deploy" && exit 1)
+          exit 1
+
+      - name: Cleanup resolver
+        if: always()
+        run: |
+          if [ -f trust-router.pid ]; then kill "$(cat trust-router.pid)" || true; fi
