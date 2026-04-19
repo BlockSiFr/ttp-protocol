@@ -1,0 +1,382 @@
+name: TTP / Protected Action Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  protected-action-gate:
+    name: TTP / Protected Action Gate
+    runs-on: ubuntu-latest
+    outputs:
+      decision: ${{ steps.evaluate.outputs.decision }}
+      receipt_id: ${{ steps.evaluate.outputs.receipt_id }}
+      reason: ${{ steps.evaluate.outputs.reason }}
+      needs_reauth: ${{ steps.evaluate.outputs.needs_reauth }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Prepare local receipt workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ttp/receipts
+
+      - name: Evaluate protected change with runtime authority
+        id: evaluate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DECISION="DENY"
+          RECEIPT_ID=""
+          REASON="evaluation_not_started"
+          NEEDS_REAUTH="false"
+
+          emit_outputs() {
+            echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+            echo "receipt_id=$RECEIPT_ID" >> "$GITHUB_OUTPUT"
+            echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+            echo "needs_reauth=$NEEDS_REAUTH" >> "$GITHUB_OUTPUT"
+
+            echo "Authority decision: $DECISION"
+            echo "Receipt: $RECEIPT_ID"
+            echo "Reason: $REASON"
+            echo "Needs reauth: $NEEDS_REAUTH"
+          }
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.sha }}"
+
+          if ! git rev-parse --verify "$BASE_SHA" >/dev/null 2>&1; then
+            REASON="base_sha_not_available"
+            emit_outputs
+            exit 0
+          fi
+
+          if ! git rev-parse --verify "$HEAD_SHA" >/dev/null 2>&1; then
+            REASON="head_sha_not_available"
+            emit_outputs
+            exit 0
+          fi
+
+          if ! git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed.txt; then
+            REASON="git_diff_failed"
+            emit_outputs
+            exit 0
+          fi
+
+          mapfile -t CHANGED_PATHS < changed.txt
+          echo "Changed paths (${#CHANGED_PATHS[@]}):"
+          printf '%s\n' "${CHANGED_PATHS[@]:-}"
+
+          PATHS_JSON="[]"
+          if [ "${#CHANGED_PATHS[@]}" -gt 0 ]; then
+            PATHS_JSON="$(printf '%s\n' "${CHANGED_PATHS[@]}" | jq -R . | jq -s .)"
+          fi
+
+          cat > request.json <<JSON
+          {
+            "subject": "wi://ttp/github/security-review-agent",
+            "action": "merge request",
+            "resource": "repo:${{ github.repository }}:pr/${{ github.event.pull_request.number }}",
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.head_ref }}",
+            "pathsTouched": ${PATHS_JSON},
+            "commitSha": "${{ github.sha }}",
+            "invokingActor": "${{ github.actor }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "attestationRef": "att-pr-${{ github.run_id }}",
+            "authorityGrantRef": "grant-pr-${{ github.run_id }}",
+            "trustScore": 0.91,
+            "freshnessSeconds": 120,
+            "context": {
+              "event": "pull_request",
+              "baseSha": "${{ github.event.pull_request.base.sha }}",
+              "headSha": "${{ github.sha }}"
+            }
+          }
+          JSON
+
+          if ! node .github/scripts/ttp-local-authorize.mjs request.json decision.json; then
+            REASON="local_authority_execution_failed"
+            emit_outputs
+            exit 0
+          fi
+
+          if ! jq empty decision.json >/dev/null 2>&1; then
+            REASON="local_authority_invalid_json"
+            emit_outputs
+            exit 0
+          fi
+
+          RESP_DECISION="$(jq -r '.decision // empty' decision.json)"
+          RESP_RECEIPT_ID="$(jq -r '.receiptId // empty' decision.json)"
+          RESP_REASON="$(jq -r '.reason // empty' decision.json)"
+
+          case "$RESP_DECISION" in
+            PERMIT|STEP_UP|ESCALATE|DENY)
+              DECISION="$RESP_DECISION"
+              ;;
+            "")
+              DECISION="DENY"
+              REASON="local_authority_missing_decision"
+              ;;
+            *)
+              DECISION="DENY"
+              REASON="local_authority_invalid_decision_value"
+              ;;
+          esac
+
+          if [ -n "$RESP_REASON" ]; then
+            REASON="$RESP_REASON"
+          elif [ "$REASON" = "evaluation_not_started" ]; then
+            REASON="local_authority_missing_reason"
+          fi
+
+          if [ -n "$RESP_RECEIPT_ID" ]; then
+            RECEIPT_ID="$RESP_RECEIPT_ID"
+          else
+            DECISION="DENY"
+            REASON="local_authority_missing_receipt_id"
+          fi
+
+          if [ "$DECISION" = "STEP_UP" ] || [ "$DECISION" = "ESCALATE" ]; then
+            NEEDS_REAUTH="true"
+          fi
+
+          emit_outputs
+
+      - name: Upload local authority receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttp-local-receipts-${{ github.run_id }}-${{ github.job }}
+          path: .ttp/receipts
+          if-no-files-found: warn
+
+  receipt-required:
+    name: TTP / Receipt Required
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate]
+    if: always()
+    steps:
+      - name: Validate receipt id exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          DECISION="${{ needs.protected-action-gate.outputs.decision }}"
+          RECEIPT_ID="${{ needs.protected-action-gate.outputs.receipt_id }}"
+          REASON="${{ needs.protected-action-gate.outputs.reason }}"
+
+          if [ -z "$DECISION" ]; then
+            echo "Missing decision output"
+            exit 1
+          fi
+
+          if [ -z "$RECEIPT_ID" ]; then
+            case "${REASON:-unknown_reason}" in
+              local_authority_execution_failed)
+                echo "Missing receipt id because local TTP authority execution failed."
+                ;;
+              local_authority_invalid_json|local_authority_missing_decision|local_authority_invalid_decision_value|local_authority_missing_reason|local_authority_missing_receipt_id)
+                echo "Missing receipt id because local authority response violated contract (reason=${REASON})."
+                ;;
+              *)
+                echo "Missing receipt id for decision=$DECISION reason=${REASON:-unknown_reason}"
+                ;;
+            esac
+            exit 1
+          fi
+
+  step-up-approval:
+    name: TTP / Step-Up Approval
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate, receipt-required]
+    if: always() && needs.protected-action-gate.outputs.needs_reauth == 'true'
+    environment:
+      name: protected-action-approval
+    steps:
+      - shell: bash
+        run: |
+          set -euo pipefail
+          echo "Human approval required."
+          echo "Decision: ${{ needs.protected-action-gate.outputs.decision }}"
+          echo "Receipt: ${{ needs.protected-action-gate.outputs.receipt_id }}"
+          echo "Reason: ${{ needs.protected-action-gate.outputs.reason }}"
+
+  reauthorize-after-step-up:
+    name: TTP / Reauthorize After Step-Up
+    runs-on: ubuntu-latest
+    needs: [protected-action-gate, receipt-required, step-up-approval]
+    if: always() && needs.protected-action-gate.outputs.needs_reauth == 'true'
+    outputs:
+      decision: ${{ steps.reauth.outputs.decision }}
+      receipt_id: ${{ steps.reauth.outputs.receipt_id }}
+      reason: ${{ steps.reauth.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Prepare local receipt workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ttp/receipts
+
+      - name: Reauthorize after approval
+        id: reauth
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DECISION="DENY"
+          RECEIPT_ID=""
+          REASON="reauthorization_not_started"
+
+          emit_outputs() {
+            echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+            echo "receipt_id=$RECEIPT_ID" >> "$GITHUB_OUTPUT"
+            echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+            echo "Reauth decision: $DECISION"
+            echo "Reauth receipt: $RECEIPT_ID"
+            echo "Reauth reason: $REASON"
+          }
+
+          cat > reauth.json <<JSON
+          {
+            "subject": "wi://ttp/github/security-review-agent",
+            "action": "merge request reauthorize",
+            "resource": "repo:${{ github.repository }}:pr/${{ github.event.pull_request.number }}",
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.head_ref }}",
+            "pathsTouched": [],
+            "commitSha": "${{ github.sha }}",
+            "invokingActor": "${{ github.actor }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "attestationRef": "att-pr-${{ github.run_id }}-reauth",
+            "authorityGrantRef": "grant-pr-${{ github.run_id }}",
+            "priorReceiptId": "${{ needs.protected-action-gate.outputs.receipt_id }}",
+            "approval": {
+              "environment": "protected-action-approval",
+              "approved": true,
+              "approvedBy": "${{ github.actor }}"
+            },
+            "context": {
+              "event": "pull_request_reauthorize"
+            }
+          }
+          JSON
+
+          if ! node .github/scripts/ttp-local-authorize.mjs reauth.json reauth-response.json; then
+            REASON="local_authority_execution_failed"
+            emit_outputs
+            exit 0
+          fi
+
+          if ! jq empty reauth-response.json >/dev/null 2>&1; then
+            REASON="local_authority_invalid_json"
+            emit_outputs
+            exit 0
+          fi
+
+          RESP_DECISION="$(jq -r '.decision // empty' reauth-response.json)"
+          RESP_RECEIPT_ID="$(jq -r '.receiptId // empty' reauth-response.json)"
+          RESP_REASON="$(jq -r '.reason // empty' reauth-response.json)"
+
+          case "$RESP_DECISION" in
+            PERMIT|STEP_UP|ESCALATE|DENY)
+              DECISION="$RESP_DECISION"
+              ;;
+            "")
+              DECISION="DENY"
+              REASON="local_authority_missing_decision"
+              ;;
+            *)
+              DECISION="DENY"
+              REASON="local_authority_invalid_decision_value"
+              ;;
+          esac
+
+          if [ -n "$RESP_REASON" ]; then
+            REASON="$RESP_REASON"
+          elif [ "$REASON" = "reauthorization_not_started" ]; then
+            REASON="local_authority_missing_reason"
+          fi
+
+          if [ -n "$RESP_RECEIPT_ID" ]; then
+            RECEIPT_ID="$RESP_RECEIPT_ID"
+          else
+            DECISION="DENY"
+            REASON="local_authority_missing_receipt_id"
+          fi
+
+          emit_outputs
+
+      - name: Upload local authority receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttp-local-receipts-${{ github.run_id }}-${{ github.job }}
+          path: .ttp/receipts
+          if-no-files-found: warn
+
+  merge-authority:
+    name: TTP / Merge Authority
+    runs-on: ubuntu-latest
+    needs:
+      - protected-action-gate
+      - receipt-required
+      - step-up-approval
+      - reauthorize-after-step-up
+    if: always()
+    steps:
+      - name: Verify final merge authority decision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          INITIAL_DECISION="${{ needs.protected-action-gate.outputs.decision }}"
+          INITIAL_RECEIPT_ID="${{ needs.protected-action-gate.outputs.receipt_id }}"
+          INITIAL_REASON="${{ needs.protected-action-gate.outputs.reason }}"
+          NEEDS_REAUTH="${{ needs.protected-action-gate.outputs.needs_reauth }}"
+
+          REAUTH_DECISION="${{ needs.reauthorize-after-step-up.outputs.decision }}"
+          REAUTH_RECEIPT_ID="${{ needs.reauthorize-after-step-up.outputs.receipt_id }}"
+          REAUTH_REASON="${{ needs.reauthorize-after-step-up.outputs.reason }}"
+
+          DECISION="$INITIAL_DECISION"
+          RECEIPT_ID="$INITIAL_RECEIPT_ID"
+          REASON="$INITIAL_REASON"
+
+          if [ -z "$DECISION" ]; then
+            DECISION="DENY"
+            REASON="missing_initial_decision_output"
+          fi
+
+          if [ "$NEEDS_REAUTH" = "true" ]; then
+            DECISION="${REAUTH_DECISION:-DENY}"
+            RECEIPT_ID="${REAUTH_RECEIPT_ID:-}"
+            REASON="${REAUTH_REASON:-missing_reauthorization_decision_output}"
+          fi
+
+          if [ -z "$RECEIPT_ID" ]; then
+            echo "Final decision missing receipt. reason=${REASON:-unknown_reason}"
+            exit 1
+          fi
+
+          echo "Final decision: $DECISION"
+          echo "Final receipt: $RECEIPT_ID"
+          echo "Final reason: $REASON"
+
+          if [ "$DECISION" = "PERMIT" ]; then
+            echo "Merge authority granted"
+            exit 0
+          fi
+
+          echo "Merge authority denied: $DECISION ($REASON)"
+          exit 1

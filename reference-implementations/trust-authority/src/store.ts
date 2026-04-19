@@ -57,6 +57,10 @@ export class TTPStore {
     return this.agents.get(agentId)
   }
 
+  listAgents(): RegisteredAgent[] {
+    return Array.from(this.agents.values())
+  }
+
   blockAgent(agentId: string, reason: string): void {
     const agent = this.agents.get(agentId)
     if (agent) {
@@ -133,6 +137,17 @@ export class TTPStore {
   getReceipts(agentId: string, domain: string): StoredReceipt[] {
     const key = `${agentId}:${domain}`
     return this.receipts.get(key) ?? []
+  }
+
+  getAgentReceiptsAcrossDomains(agentId: string): StoredReceipt[] {
+    const out: StoredReceipt[] = []
+    const prefix = `${agentId}:`
+    for (const [key, receipts] of this.receipts.entries()) {
+      if (key.startsWith(prefix)) {
+        out.push(...receipts)
+      }
+    }
+    return out
   }
 
   /**
