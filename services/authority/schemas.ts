@@ -87,31 +87,3 @@ export interface ExecutionReceipt {
   chainHash: string
   reason: string
 }
-
-export interface ConnectRequest {
-  integrationName: string
-  subject: string
-  repo: string
-  branch?: string
-  mode?: "sync" | "async"
-  callbackUrl?: string
-}
-
-export interface ConnectResponse {
-  status: "connected"
-  integrationId: string
-  authority: {
-    healthz: string
-    authorize: string
-    attest: string
-    receiptById: string
-  }
-  quickstart: {
-    nextStep: string
-    sampleAuthorizeRequest: AuthorizeRequest
-    curl: {
-      authorize: string
-      attest: string
-    }
-  }
-}
