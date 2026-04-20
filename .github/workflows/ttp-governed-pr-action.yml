@@ -1,0 +1,70 @@
+name: TTP Governed PR Action (Skeleton)
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  governed-action:
+    if: contains(github.event.comment.body, '/ttp')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare local receipt workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ttp/receipts
+
+      - name: Build /re/authorize request context
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > request.json <<JSON
+          {
+            "subject": "wi://ttp/github/protocol-editor-agent",
+            "action": "issue.comment",
+            "resource": "repo:${{ github.repository }}:issue/${{ github.event.issue.number }}",
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "pathsTouched": [],
+            "commitSha": "${{ github.sha }}",
+            "invokingActor": "${{ github.actor }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "attestationRef": "att-issue-${{ github.run_id }}",
+            "authorityGrantRef": "grant-issue-${{ github.run_id }}",
+            "trustScore": 0.9,
+            "freshnessSeconds": 60,
+            "context": { "event": "issue_comment" }
+          }
+          JSON
+
+      - name: Local TTP Runtime Authority Gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/scripts/ttp-local-authorize.mjs request.json decision.json
+          cat decision.json
+
+      - name: Enforce decision
+        shell: bash
+        run: |
+          set -euo pipefail
+          DECISION="$(jq -r '.decision // "DENY"' decision.json)"
+          case "$DECISION" in
+            PERMIT) echo "execute allowed action" ;;
+            STEP_UP) echo "request human step-up approval" ; exit 1 ;;
+            ESCALATE) echo "escalate to maintainers/security owners" ; exit 1 ;;
+            DENY|*) echo "deny action" ; exit 1 ;;
+          esac
+
+      - name: Persist receipt reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -r '.receiptId // empty' decision.json

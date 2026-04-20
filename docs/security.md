@@ -290,6 +290,21 @@ Operators SHOULD implement alerting for:
 - Token rejections at verifiers (potential compromised agents)
 - Trust Authority latency spikes (potential availability attack)
 
+### 5.5 Documentation and Semantics Drift
+
+Operators SHOULD treat documentation drift as a security risk.
+
+Risk examples:
+- verifier policies implemented from outdated claim semantics
+- assumptions about endpoints/features that are not part of deployed code
+- inconsistent interpretation of trust fields across teams
+
+Recommended controls:
+- use schema + runtime endpoint behavior as source of truth during reviews
+- keep `ttp-language.md` synchronized with implemented protocol semantics
+- include documentation-accuracy checks in release readiness gates
+- require sign-off when claim meanings or admin route behaviors change
+
 ---
 
 ## 6. Security Audit Scope

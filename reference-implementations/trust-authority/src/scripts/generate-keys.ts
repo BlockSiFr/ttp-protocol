@@ -8,7 +8,7 @@ import { sha512 } from "@noble/hashes/sha512"
 import * as fs from "fs"
 import * as path from "path"
 
-ed.etc.sha512Sync = (...m) => sha512(...m)
+ed.etc.sha512Sync = (message) => sha512(message)
 
 function base64urlEncode(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")

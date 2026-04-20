@@ -1,0 +1,18 @@
+version: 1
+thresholds:
+  low:
+    min_trust: 0.80
+    max_freshness_s: 1800
+  medium:
+    min_trust: 0.85
+    max_freshness_s: 900
+  high:
+    min_trust: 0.90
+    max_freshness_s: 600
+  critical:
+    min_trust: 0.93
+    max_freshness_s: 300
+
+protected_defaults:
+  require_step_up: true
+  fail_closed_on_ambiguity: true
