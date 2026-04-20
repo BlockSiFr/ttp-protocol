@@ -4,19 +4,29 @@
 
 ```json
 {
-  "subject": "wi://ttp/github/security-review-agent",
+  "subject": {
+    "workload_identity": "wi://ttp/github/runtime-systems",
+    "invoking_actor": "github-app:ttp-governance"
+  },
   "action": "workflow modification request",
   "resource": "repo:blocksifr/ttp-protocol:.github/workflows/ci.yml",
-  "repo": "blocksifr/ttp-protocol",
-  "branch": "feature/runtime-gate",
-  "pathsTouched": [".github/workflows/ci.yml"],
-  "workflowRunId": "123456789",
-  "commitSha": "abc123...",
-  "invokingActor": "github-app:ttp-governance",
-  "authorityGrantRef": "grant-789",
-  "attestationRef": "att-456",
-  "freshnessSeconds": 120,
-  "context": { "environment": "github-actions" }
+  "context": {
+    "repo": "blocksifr/ttp-protocol",
+    "branch": "feature/runtime-gate",
+    "paths_touched": [".github/workflows/ci.yml"],
+    "workflow_run_id": "123456789",
+    "commit_sha": "abc123...",
+    "environment": "github-actions"
+  },
+  "authority_grant": {
+    "grant_id": "grant-789",
+    "expires_at": "2026-04-17T12:00:00Z"
+  },
+  "attestation": {
+    "attestation_id": "att-456",
+    "freshness_s": 120,
+    "valid": true
+  }
 }
 ```
 
@@ -25,40 +35,22 @@
 ```json
 {
   "decision": "STEP_UP",
-  "reason": "protected_action_requires_human",
-  "receiptId": "er-123"
+  "constraints": ["require_environment_reviewer", "require_security_owner_approval"],
+  "reason_codes": ["PROTECTED_ACTION", "HUMAN_STEP_UP_REQUIRED"],
+  "receipt": {
+    "receipt_id": "er-123",
+    "decision": "STEP_UP",
+    "chain_hash": "sha256:...",
+    "signature": "ed25519:...",
+    "issued_at": "2026-04-17T11:00:00Z"
+  }
 }
 ```
 
 ## Outcome semantics
 
 - `PERMIT`: execute action in current scope.
+- `CONSTRAIN`: execute only under returned constraints.
 - `STEP_UP`: pause for required step-up approval.
 - `ESCALATE`: route to higher authority chain.
 - `DENY`: block execution; receipt still recorded.
-
-## Re-authorization request (after step-up / escalation approval)
-
-```json
-{
-  "subject": "wi://ttp/github/security-review-agent",
-  "action": "merge request reauthorize",
-  "resource": "repo:blocksifr/ttp-protocol:pr/42",
-  "repo": "blocksifr/ttp-protocol",
-  "branch": "feature/runtime-gate",
-  "pathsTouched": [],
-  "workflowRunId": "123456789",
-  "commitSha": "abc123...",
-  "invokingActor": "reviewer:alice",
-  "authorityGrantRef": "grant-789",
-  "attestationRef": "att-456",
-  "freshnessSeconds": 120,
-  "priorReceiptId": "er-123",
-  "approval": {
-    "environment": "protected-action-approval",
-    "approved": true,
-    "approvedBy": "alice"
-  },
-  "context": { "event": "pull_request_reauthorize" }
-}
-```

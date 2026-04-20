@@ -4,8 +4,8 @@ This document describes the runtime contract implemented by `.github/workflows/t
 
 ## Decision flow
 
-1. `protected-action-gate` calls the local TTP authority evaluator (`.github/scripts/ttp-local-authorize.mjs`).
-2. The local evaluator returns a decision and receipt and writes receipts under `.ttp/receipts/`.
+1. `protected-action-gate` calls `POST {RUNTIME_AUTH_URL}/re/authorize`.
+2. The authority returns a decision and receipt.
 3. If decision is `STEP_UP` or `ESCALATE`, `step-up-approval` runs through the protected environment.
 4. `reauthorize-after-step-up` sends a second `POST /re/authorize` request with the prior receipt and approval context.
 5. `merge-authority` enforces the final decision; only `PERMIT` allows merge.
@@ -27,7 +27,8 @@ If the response is missing `decision`, `receiptId`, or valid JSON, the workflow 
 ## Fail-closed conditions
 
 The workflow denies merge when any of the following occurs:
-- local authority execution fails,
+- runtime authority secrets are missing,
+- authorization endpoint is unreachable,
 - response JSON is malformed,
 - decision value is invalid,
 - receipt id is missing,
