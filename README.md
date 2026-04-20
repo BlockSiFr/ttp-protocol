@@ -1,91 +1,79 @@
 # Trust Transfer Protocol (TTP)
 
-> **The behavioral trust layer for autonomous AI agents.**
+TTP is an open protocol for runtime trust verification of autonomous systems using signed behavioral evidence and short-lived trust tokens.
+It solves the gap between **identity authentication** and **execution-time trustworthiness**.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Spec](https://img.shields.io/badge/spec-v1.0-green.svg)](protocol/spec.md)
-[![Status](https://img.shields.io/badge/status-active%20development-orange.svg)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-active%20development-orange.svg)](docs/roadmap.md)
 
 ---
 
-Every security stack answers **"Who is this?"**
+## If you only read one section
 
-None of them answer **"Should this agent be trusted *right now*?"**
-
-TTP answers that question — continuously, cryptographically, at execution time.
+TTP adds a trust check before execution. Issuers publish signed behavioral receipts, a Trust Authority aggregates them into a short-lived trust token, and services verify that token at the moment of action. The decision is scoped, time-bounded, and cryptographically verifiable; if trust requirements are not met, execution is denied or constrained.
 
 ---
 
-## The Problem
+## What this is / What this is not
 
-Your AI agents are authenticated. They have API keys, OAuth tokens, service accounts. Your IAM is configured correctly.
+### What TTP is
 
-None of that tells you whether the agent running at this moment:
+- A protocol for **runtime trust decisions**.
+- A receipt and token model for **stateless verification at service boundaries**.
+- A way to combine evidence from **multiple independent issuers**.
+- A trust-routing model for selecting a valid authority path before execution.
 
-- Has been prompt-injected
-- Is exhibiting behavioral drift
-- Is operating within safe boundaries
-- Has been compromised since it last authenticated
+### What TTP is not
 
-**Static credentials cannot answer dynamic trust questions.**
+- Not a replacement for OAuth/OIDC, IAM, SPIFFE, mTLS, ZTNA, or API gateways.
+- Not a generic monitoring dashboard.
+- Not a static policy-only system.
+- Not a vendor-locked hosted service requirement.
 
-As autonomous agents gain the ability to execute financial transactions, modify production systems, trigger campaigns, and access sensitive data, the gap between *authenticated* and *trustworthy* becomes a critical attack surface.
+---
 
-## The Solution
+## Why this exists
 
-TTP introduces **continuous, behavior-derived trust evaluation** as a first-class protocol primitive.
+Most security controls answer: **who is calling**.
+TTP answers: **should this action run now, given recent behavior**.
 
-Instead of:
+Static credentials can remain valid while an agent is compromised, manipulated, or drifting.
+TTP addresses that by making trust time-bounded and behavior-derived.
 
+---
+
+## Minimal example (end-to-end)
+
+```text
+Agent -> Trust Token -> Service -> Execute or Deny
 ```
-Authenticate once → Trust indefinitely
-```
 
-TTP enables:
+Concrete flow:
 
-```
-Observe behavior → Compute trust → Issue short-lived token → Verify at execution
-```
+1. Agent actions are observed by issuers.
+2. Issuers submit signed receipts.
+3. Trust Authority computes trust score and issues short-lived token.
+4. Service verifies token (signature, freshness, domain, minScore).
+5. Service executes or denies.
 
-Trust becomes:
-
-- **Time-bounded** — tokens expire in seconds, not hours
-- **Behavior-derived** — scored from observed actions, not static credentials
-- **Cryptographically verifiable** — signed evidence, stateless verification
-- **Domain-scoped** — trust in one domain doesn't bleed into another
-- **Continuously reevaluated** — good behavior earns trust; bad behavior slashes it
-
------
+---
 
 ## Core Concept
 
-TTP replaces static trust with **continuous, behavior-derived trust evaluation.**
+- Trust is evaluated at execution time, not only at login time.
+- Receipts are signed and verifiable.
+- Tokens are short-lived and domain-scoped.
+- Services verify tokens statelessly.
+- Trust can decay and recover based on recent behavior.
+- Multi-issuer evidence reduces single-observer bias.
 
-Instead of:
+---
 
-```
-Authenticate once → Trust indefinitely
-```
+## How it works
 
-TTP enables:
-
-```
-Observe behavior → Compute trust → Issue short-lived token → Verify at execution
-```
-
-Trust becomes:
-
-- Time-bounded
-- Domain-scoped
-- Cryptographically verifiable
-- Continuously reevaluated
-
------
-
-## Architecture Overview
-
-```
-Agent → Issuers → Trust Authority → Trust Token → Service Verifier → Execution
+```text
+Agent -> Issuers -> Trust Authority -> Trust Token -> Service Verifier -> Execution
 ```
 
 Trust flow:
@@ -628,122 +616,29 @@ TTP is built with:
 
 TTP is infrastructure.
 
------
+## Trust Routing subsystem
 
-## Reference Architecture Diagram
+TTP includes Trust Routing for pre-execution authority-path resolution:
 
-```
-┌─────────┐
-│  Agent  │
-└────┬────┘
-     │ 1. Performs actions
-     ▼
-┌─────────────┐
-│   Issuers   │ (API Gateway, Tool Runtime, Monitor)
-└──────┬──────┘
-       │ 2. Generate behavioral receipts
-       ▼
-┌──────────────────┐
-│ Trust Authority  │
-└────────┬─────────┘
-         │ 3. Aggregate & compute trust
-         ▼
-    ┌─────────────┐
-    │ Trust Token │ (short-lived, signed)
-    └──────┬──────┘
-           │ 4. Presented to service
-           ▼
-    ┌──────────────┐
-    │   Service    │
-    │  Verifier    │
-    └──────┬───────┘
-           │ 5. Stateless verification
-           ▼
-      ┌──────────┐
-      │Execution │
-      └──────────┘
+```text
+execution request -> route resolution -> authority decision -> execution receipt -> enforcement
 ```
 
------
+Key implementation entry points:
 
-## Early Adopters & Use Cases
+- `apps/trust-route-resolver/src/server.mjs`
+- `packages/trust-routing-engine/src/*`
+- `.github/workflows/trust-routing-governed-steps.yml`
 
-**Current Integration Targets:**
+---
 
-- Autonomous retention systems (campaign triggers, discount issuance)
-- AI-powered customer service agents (multi-system access)
-- Infrastructure automation agents (production changes)
-- Financial services AI (transaction approval)
+## What guarantees you get
 
-**In Development:**
-
-- Reference integration with retention platforms
-- Trust Authority hosted service (beta)
-- SDK implementations (TypeScript, Python, Go)
-- Open issuer implementations (API Gateway plugin, tool execution wrapper)
-
-**Seeking Partners:**
-
-- Retention platform vendors
-- AI agent framework developers
-- Enterprise security teams piloting autonomous systems
-- Tool execution environment providers
-
-**Benefits for Early Adopters:**
-
-- Shape protocol evolution
-- Integration support from core team
-- Early access to hosted Trust Authority
-- Case study and reference architecture development
-
-If your platform could benefit from runtime trust verification, reach out: hello@blocksifr.com
-
------
-
-## Governance
-
-Spec-driven evolution.
-
-Independent implementations encouraged.
-
-Protocol stability prioritized.
-
-Changes follow RFC process documented in <docs/governance.md>.
-
-Community feedback shapes roadmap.
-
------
-
-## Intellectual Property Notice
-
-TTP is released under the **Apache License 2.0**, which includes an express patent grant from all contributors.
-
-**What this means for implementers:**
-
-- You may freely implement, deploy, and commercialize TTP-compliant software.
-- The Apache 2.0 patent grant covers patents contributed by BlockSiFr that are necessarily infringed by the protocol specification itself.
-- BlockSiFr has filed patent applications covering certain aggregation and scoring methods. These patents, if granted, will be licensed royalty-free to any party implementing the open protocol as specified in this repository.
-- No royalties are required for open protocol implementation.
-
-**What BlockSiFr commercializes:**
-
-BlockSiFr offers managed Trust Authority infrastructure, enterprise compliance tooling, and SLA-backed hosted services. These are commercial products distinct from the open protocol.
-
-The open protocol will never be encumbered to force adoption of BlockSiFr's commercial services.
-
-See [docs/patent-strategy.md](docs/patent-strategy.md) for the full IP and commercialization model.
-
------
-
-## License
-
-Apache License 2.0 — see [LICENSE](LICENSE) for full terms.
-
-The Apache 2.0 license includes an express patent grant. See [Intellectual Property Notice](#intellectual-property-notice) for details on what this covers.
-
------
-
-## Repository Structure
+- Cryptographic integrity of receipts and tokens.
+- Time-bounded trust decisions.
+- Domain isolation (trust does not automatically transfer across domains).
+- Fail-closed decision model when trust requirements are not met.
+- Stateless verification at service boundaries.
 
 ```
 ttp-protocol/
@@ -776,52 +671,45 @@ ttp-protocol/
 └── README.md
 ```
 
------
+---
 
-## Getting Started
+## What you run
 
-**For Agent Developers:**
+Reference components in this repo:
 
-```bash
-npm install @ttp/sdk
-```
+- Protocol + schemas: `protocol/`
+- Trust Authority reference: `reference-implementations/trust-authority/`
+- Issuer references: `reference-implementations/issuers/`
+- Trust-route resolver demo: `apps/trust-route-resolver/`
+- Trust-routing engine: `packages/trust-routing-engine/`
 
-```typescript
-import { TTPClient } from "@ttp/sdk"
+---
 
-const client = new TTPClient({
-  agentId: "my-agent",
-  privateKey: process.env.TTP_PRIVATE_KEY,
-  authorityUrl: "https://authority.example.com"
-})
+## What you integrate
 
-// Get a trust token before calling a protected service
-const token = await client.getTrustToken({ domain: "retention" })
-```
+Choose by role:
 
-See [examples/basic-agent](examples/basic-agent/) for the full quickstart.
+### Agent/runtime team
 
-**For Service Providers (verifying trust tokens):**
+- Request domain-scoped trust tokens before sensitive actions.
+- Pass token to protected downstream service.
 
-```typescript
-import { createTTPMiddleware } from "@ttp/sdk"
+### Service/API team
 
-app.use("/api/issue-discount", createTTPMiddleware({
-  domain: "retention",
-  minScore: 0.85,
-  authorityPublicKey: process.env.TTP_AUTHORITY_PUBLIC_KEY
-}))
-```
+- Verify token per route.
+- Enforce domain and minimum score.
 
-See [docs/integration-guide.md](docs/integration-guide.md) for full verification setup.
+### Platform/security team
 
-**For Issuer Implementers:**
+- Operate Trust Authority.
+- Register issuers and agents.
+- Set thresholds and governance policy.
 
-See [examples/issuer-implementation](examples/issuer-implementation/) for a reference issuer.
+---
 
-**For Trust Authority Operators:**
+## Quickstart
 
-Self-hosted Trust Authority reference implementation: [reference-implementations/trust-authority](reference-implementations/trust-authority/)
+### 1) Run Trust Authority reference implementation
 
 ```bash
 cd reference-implementations/trust-authority
@@ -893,123 +781,57 @@ See <CONTRIBUTING.md> for guidelines.
 
 ## Status
 
-**Current:** Active development, protocol specification stable at v1.0
+- Guide: `docs/easy-connect-api.md`
+- Contract: `runtime/api/connect.contract.md`
 
-**SDK Status:**
+### 3) Integrate full verification flow
 
-- TypeScript: Beta
-- Python: Planned
-- Go: Planned
+- `docs/integration-guide.md`
 
-**Reference Implementations:**
+---
 
-- Trust Authority: Alpha
-- API Gateway Issuer: Alpha
-- Service Verifier: Beta
+## GitHub self-governance (runtime authority for repo actions)
 
-**Hosted Trust Authority:** Private beta (waitlist: hello@blocksifr.com)
+- Architecture: `docs/github-self-governance-reference-architecture.md`
+- Protected action model: `docs/protected-action-model.md`
+- Workflow contract: `docs/protected-gate-workflow-contract.md`
 
-Contributions welcome. Production use at your own risk during beta.
+---
 
------
+## Security, governance, and release readiness
 
-## Comparison with Related Approaches
+- Security model: `docs/security.md`
+- Security policy: `SECURITY.md`
+- Contributing: `CONTRIBUTING.md`
+- Public readiness checklist: `docs/public-readiness.md`
+- Open-source boundary: `docs/open-source-boundary.md`
+- Repo access control: `docs/repo-access-control.md`
 
-**vs. OAuth/OIDC:**
-OAuth establishes *who* is making a request. TTP establishes *whether that identity should be trusted right now*, based on recent behavior. They are complementary: use OAuth to authenticate, then TTP to continuously authorize.
+---
 
-**vs. mTLS / Certificate-based Auth:**
-A valid certificate proves cryptographic identity but says nothing about current behavior. An agent can hold a valid cert while exhibiting anomalous, manipulated, or unsafe behavior. TTP evaluates behavior, not just identity.
+## Related systems (complementary)
 
-**vs. Traditional IAM:**
-IAM grants static permissions that persist until revoked. TTP treats trust as continuously earned and automatically decayed. An agent that behaved well yesterday must continue to behave well today.
+- OAuth/OIDC, IAM: identity and static authorization.
+- SPIFFE/SPIRE, mTLS: workload identity/channel security.
+- ZTNA: network access posture.
+- API gateways/service mesh: traffic and connectivity controls.
 
-**vs. SPIFFE / SPIRE:**
-SPIFFE issues cryptographic workload identities (SVIDs). TTP is a behavioral layer that sits on top of workload identity. The natural integration: SPIFFE identifies the agent, TTP certifies its current trustworthiness.
+TTP adds execution-time behavioral trust decisions on top of these layers.
 
-**vs. Zero Trust Network Access (ZTNA):**
-ZTNA enforces network-level access policies. TTP enforces behavioral trust at the application and action level. An agent inside a ZTNA perimeter can still be behaviorally compromised.
+---
 
-**vs. API Rate Limiting:**
-Rate limiting controls volume. An agent within rate limits can still be behaviorally dangerous. TTP evaluates whether the agent *should* be making requests at all, based on observed behavior patterns.
+## Project status
 
-**vs. Anomaly Detection:**
-Anomaly detection is reactive — it alerts after suspicious behavior occurs. TTP is preventive — it verifies behavioral trust *before* execution is permitted. Anomaly detection systems integrate naturally as TTP issuers.
+- Spec: `v1.0` (active development)
+- TypeScript SDK: present
+- Python/Go SDKs: planned
 
------
+See `docs/roadmap.md`.
 
-## FAQ
+---
 
-**Q: Is TTP a replacement for OAuth?**  
-A: No. TTP is complementary. OAuth handles identity and authorization. TTP adds runtime behavioral trust verification.
+## License
 
-**Q: Do I need to use BlockSiFr’s hosted Trust Authority?**  
-A: No. The protocol is open. You can self-host the Trust Authority or use any compliant implementation.
-
-**Q: What happens if the Trust Authority goes down?**  
-A: Services can implement fallback policies (cached trust, degraded mode, deny-by-default). The protocol supports offline verification for recent tokens.
-
-**Q: How is this different from anomaly detection?**  
-A: Anomaly detection is reactive (alert after the fact). TTP is preventive (verify trust before execution). TTP can incorporate anomaly detection as an issuer signal.
-
-**Q: Can agents game the system by behaving well until they act maliciously?**  
-A: Short token lifetimes and multi-issuer requirements mitigate this. Trust scores reflect recent behavior. Domain isolation limits blast radius.
-
-**Q: What’s the performance overhead?**  
-A: Verification is stateless and fast (< 5ms target). Token issuance requires aggregation but agents can cache tokens for their validity period.
-
-**Q: Is this only for AI agents?**  
-A: No. TTP works for any autonomous system: bots, automated pipelines, services, etc. AI agents are the primary use case given their autonomy and unpredictability.
-
------
-
-## Citation
-
-If you reference TTP in academic work or technical writing:
-
-```
-Trust Transfer Protocol: Open Protocol for Runtime Trust Verification in Autonomous AI Systems
-BlockSiFr, 2026
-https://github.com/blocksifr/ttp-protocol
-```
-
------
-
-## Acknowledgments
-
-TTP builds on concepts from:
-
-- OAuth 2.0 and JWT standards
-- Zero Trust Architecture (NIST SP 800-207)
-- Behavioral attestation research
-- Distributed systems trust models
-
-We acknowledge the researchers and practitioners whose work informed this protocol.
-
------
-
-**Trust Transfer Protocol (TTP)**  
-© 2026 BlockSiFr
-
-Defining the infrastructure layer for trustworthy autonomous systems.
-
------
-
-## Quick Links
-
-- [Protocol Specification](protocol/spec.md)
-- [Aggregation Algorithm](protocol/aggregation-spec.md)
-- [Scoring Semantics](protocol/scoring-semantics.md)
-- [JSON Schemas](protocol/schemas/)
-- [Test Vectors](protocol/test-vectors/)
-- [Integration Guide](docs/integration-guide.md)
-- [Security Threat Model](docs/security.md)
-- [Architecture](docs/architecture.md)
-- [TypeScript SDK](sdk/typescript/)
-- [Reference Trust Authority](reference-implementations/trust-authority/)
-- [Contributing](CONTRIBUTING.md)
-- [Discussions](https://github.com/blocksifr/ttp-protocol/discussions)
-
------
+Apache License 2.0. See `LICENSE`.
 
 *Building the trust layer for autonomous systems.*
