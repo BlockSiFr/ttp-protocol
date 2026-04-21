@@ -12,23 +12,6 @@ if (!requestPath || !responsePath) {
 
 const receiptsRoot = process.env.TTP_RECEIPTS_DIR || '.ttp/receipts'
 const receiptsLogPath = process.env.TTP_RECEIPTS_LOG || path.join(receiptsRoot, 'receipts.ndjson')
-const protectedPathsPolicyPath = process.env.TTP_PROTECTED_PATHS_FILE || 'policy/protected-actions.yaml'
-
-const defaultProtectedPathRules = [
-  'policy',
-  'policy/**',
-  '.github/workflows/**',
-  'receipts/schemas/**',
-  'services/authority/**',
-  'protocol/**',
-  'reference-implementations/trust-authority/src/crypto.ts',
-  'reference-implementations/trust-authority/src/index.ts',
-  'reference-implementations/trust-authority/src/routes.ts',
-  'reference-implementations/trust-authority/src/store.ts',
-  'reference-implementations/trust-authority/src/scripts/**',
-  'ttp-language',
-  'ttp-language.md'
-]
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
@@ -46,63 +29,23 @@ function appendReceipt(receipt) {
   fs.writeFileSync(path.join(receiptsRoot, `${receipt.receiptId}.json`), JSON.stringify(receipt, null, 2), 'utf8')
 }
 
-function loadProtectedPathRules(policyPath) {
-  try {
-    const content = fs.readFileSync(policyPath, 'utf8')
-    const lines = content.split('\n')
-    const rules = []
-    let inProtectedPaths = false
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-
-      if (/^protected_paths\s*:/.test(trimmed)) {
-        inProtectedPaths = true
-        continue
-      }
-
-      if (inProtectedPaths && /^[A-Za-z_]+\s*:/.test(trimmed) && !trimmed.startsWith('- ')) {
-        break
-      }
-
-      if (inProtectedPaths && trimmed.startsWith('- ')) {
-        rules.push(trimmed.slice(2).trim())
-      }
-    }
-
-    return rules.length > 0 ? rules : defaultProtectedPathRules
-  } catch {
-    return defaultProtectedPathRules
-  }
-}
-
-function wildcardToRegExp(rule) {
-  const escaped = rule
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '::DOUBLE_STAR::')
-    .replace(/\*/g, '[^/]*')
-    .replace(/::DOUBLE_STAR::/g, '.*')
-  return new RegExp(`^${escaped}$`)
-}
-
-function isProtectedPath(filePath, rules) {
-  return rules.some((rule) => {
-    if (rule === filePath) return true
-    if (!rule.includes('*')) {
-      return filePath === rule || filePath.startsWith(`${rule}/`)
-    }
-
-    return wildcardToRegExp(rule).test(filePath)
-  })
+function isProtectedPath(p) {
+  return (
+    p === 'policy' ||
+    p.startsWith('policy/') ||
+    p.startsWith('.github/workflows/') ||
+    p.startsWith('receipts/schemas/') ||
+    p.startsWith('services/authority/') ||
+    p === 'ttp-language' ||
+    p === 'ttp-language.md'
+  )
 }
 
 function decide(req) {
   const trustScore = Number.isFinite(req.trustScore) ? req.trustScore : 0.5
   const freshnessSeconds = Number.isFinite(req.freshnessSeconds) ? req.freshnessSeconds : 9999
   const pathsTouched = Array.isArray(req.pathsTouched) ? req.pathsTouched : []
-  const protectedPathRules = loadProtectedPathRules(protectedPathsPolicyPath)
-  const protectedAction = pathsTouched.some((p) => isProtectedPath(p, protectedPathRules))
+  const protectedAction = pathsTouched.some(isProtectedPath)
 
   if (!req.subject || !req.action || !req.resource || !req.repo || !req.branch || !req.commitSha || !req.workflowRunId) {
     return { decision: 'DENY', reason: 'invalid_request_missing_required_fields', trustScore, freshnessSeconds, protectedAction }

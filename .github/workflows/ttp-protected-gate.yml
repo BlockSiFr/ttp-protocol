@@ -14,18 +14,15 @@ jobs:
       reason: ${{ steps.evaluate.outputs.reason }}
       needs_reauth: ${{ steps.evaluate.outputs.needs_reauth }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Prepare local receipt workspace
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p .ttp/receipts
-
       - name: Evaluate protected change with runtime authority
         id: evaluate
+        env:
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -35,24 +32,7 @@ jobs:
           REASON="evaluation_not_started"
           NEEDS_REAUTH="false"
 
-          ensure_fallback_receipt() {
-            if [ -n "$RECEIPT_ID" ]; then
-              return
-            fi
-            RECEIPT_ID="er-fallback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${RANDOM}"
-            cat > ".ttp/receipts/${RECEIPT_ID}.json" <<JSON
-            {
-              "receiptId": "${RECEIPT_ID}",
-              "decision": "${DECISION}",
-              "reason": "${REASON}",
-              "source": "workflow_fallback_receipt",
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            }
-            JSON
-          }
-
           emit_outputs() {
-            ensure_fallback_receipt
             echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
             echo "receipt_id=$RECEIPT_ID" >> "$GITHUB_OUTPUT"
             echo "reason=$REASON" >> "$GITHUB_OUTPUT"
@@ -62,14 +42,6 @@ jobs:
             echo "Receipt: $RECEIPT_ID"
             echo "Reason: $REASON"
             echo "Needs reauth: $NEEDS_REAUTH"
-
-            {
-              echo "### Protected Action Gate"
-              echo "- Initial decision: \`$DECISION\`"
-              echo "- Initial receipt: \`$RECEIPT_ID\`"
-              echo "- Initial reason: \`$REASON\`"
-              echo "- Needs reauthorization: \`$NEEDS_REAUTH\`"
-            } >> "$GITHUB_STEP_SUMMARY"
           }
 
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
@@ -97,12 +69,9 @@ jobs:
           echo "Changed paths (${#CHANGED_PATHS[@]}):"
           printf '%s\n' "${CHANGED_PATHS[@]:-}"
 
-          TRUST_SCORE="${TTP_TRUST_SCORE:-0.91}"
-          FRESHNESS_SECONDS="${TTP_FRESHNESS_SECONDS:-120}"
-
           PATHS_JSON="[]"
           if [ "${#CHANGED_PATHS[@]}" -gt 0 ]; then
-            PATHS_JSON="$(printf '%s\n' "${CHANGED_PATHS[@]}" | awk 'NF>0' | jq -R . | jq -s .)"
+            PATHS_JSON="$(printf '%s\n' "${CHANGED_PATHS[@]}" | jq -R . | jq -s .)"
           fi
 
           cat > request.json <<JSON
@@ -118,8 +87,8 @@ jobs:
             "workflowRunId": "${{ github.run_id }}",
             "attestationRef": "att-pr-${{ github.run_id }}",
             "authorityGrantRef": "grant-pr-${{ github.run_id }}",
-            "trustScore": ${TRUST_SCORE},
-            "freshnessSeconds": ${FRESHNESS_SECONDS},
+            "trustScore": 0.91,
+            "freshnessSeconds": 120,
             "context": {
               "event": "pull_request",
               "baseSha": "${{ github.event.pull_request.base.sha }}",
@@ -128,25 +97,36 @@ jobs:
           }
           JSON
 
-          if [ ! -f .github/scripts/ttp-local-authorize.mjs ]; then
-            REASON="local_authority_script_missing"
+          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
+            REASON="missing_runtime_authority_configuration"
             emit_outputs
             exit 0
           fi
 
-          if ! node .github/scripts/ttp-local-authorize.mjs request.json decision.json; then
-            REASON="local_authority_execution_failed"
+          HTTP_CODE="$(curl -sS --connect-timeout 10 --max-time 30 \
+            -o decision.json -w '%{http_code}' \
+            -X POST "${AUTH_URL%/}/re/authorize" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @request.json || true)"
+
+          if [ ! -f decision.json ]; then
+            REASON="authority_unreachable"
             emit_outputs
             exit 0
           fi
 
           if ! jq empty decision.json >/dev/null 2>&1; then
-            REASON="local_authority_invalid_json"
+            REASON="authority_invalid_json"
             emit_outputs
             exit 0
           fi
 
-          RESP_DECISION="$(jq -r '.decision // empty' decision.json | tr '[:lower:]' '[:upper:]')"
+          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            REASON="authority_http_${HTTP_CODE:-unknown}"
+          fi
+
+          RESP_DECISION="$(jq -r '.decision // empty' decision.json)"
           RESP_RECEIPT_ID="$(jq -r '.receiptId // empty' decision.json)"
           RESP_REASON="$(jq -r '.reason // empty' decision.json)"
 
@@ -156,45 +136,32 @@ jobs:
               ;;
             "")
               DECISION="DENY"
-              REASON="local_authority_missing_decision"
+              REASON="authority_missing_decision"
               ;;
             *)
               DECISION="DENY"
-              REASON="local_authority_invalid_decision_value"
+              REASON="authority_invalid_decision_value"
               ;;
           esac
 
           if [ -n "$RESP_REASON" ]; then
             REASON="$RESP_REASON"
           elif [ "$REASON" = "evaluation_not_started" ]; then
-            REASON="local_authority_missing_reason"
+            REASON="authority_missing_reason"
           fi
 
           if [ -n "$RESP_RECEIPT_ID" ]; then
             RECEIPT_ID="$RESP_RECEIPT_ID"
           else
             DECISION="DENY"
-            REASON="local_authority_missing_receipt_id"
+            REASON="authority_missing_receipt_id"
           fi
 
           if [ "$DECISION" = "STEP_UP" ] || [ "$DECISION" = "ESCALATE" ]; then
             NEEDS_REAUTH="true"
           fi
 
-          if [ "$DECISION" = "PERMIT" ] && [ "$NEEDS_REAUTH" = "true" ]; then
-            DECISION="DENY"
-            REASON="invalid_authority_response"
-          fi
-
           emit_outputs
-
-      - name: Upload local authority receipts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ttp-local-receipts-${{ github.run_id }}-${{ github.job }}
-          path: .ttp/receipts
-          if-no-files-found: warn
 
   receipt-required:
     name: TTP / Receipt Required
@@ -215,30 +182,8 @@ jobs:
             exit 1
           fi
 
-          case "$DECISION" in
-            PERMIT|STEP_UP|ESCALATE|DENY)
-              ;;
-            *)
-              echo "Invalid decision output value: $DECISION"
-              exit 1
-              ;;
-          esac
-
           if [ -z "$RECEIPT_ID" ]; then
-            case "${REASON:-unknown_reason}" in
-              local_authority_execution_failed)
-                echo "Missing receipt id because local TTP authority execution failed."
-                ;;
-              local_authority_script_missing)
-                echo "Missing receipt id because local authority script is missing from checkout."
-                ;;
-              local_authority_invalid_json|local_authority_missing_decision|local_authority_invalid_decision_value|local_authority_missing_reason|local_authority_missing_receipt_id)
-                echo "Missing receipt id because local authority response violated contract (reason=${REASON})."
-                ;;
-              *)
-                echo "Missing receipt id for decision=$DECISION reason=${REASON:-unknown_reason}"
-                ;;
-            esac
+            echo "Missing receipt id for decision=$DECISION reason=${REASON:-unknown_reason}"
             exit 1
           fi
 
@@ -268,18 +213,11 @@ jobs:
       receipt_id: ${{ steps.reauth.outputs.receipt_id }}
       reason: ${{ steps.reauth.outputs.reason }}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 1
-
-      - name: Prepare local receipt workspace
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p .ttp/receipts
-
       - name: Reauthorize after approval
         id: reauth
+        env:
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -288,24 +226,7 @@ jobs:
           RECEIPT_ID=""
           REASON="reauthorization_not_started"
 
-          ensure_fallback_receipt() {
-            if [ -n "$RECEIPT_ID" ]; then
-              return
-            fi
-            RECEIPT_ID="er-fallback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${RANDOM}"
-            cat > ".ttp/receipts/${RECEIPT_ID}.json" <<JSON
-            {
-              "receiptId": "${RECEIPT_ID}",
-              "decision": "${DECISION}",
-              "reason": "${REASON}",
-              "source": "workflow_fallback_receipt",
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            }
-            JSON
-          }
-
           emit_outputs() {
-            ensure_fallback_receipt
             echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
             echo "receipt_id=$RECEIPT_ID" >> "$GITHUB_OUTPUT"
             echo "reason=$REASON" >> "$GITHUB_OUTPUT"
@@ -313,14 +234,13 @@ jobs:
             echo "Reauth decision: $DECISION"
             echo "Reauth receipt: $RECEIPT_ID"
             echo "Reauth reason: $REASON"
-
-            {
-              echo "### Reauthorize After Step-Up"
-              echo "- Reauth decision: \`$DECISION\`"
-              echo "- Reauth receipt: \`$RECEIPT_ID\`"
-              echo "- Reauth reason: \`$REASON\`"
-            } >> "$GITHUB_STEP_SUMMARY"
           }
+
+          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
+            REASON="missing_runtime_authority_configuration"
+            emit_outputs
+            exit 0
+          fi
 
           cat > reauth.json <<JSON
           {
@@ -347,25 +267,30 @@ jobs:
           }
           JSON
 
-          if [ ! -f .github/scripts/ttp-local-authorize.mjs ]; then
-            REASON="local_authority_script_missing"
-            emit_outputs
-            exit 0
-          fi
+          HTTP_CODE="$(curl -sS --connect-timeout 10 --max-time 30 \
+            -o reauth-response.json -w '%{http_code}' \
+            -X POST "${AUTH_URL%/}/re/authorize" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @reauth.json || true)"
 
-          if ! node .github/scripts/ttp-local-authorize.mjs reauth.json reauth-response.json; then
-            REASON="local_authority_execution_failed"
+          if [ ! -f reauth-response.json ]; then
+            REASON="authority_unreachable"
             emit_outputs
             exit 0
           fi
 
           if ! jq empty reauth-response.json >/dev/null 2>&1; then
-            REASON="local_authority_invalid_json"
+            REASON="authority_invalid_json"
             emit_outputs
             exit 0
           fi
 
-          RESP_DECISION="$(jq -r '.decision // empty' reauth-response.json | tr '[:lower:]' '[:upper:]')"
+          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            REASON="authority_http_${HTTP_CODE:-unknown}"
+          fi
+
+          RESP_DECISION="$(jq -r '.decision // empty' reauth-response.json)"
           RESP_RECEIPT_ID="$(jq -r '.receiptId // empty' reauth-response.json)"
           RESP_REASON="$(jq -r '.reason // empty' reauth-response.json)"
 
@@ -375,41 +300,28 @@ jobs:
               ;;
             "")
               DECISION="DENY"
-              REASON="local_authority_missing_decision"
+              REASON="authority_missing_decision"
               ;;
             *)
               DECISION="DENY"
-              REASON="local_authority_invalid_decision_value"
+              REASON="authority_invalid_decision_value"
               ;;
           esac
 
           if [ -n "$RESP_REASON" ]; then
             REASON="$RESP_REASON"
           elif [ "$REASON" = "reauthorization_not_started" ]; then
-            REASON="local_authority_missing_reason"
+            REASON="authority_missing_reason"
           fi
 
           if [ -n "$RESP_RECEIPT_ID" ]; then
             RECEIPT_ID="$RESP_RECEIPT_ID"
           else
             DECISION="DENY"
-            REASON="local_authority_missing_receipt_id"
-          fi
-
-          if [ "$DECISION" = "STEP_UP" ] || [ "$DECISION" = "ESCALATE" ]; then
-            DECISION="DENY"
-            REASON="reauth_required_but_missing"
+            REASON="authority_missing_receipt_id"
           fi
 
           emit_outputs
-
-      - name: Upload local authority receipts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ttp-local-receipts-${{ github.run_id }}-${{ github.job }}
-          path: .ttp/receipts
-          if-no-files-found: warn
 
   merge-authority:
     name: TTP / Merge Authority
@@ -445,31 +357,9 @@ jobs:
           fi
 
           if [ "$NEEDS_REAUTH" = "true" ]; then
-            if [ -z "${REAUTH_DECISION:-}" ]; then
-              DECISION="DENY"
-              REASON="missing_reauthorization_decision_output"
-            else
-              DECISION="$REAUTH_DECISION"
-            fi
+            DECISION="${REAUTH_DECISION:-DENY}"
             RECEIPT_ID="${REAUTH_RECEIPT_ID:-}"
-            if [ -n "${REAUTH_REASON:-}" ]; then
-              REASON="$REAUTH_REASON"
-            fi
-          fi
-
-          case "$DECISION" in
-            PERMIT|STEP_UP|ESCALATE|DENY)
-              ;;
-            *)
-              DECISION="DENY"
-              REASON="invalid_authority_response"
-              ;;
-          esac
-
-          if [ "$NEEDS_REAUTH" = "true" ] && [ "$DECISION" != "PERMIT" ]; then
-            if [ "$DECISION" = "STEP_UP" ] || [ "$DECISION" = "ESCALATE" ]; then
-              REASON="reauth_required_but_missing"
-            fi
+            REASON="${REAUTH_REASON:-missing_reauthorization_decision_output}"
           fi
 
           if [ -z "$RECEIPT_ID" ]; then
@@ -480,14 +370,6 @@ jobs:
           echo "Final decision: $DECISION"
           echo "Final receipt: $RECEIPT_ID"
           echo "Final reason: $REASON"
-
-          {
-            echo "### Merge Authority"
-            echo "- Needs reauthorization: \`$NEEDS_REAUTH\`"
-            echo "- Final decision: \`$DECISION\`"
-            echo "- Final receipt: \`$RECEIPT_ID\`"
-            echo "- Final reason: \`$REASON\`"
-          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$DECISION" = "PERMIT" ]; then
             echo "Merge authority granted"

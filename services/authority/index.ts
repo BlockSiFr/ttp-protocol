@@ -1,6 +1,6 @@
 import http from "node:http"
 import { randomUUID } from "node:crypto"
-import { AuthorizeRequest, ConnectRequest, ConnectResponse, Decision, DecisionContext, ExecutionReceipt } from "./schemas"
+import { AuthorizeRequest, Decision, DecisionContext, ExecutionReceipt } from "./schemas"
 import { finalizeReceipt } from "./receiptSigner"
 import { isProtectedPath, loadProtectedPolicy } from "./policyLoader"
 
@@ -121,55 +121,6 @@ function parseBody(req: http.IncomingMessage): Promise<unknown> {
   })
 }
 
-function baseUrlFromRequest(req: http.IncomingMessage): string {
-  const host = req.headers.host ?? `localhost:${process.env.PORT ?? "8080"}`
-  return `http://${host}`
-}
-
-function connectResponse(req: http.IncomingMessage, body: ConnectRequest): ConnectResponse {
-  const baseUrl = baseUrlFromRequest(req)
-  const integrationId = `conn-${randomUUID()}`
-  const sampleAuthorizeRequest: AuthorizeRequest = {
-    subject: body.subject,
-    action: "merge request",
-    resource: `repo:${body.repo}:pr/1`,
-    repo: body.repo,
-    branch: body.branch ?? "main",
-    pathsTouched: [".github/workflows/ttp-protected-gate.yml"],
-    commitSha: "example-commit-sha",
-    invokingActor: "example-actor",
-    workflowRunId: "example-run-id",
-    attestationRef: `att-${integrationId}`,
-    authorityGrantRef: `grant-${integrationId}`,
-    trustScore: 0.91,
-    freshnessSeconds: 120,
-    context: {
-      integrationName: body.integrationName,
-      mode: body.mode ?? "sync",
-      callbackUrl: body.callbackUrl ?? ""
-    }
-  }
-
-  return {
-    status: "connected",
-    integrationId,
-    authority: {
-      healthz: `${baseUrl}/healthz`,
-      authorize: `${baseUrl}/re/authorize`,
-      attest: `${baseUrl}/trust/attest`,
-      receiptById: `${baseUrl}/receipts/{receiptId}`
-    },
-    quickstart: {
-      nextStep: "POST sampleAuthorizeRequest to /re/authorize and enforce based on decision + receiptId.",
-      sampleAuthorizeRequest,
-      curl: {
-        authorize: `curl -sS -X POST ${baseUrl}/re/authorize -H 'Content-Type: application/json' -d '<sampleAuthorizeRequest-json>'`,
-        attest: `curl -sS -X POST ${baseUrl}/trust/attest -H 'Content-Type: application/json' -d '{}'`
-      }
-    }
-  }
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost")
   const { protectedPaths } = loadProtectedPolicy()
@@ -178,38 +129,12 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, { ok: true })
   }
 
-  if (req.method === "GET" && url.pathname === "/v1/connect") {
-    return json(res, 200, {
-      message: "Use POST /v1/connect with integrationName, subject, and repo to get a one-call integration profile."
-    })
-  }
-
-  if (req.method === "POST" && url.pathname === "/v1/connect") {
-    try {
-      const body = await parseBody(req) as ConnectRequest
-      if (!body.integrationName || !body.subject || !body.repo) {
-        return json(res, 400, {
-          error: "INVALID_CONNECT_REQUEST",
-          message: "integrationName, subject, and repo are required."
-        })
-      }
-      return json(res, 200, connectResponse(req, body))
-    } catch {
-      return json(res, 400, { error: "INVALID_JSON" })
-    }
-  }
-
   if (req.method === "POST" && url.pathname === "/trust/attest") {
     return json(res, 200, { status: "accepted", attestationRef: `att-${randomUUID()}` })
   }
 
   if (req.method === "POST" && url.pathname === "/re/authorize") {
-    let body: AuthorizeRequest
-    try {
-      body = await parseBody(req) as AuthorizeRequest
-    } catch {
-      return json(res, 400, { error: "INVALID_JSON" })
-    }
+    const body = await parseBody(req) as AuthorizeRequest
     const { decision, reason, context } = decide(body, protectedPaths)
 
     const receiptBase: Omit<ExecutionReceipt, "signature" | "chainHash"> = {
