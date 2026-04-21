@@ -1,0 +1,11 @@
+{
+  "name": "security-review-agent",
+  "purpose": "evaluate high-risk and critical protected actions",
+  "workloadIdentity": "wi://ttp/github/security-review-agent",
+  "allowedActions": ["issue.comment", "pull_request.review", "merge approval"],
+  "forbiddenActions": ["release tag request"],
+  "allowedPaths": ["docs/security.md", "policy/**", ".github/workflows/**", "reference-implementations/**"],
+  "minTrustScore": 0.93,
+  "freshnessMaxSeconds": 300,
+  "riskTier": "critical"
+}

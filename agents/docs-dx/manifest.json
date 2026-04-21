@@ -1,0 +1,11 @@
+{
+  "name": "docs-dx-agent",
+  "purpose": "improve docs and contributor experience with low-risk actions",
+  "workloadIdentity": "wi://ttp/github/docs-dx-agent",
+  "allowedActions": ["issue.comment", "pull_request.review"],
+  "forbiddenActions": ["merge approval", "release tag request", "workflow modification request"],
+  "allowedPaths": ["docs/**", "README.md", "CONTRIBUTING.md"],
+  "minTrustScore": 0.8,
+  "freshnessMaxSeconds": 1800,
+  "riskTier": "low"
+}
