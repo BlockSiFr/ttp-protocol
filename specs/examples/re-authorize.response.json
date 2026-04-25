@@ -1,0 +1,29 @@
+{
+  "decision": "PERMIT",
+  "mode": "CONSTRAINED",
+  "rapDecision": "throttle",
+  "nextStep": "execute_constrained",
+  "receiptId": "rcpt-example-1",
+  "receipt": {
+    "schemaVersion": "1.0.0",
+    "receiptId": "rcpt-example-1",
+    "issuedAt": "2026-04-25T00:00:00Z",
+    "execution": { "executionId": "req-example-1" },
+    "decision": { "outcome": "PERMIT", "mode": "CONSTRAINED" },
+    "trust": {},
+    "risk": {},
+    "cost": {},
+    "compliance": {},
+    "evidence": {},
+    "integrity": {
+      "hashAlgorithm": "SHA-256",
+      "hash": "abc",
+      "chainHash": "",
+      "signatureStatus": "SIGNED",
+      "signature": "sig",
+      "signatureAlg": "HMAC-SHA256",
+      "signatureRef": "local-hmac",
+      "signingKeyRef": "RECEIPT_HMAC_SECRET"
+    }
+  }
+}

@@ -7,7 +7,7 @@ This example shows how a GitHub App invokes Runtime Authority before executing s
 1. GitHub event arrives (issue comment, PR review request, workflow dispatch intent).
 2. App/worker resolves role-agent identity and action context.
 3. Worker calls `POST /re/authorize`.
-4. Authority returns `PERMIT|CONSTRAIN|STEP_UP|ESCALATE|DENY` + receipt.
+4. Authority returns `PERMIT|STEP_UP|ESCALATE|DENY` plus decision mode (`FULL|CONSTRAINED|...`) and receipt.
 5. Worker enforces decision and records receipt linkage.
 
 ## Key controls
