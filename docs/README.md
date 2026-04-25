@@ -9,6 +9,7 @@ This repository is documented for two primary audiences:
 
 - **User documentation:** [`docs/user-guide.md`](./user-guide.md)
 - **Administrator documentation:** [`docs/admin-guide.md`](./admin-guide.md)
+- **Repository completeness assessment:** [`docs/repo-completeness-assessment.md`](./repo-completeness-assessment.md)
 - **Protocol specifications:** [`specs/README.md`](../specs/README.md)
 - **Examples:** [`examples/README.md`](../examples/README.md)
 

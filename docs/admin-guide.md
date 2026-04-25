@@ -1,48 +1,78 @@
 # Administrator Guide (Security, Compliance, Operations)
 
-## Who this is for
+## Audience
+Security architects, platform admins, governance owners, and audit/compliance teams.
 
-This guide is for governance owners responsible for policy, approvals, controls, and audit readiness.
+## Administrative objective
+Operate runtime authorization as a non-bypassable control plane with deterministic approvals, evidentiary receipts, and fail-closed behavior.
 
-## Governance model
+## 1) Control architecture
 
-The runtime authority layer evaluates:
+### Mandatory control points
+- pre-execution authorization (`POST /re/authorize`)
+- decision enforcement at runtime boundaries
+- receipt persistence and integrity validation
 
-- authority grant validity
-- trust posture
-- risk posture
-- cost governance
-- compliance obligations
+### Recommended deployment model
+- FrontDesk deployed per environment (`dev`, `staging`, `prod`)
+- policy set versioning and promotion process
+- centralized receipt retention with immutable storage controls
 
-Default control behavior is fail-closed when evidence is missing or uncertain.
+## 2) Policy governance
 
-## Operational responsibilities
+Define and version:
+- trust thresholds
+- risk thresholds and critical triggers
+- budget and quota policies
+- compliance obligations by classification/jurisdiction
+- approver roles for `STEP_UP` and `ESCALATE`
 
-### 1) Policy ownership
-- Maintain policy set versions and approval requirements.
-- Define trust/risk/cost/compliance thresholds by environment.
+## 3) Grant and identity hygiene
+- enforce short-lived authority grants
+- require explicit scope for secrets and infra mutation
+- disable standing broad production grants
+- use workload identity for service-to-service authorization
 
-### 2) Identity and grant hygiene
-- Rotate and expire authority grants.
-- Disallow standing broad grants in production.
-- Require explicit grants for secrets access and infrastructure mutation.
+## 4) Step-up and escalation operations
 
-### 3) Receipt governance
-- Retain receipts according to control and jurisdiction obligations.
-- Verify receipt integrity fields (`hash`, `chainHash`) in audit workflows.
-- Correlate receipt IDs with execution IDs and change records.
+### STEP_UP runbook
+1. Validate request context and attestation freshness.
+2. Re-run authorization with updated evidence.
+3. Record all evidence links in receipt trails.
 
-### 4) Step-up and escalation controls
-- Ensure `STEP_UP` paths require stronger attestation.
-- Ensure `ESCALATE` paths bind to documented approver roles.
-- Require explicit evidence for any production mutation approvals.
+### ESCALATE runbook
+1. Route to authorized approver role.
+2. Capture decision rationale and approver identity.
+3. Re-authorize with approval context.
 
-## Control mapping readiness
+## 5) Receipt governance and retention
 
-The repository includes framework-aware compliance structures for governance workflows, including support for mapping to NIST, SOC2, PCI_DSS, SOX, FFIEC, CMMC, ISO27001, and EU_AI_ACT contexts.
+### Minimum retained fields
+- `receiptId`
+- `execution.executionId`
+- `decision.outcome`, `decision.mode`
+- `integrity.hash`, `integrity.chainHash`
+- `compliance.retentionClass`
 
-## Recommended operating checks
+### Retention recommendation
+- `STANDARD`: 12 months minimum
+- `REGULATED` / `FINANCIAL_RECORD` / `PAYMENT_RECORD`: follow legal & framework-specific controls
 
-- Run CI health checks (`.github/workflows/ci.yml`).
-- Run governed-execution checks (`.github/workflows/governed_execution.yml`).
-- Periodically validate that constrained permits are not treated as full permits in downstream execution surfaces.
+## 6) Compliance mapping readiness
+
+Use structured mappings for NIST, FFIEC, SOX, PCI_DSS, CMMC, SOC2, ISO27001, EU_AI_ACT. Mark uncertain applicability as conditional and track residual gaps explicitly.
+
+## 7) Operational KPIs
+Track:
+- authorization latency (p50/p95)
+- decision distribution (`PERMIT`, `STEP_UP`, `ESCALATE`, `DENY`)
+- constrained-permit rate
+- escalation turnaround time
+- receipt integrity verification success rate
+
+## 8) Administration checklist
+- [ ] Fail-closed behavior verified in each environment.
+- [ ] Approval paths tested quarterly.
+- [ ] Receipt retention and integrity verification scheduled.
+- [ ] Policy versions and exceptions reviewed monthly.
+- [ ] High-risk production mutation paths require human approval.

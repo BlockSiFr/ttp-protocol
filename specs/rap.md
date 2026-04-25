@@ -12,12 +12,18 @@ RAP defines runtime authority semantics across governed systems and service boun
 ## Authority model
 - Authority is contextual, time-bounded, and revocable.
 - AuthorityGrant artifacts MUST be validated at decision time.
-- Constrained execution MUST include machine-readable limits.
+- Constrained execution MUST be represented as `decision=PERMIT` with `mode=CONSTRAINED`.
 
 ## Decision contract
-RAP implementations MUST return one of:
+RAP implementations MUST return one outcome:
 - `PERMIT`
-- `DENY`
 - `STEP_UP`
 - `ESCALATE`
-- `CONSTRAIN`
+- `DENY`
+
+And one mode:
+- `FULL`
+- `CONSTRAINED`
+- `REQUIRES_REATTESTATION`
+- `REQUIRES_HUMAN_APPROVAL`
+- `FAILED_CLOSED`

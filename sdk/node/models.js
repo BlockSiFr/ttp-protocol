@@ -3,8 +3,16 @@ export const Decision = Object.freeze({
   PERMIT: 'PERMIT',
   DENY: 'DENY',
   STEP_UP: 'STEP_UP',
-  ESCALATE: 'ESCALATE',
-  CONSTRAIN: 'CONSTRAIN'
+  ESCALATE: 'ESCALATE'
+});
+
+/** @readonly */
+export const DecisionMode = Object.freeze({
+  FULL: 'FULL',
+  CONSTRAINED: 'CONSTRAINED',
+  REQUIRES_REATTESTATION: 'REQUIRES_REATTESTATION',
+  REQUIRES_HUMAN_APPROVAL: 'REQUIRES_HUMAN_APPROVAL',
+  FAILED_CLOSED: 'FAILED_CLOSED'
 });
 
 /**
@@ -23,15 +31,19 @@ export const Decision = Object.freeze({
  * }} AuthorizeRequest
  * @typedef {{
  *   decision: keyof typeof Decision,
- *   reason: string,
- *   constraints?: string[],
+ *   mode: keyof typeof DecisionMode,
+ *   reasonCodes?: string[],
+ *   constraintsApplied?: string[],
  *   receipt: {
  *     receiptId: string,
- *     requestId: string,
- *     decision: keyof typeof Decision,
- *     chainHash: string,
- *     prevChainHash?: string | null,
- *     timestamp: string
+ *     decision: {
+ *       outcome: keyof typeof Decision,
+ *       mode: keyof typeof DecisionMode
+ *     },
+ *     integrity: {
+ *       hash: string,
+ *       chainHash: string
+ *     }
  *   }
  * }} AuthorizeResponse
  */

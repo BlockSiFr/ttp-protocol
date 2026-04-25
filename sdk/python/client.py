@@ -12,7 +12,14 @@ class Decision(str, Enum):
     DENY = "DENY"
     STEP_UP = "STEP_UP"
     ESCALATE = "ESCALATE"
-    CONSTRAIN = "CONSTRAIN"
+
+
+class DecisionMode(str, Enum):
+    FULL = "FULL"
+    CONSTRAINED = "CONSTRAINED"
+    REQUIRES_REATTESTATION = "REQUIRES_REATTESTATION"
+    REQUIRES_HUMAN_APPROVAL = "REQUIRES_HUMAN_APPROVAL"
+    FAILED_CLOSED = "FAILED_CLOSED"
 
 
 @dataclass
@@ -48,18 +55,18 @@ class AuthorizeRequest:
 @dataclass
 class Receipt:
     receiptId: str
-    requestId: str
     decision: Decision
+    mode: DecisionMode
+    hash: str
     chainHash: str
-    prevChainHash: Optional[str]
-    timestamp: str
 
 
 @dataclass
 class AuthorizeResponse:
     decision: Decision
-    reason: str
-    constraints: List[str]
+    mode: DecisionMode
+    reasonCodes: List[str]
+    constraintsApplied: List[str]
     receipt: Receipt
 
 
@@ -80,16 +87,16 @@ def authorize(req: AuthorizeRequest) -> AuthorizeResponse:
 
     receipt = Receipt(
         receiptId=data["receipt"]["receiptId"],
-        requestId=data["receipt"]["requestId"],
-        decision=Decision(data["receipt"]["decision"]),
-        chainHash=data["receipt"]["chainHash"],
-        prevChainHash=data["receipt"].get("prevChainHash"),
-        timestamp=data["receipt"]["timestamp"],
+        decision=Decision(data["receipt"]["decision"]["outcome"]),
+        mode=DecisionMode(data["receipt"]["decision"]["mode"]),
+        hash=data["receipt"]["integrity"]["hash"],
+        chainHash=data["receipt"]["integrity"].get("chainHash", ""),
     )
 
     return AuthorizeResponse(
         decision=Decision(data["decision"]),
-        reason=data["reason"],
-        constraints=data.get("constraints", []),
+        mode=DecisionMode(data["mode"]),
+        reasonCodes=data.get("reasonCodes", []),
+        constraintsApplied=data.get("constraintsApplied", []),
         receipt=receipt,
     )
