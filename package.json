@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs"
+    "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs",
+    "test:runtime-authority-gate": "node --test reference-implementations/runtime-authority-gate/*.test.mjs",
+    "test": "npm run test:trust-routing && npm run test:runtime-authority-gate"
   }
 }

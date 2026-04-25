@@ -1,0 +1,84 @@
+name: CI / Repository Health
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Test and Smoke Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Compile Python SDK
+        run: python -m py_compile sdk/python/client.py
+
+      - name: SDK + gate smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node reference-implementations/runtime-authority-gate/server.mjs >/tmp/runtime-gate.log 2>&1 &
+          GATE_PID=$!
+          trap 'kill $GATE_PID' EXIT
+
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+
+          curl -fsS -X POST http://127.0.0.1:8080/re/authorize \
+            -H 'content-type: application/json' \
+            -d '{"requestId":"ci-req-1","principal":{"id":"ci-agent","type":"service-agent"},"action":"pipeline.deploy","resource":{"type":"environment","id":"prod"},"context":{"trustScore":0.9},"authorityGrant":{"grantId":"grant-local-001","expiresAt":"2030-01-01T00:00:00Z","scope":["pipeline.deploy:prod"]}}' \
+            | jq -e '.decision=="PERMIT" and .receipt.receiptId != null' >/dev/null
+
+          python - <<'PY'
+from sdk.python import authorize, AuthorizeRequest, Principal, Resource, AuthorityGrant
+resp = authorize(AuthorizeRequest(
+    base_url='http://127.0.0.1:8080',
+    requestId='ci-py-1',
+    principal=Principal(id='py-ci-agent', type='service-agent'),
+    action='pipeline.deploy',
+    resource=Resource(type='environment', id='prod'),
+    context={'trustScore': 0.91},
+    authorityGrant=AuthorityGrant(grantId='grant-local-001', expiresAt='2030-01-01T00:00:00Z', scope=['pipeline.deploy:prod'])
+))
+assert resp.decision.value == 'PERMIT'
+print(resp.receipt.receiptId)
+PY
+
+          node --input-type=module - <<'JS'
+import { authorize } from './sdk/node/index.js';
+const resp = await authorize({
+  baseUrl: 'http://127.0.0.1:8080',
+  requestId: 'ci-node-1',
+  principal: { id: 'node-ci-agent', type: 'service-agent' },
+  action: 'pipeline.deploy',
+  resource: { type: 'environment', id: 'prod' },
+  context: { trustScore: 0.92 },
+  authorityGrant: {
+    grantId: 'grant-local-001',
+    expiresAt: '2030-01-01T00:00:00Z',
+    scope: ['pipeline.deploy:prod']
+  }
+});
+if (resp.decision !== 'PERMIT') {
+  throw new Error(`Expected PERMIT, got ${resp.decision}`);
+}
+console.log(resp.receipt.receiptId);
+JS
