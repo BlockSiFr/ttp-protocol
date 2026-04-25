@@ -13,19 +13,14 @@
 ```json
 {
   "requestId": "req-123",
-  "subject": "agent-42",
+  "principal": { "id": "agent-42", "type": "service-agent" },
   "action": "pipeline.deploy",
   "resource": { "type": "environment", "id": "prod" },
   "context": {
-    "environment": "prod",
-    "source": "github",
-    "riskLevel": "high",
-    "agentType": "advanced",
-    "trustScore": 0.67,
-    "dataClassification": "internal",
-    "costCenter": "platform-security"
+    "intent": "release hotfix",
+    "riskSignals": ["new_toolchain", "outside_change_window"],
+    "trustScore": 0.67
   },
-  "attestationRef": "attest-001",
   "authorityGrant": {
     "grantId": "grant-001",
     "expiresAt": "2026-04-25T15:30:00Z",
@@ -38,16 +33,12 @@
 ```json
 {
   "decision": "STEP_UP",
-  "mode": "REQUIRES_REATTESTATION",
-  "reasonCodes": ["trust_requires_step_up"],
-  "constraintsApplied": ["provide-fresh-attestation"],
-  "receiptId": "rcpt-abc",
+  "reason": "Trust score below production threshold",
+  "constraints": ["require-human-approver"],
   "receipt": {
-    "schemaVersion": "1.0.0",
-    "decision": {
-      "outcome": "STEP_UP",
-      "mode": "REQUIRES_REATTESTATION"
-    }
+    "receiptId": "rcpt-abc",
+    "chainHash": "9b5...",
+    "requestId": "req-123"
   }
 }
 ```

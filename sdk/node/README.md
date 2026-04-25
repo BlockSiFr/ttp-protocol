@@ -5,8 +5,7 @@ Minimal Node SDK for SCIM-RE `POST /re/authorize`.
 ## API
 - `authorize(request)`
 - Typed request/response models in `models.js` (JSDoc typedefs).
-- Decision enum: `PERMIT`, `DENY`, `STEP_UP`, `ESCALATE`.
-- Decision mode enum: `FULL`, `CONSTRAINED`, `REQUIRES_REATTESTATION`, `REQUIRES_HUMAN_APPROVAL`, `FAILED_CLOSED`.
+- Decision enum: `PERMIT`, `DENY`, `STEP_UP`, `ESCALATE`, `CONSTRAIN`.
 
 ## Usage
 ```js

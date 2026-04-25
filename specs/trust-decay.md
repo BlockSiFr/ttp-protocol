@@ -18,8 +18,5 @@ Defines how trust confidence reduces over time without fresh positive evidence.
 ## Example function
 `effectiveTrust = max(0, baseTrust * e^(-lambda * ageHours) - penalties + recovery)`
 
-## Governance thresholds
-- trust >= 0.85: eligible for `PERMIT/FULL` if risk, cost, and compliance checks pass.
-- 0.65 <= trust < 0.85: `PERMIT/CONSTRAINED`.
-- 0.40 <= trust < 0.65: `STEP_UP` (typically `REQUIRES_REATTESTATION`).
-- trust < 0.40: `DENY` unless human escalation changes status.
+## Governance rule
+If effective trust falls below policy threshold, decision MUST be `DENY`, `STEP_UP`, `ESCALATE`, or `CONSTRAIN`.

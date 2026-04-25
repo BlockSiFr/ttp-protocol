@@ -17,7 +17,3 @@
   - robust changed-file serialization,
   - local fallback receipts in no-op/misconfigured environments,
   - step-up approval satisfaction in enforcement.
-- Runtime authority model aligned to compact production prompt:
-  - decision outcomes constrained to `PERMIT|STEP_UP|ESCALATE|DENY`,
-  - constrained behavior represented with `mode=CONSTRAINED`,
-  - receipt upgraded to include `execution`, `decision`, `trust`, `risk`, `cost`, `compliance`, `evidence`, and `integrity` sections.
