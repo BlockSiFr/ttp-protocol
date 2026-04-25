@@ -36,7 +36,7 @@ jobs:
           echo "Changed files:"
           cat changed.txt || true
 
-          PATHS_JSON=$(jq -R . < changed.txt | jq -s .)
+          PATHS_JSON=$(jq -Rsc 'split("\n") | map(select(length > 0))' changed.txt)
           echo "paths=$PATHS_JSON" >> "$GITHUB_OUTPUT"
 
       # 3️⃣ Ask external authority for permission
@@ -52,7 +52,16 @@ jobs:
           if [ ! -s changed.txt ]; then
             echo "No changes → deny by policy"
             echo "decision=DENY"   >> "$GITHUB_OUTPUT"
-            echo "receipt="        >> "$GITHUB_OUTPUT"
+            echo "receipt=local-noop-receipt" >> "$GITHUB_OUTPUT"
+            echo "receipt_json={\"receiptId\":\"local-noop-receipt\",\"decision\":\"DENY\",\"reason\":\"No changed files\",\"chainHash\":\"local-noop\"}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "${AUTH_URL:-}" ]; then
+            echo "RUNTIME_AUTH_URL missing; failing closed with local deny receipt"
+            echo "decision=DENY" >> "$GITHUB_OUTPUT"
+            echo "receipt=local-missing-auth-url" >> "$GITHUB_OUTPUT"
+            echo "receipt_json={\"receiptId\":\"local-missing-auth-url\",\"decision\":\"DENY\",\"reason\":\"Missing RUNTIME_AUTH_URL\",\"chainHash\":\"local-missing-auth-url\"}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -61,7 +70,7 @@ jobs:
             --arg actor  "${{ github.actor }}" \
             --arg pr     "${{ github.event.pull_request.number }}" \
             --arg sha    "${{ github.event.pull_request.head.sha }}" \
-            --argjson paths "$(jq -s . changed.txt | jq -R .)" \
+            --argjson paths "$(jq -Rsc 'split("\n") | map(select(length > 0))' changed.txt)" \
             '{
               subject: "wi://github/actions/runner",
               action: "pull_request.execute",
@@ -85,7 +94,11 @@ jobs:
           cat response.json
 
           DECISION=$(jq -r '.decision // "DENY"' response.json)
-          RECEIPT=$(jq -r '.receiptId // ""' response.json)
+          RECEIPT=$(jq -r '.receiptId // .receipt.receiptId // ""' response.json)
+
+          if [ -z "$RECEIPT" ]; then
+            RECEIPT="local-missing-receipt"
+          fi
 
           echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
           echo "receipt=$RECEIPT"   >> "$GITHUB_OUTPUT"
