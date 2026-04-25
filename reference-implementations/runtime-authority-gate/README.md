@@ -18,8 +18,3 @@ node server.mjs
 ```
 
 Default URL: `http://localhost:8080`
-
-## Test
-```bash
-npm run test:runtime-authority-gate
-```
