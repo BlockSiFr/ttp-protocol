@@ -4,7 +4,11 @@ Minimal local service implementing runtime authority for governed actions.
 
 ## Endpoints
 - `GET /healthz`
+- `POST /utils/binding-hash`
 - `POST /re/authorize`
+- `POST /re/reauthorize`
+- `GET /receipts/:id`
+- `GET /receipts`
 
 ## Features
 - Local trust/risk/cost/compliance evaluation.

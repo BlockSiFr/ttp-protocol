@@ -60,6 +60,8 @@ test('runtime-authority-gate /healthz and /re/authorize contract', async () => {
     assert.equal(result1.receipt.integrity.chainHash, '');
     assert.equal(result1.receipt.schemaVersion, '1.0.0');
     assert.equal(result1.receipt.decision.outcome, 'PERMIT');
+    assert.equal(result1.rapDecision, 'allow');
+    assert.equal(result1.nextStep, 'execute');
 
     const result2 = await fetch(`${BASE_URL}/re/authorize`, {
       method: 'POST',
@@ -70,6 +72,7 @@ test('runtime-authority-gate /healthz and /re/authorize contract', async () => {
     assert.equal(result2.decision, 'PERMIT');
     assert.ok(result2.mode === 'FULL' || result2.mode === 'CONSTRAINED');
     assert.equal(result2.receipt.integrity.chainHash, result1.receipt.integrity.hash);
+    assert.ok(['allow', 'throttle'].includes(result2.rapDecision));
 
     const denied = await fetch(`${BASE_URL}/re/authorize`, {
       method: 'POST',
@@ -84,6 +87,45 @@ test('runtime-authority-gate /healthz and /re/authorize contract', async () => {
     assert.equal(denied.decision, 'DENY');
     assert.equal(denied.mode, 'FAILED_CLOSED');
     assert.ok(denied.receipt.receiptId);
+    assert.equal(denied.rapDecision, 'deny');
+
+    const list = await fetch(`${BASE_URL}/receipts`).then((r) => r.json());
+    assert.ok(list.count >= 3);
+
+    const fetched = await fetch(`${BASE_URL}/receipts/${result1.receipt.receiptId}`).then((r) => r.json());
+    assert.equal(fetched.receiptId, result1.receipt.receiptId);
+
+    const hashResponse = await fetch(`${BASE_URL}/utils/binding-hash`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ repo: 'blocksifr/ttp-protocol', branch: 'main' })
+    }).then((r) => r.json());
+    assert.ok(hashResponse.bindingHash);
+
+    const stepUp = await fetch(`${BASE_URL}/re/authorize`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...request,
+        requestId: 'test-req-4',
+        context: { trustScore: 0.55 }
+      })
+    }).then((r) => r.json());
+    assert.equal(stepUp.decision, 'STEP_UP');
+
+    const reauth = await fetch(`${BASE_URL}/re/reauthorize`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        requestId: 'reauth-1',
+        priorReceiptId: stepUp.receiptId,
+        approval: { approvedBy: 'ops-admin', evidenceRef: 'ticket-123' }
+      })
+    }).then((r) => r.json());
+
+    assert.equal(reauth.decision, 'PERMIT');
+    assert.equal(reauth.mode, 'CONSTRAINED');
+    assert.equal(reauth.rapDecision, 'throttle');
   } finally {
     server.kill('SIGTERM');
     await new Promise((resolve) => server.once('exit', resolve));

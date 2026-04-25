@@ -7,8 +7,15 @@
 - Every decision produces an `ExecutionReceipt`.
 - Unknown or unverifiable conditions fail closed (`DENY` or `ESCALATE`).
 
-## 2) Endpoint
-`POST /re/authorize`
+## 2) Endpoints
+Primary:
+- `POST /re/authorize`
+
+RAP-compatible extensions:
+- `POST /re/reauthorize`
+- `POST /utils/binding-hash`
+- `GET /receipts/:id`
+- `GET /receipts`
 
 ### Content type
 `application/json`
@@ -16,7 +23,7 @@
 ### Authentication
 Implementation-defined. In production, use workload identity and signed service-to-service authentication.
 
-## 3) Request contract
+## 3) Request contract (`POST /re/authorize`)
 
 ### Required fields
 - `requestId` (string)
@@ -77,9 +84,16 @@ Constrained execution MUST be represented as:
 - `decision = PERMIT`
 - `mode = CONSTRAINED`
 
-## 5) Response contract
+### RAP decision projection (for client compatibility)
+| Canonical decision/mode | RAP decision | Next step |
+|---|---|---|
+| `PERMIT` + `FULL` | `allow` | `execute` |
+| `PERMIT` + `CONSTRAINED` | `throttle` | `execute_constrained` |
+| `STEP_UP` + `REQUIRES_REATTESTATION` | `step_up` | `reauthorize` |
+| `ESCALATE` + `REQUIRES_HUMAN_APPROVAL` | `escalate` | `human_approval` |
+| `DENY` + `*` | `deny` | `block` |
 
-### Success response (`200`)
+## 5) Response contract (`200`)
 ```json
 {
   "decision": "STEP_UP",
@@ -87,7 +101,7 @@ Constrained execution MUST be represented as:
   "reasonCodes": ["trust_requires_step_up"],
   "constraintsApplied": ["provide-fresh-attestation"],
   "approvalsRequired": [],
-  "trust": { "trustScore": 0.62 },
+  "trust": { "trustScore": 0.62, "trustZone": "warning" },
   "risk": { "riskScore": 0.58, "riskLevel": "HIGH", "blastRadius": "ENVIRONMENT" },
   "cost": { "estimatedCost": 1.02, "budgetDecision": "WITHIN_BUDGET", "costCenter": "platform-security" },
   "compliance": {
@@ -96,6 +110,9 @@ Constrained execution MUST be represented as:
       { "framework": "NIST", "status": "APPLIES" }
     ]
   },
+  "rapDecision": "step_up",
+  "nextStep": "reauthorize",
+  "evaluationTier": "full",
   "receiptId": "rcpt-abc",
   "receipt": {
     "schemaVersion": "1.0.0",
@@ -113,27 +130,55 @@ Constrained execution MUST be represented as:
 }
 ```
 
-### Error response (`400`)
+## 6) Error responses
+### `400`
+```json
+{ "error": "invalid_request" }
+```
+
+### `404`
+```json
+{ "error": "not_found" }
+```
+
+### `404` (`GET /receipts/:id`)
+```json
+{ "error": "receipt_not_found" }
+```
+
+## 7) Status codes
+- `200` — decision returned with receipt
+- `400` — invalid request payload
+- `404` — endpoint or receipt not found
+- `5xx` — authority unavailable; callers should fail closed
+
+## 8) Reauthorization contract (`POST /re/reauthorize`)
+Used after `STEP_UP` or `ESCALATE` where additional approval/evidence is required.
+
+Request:
 ```json
 {
-  "error": "invalid_request"
+  "requestId": "reauth-001",
+  "priorReceiptId": "rcpt-prior",
+  "approval": {
+    "approvedBy": "ops-admin",
+    "evidenceRef": "ticket-123"
+  }
 }
 ```
 
-## 6) Status codes
-- `200` — decision returned with receipt
-- `400` — invalid request payload
-- `404` — endpoint not found
-- `5xx` — authority unavailable; callers should fail closed
+Response:
+- returns the same top-level fields as `POST /re/authorize`
+- produces a new receipt chained to prior receipt hash
 
-## 7) Caller enforcement requirements
+## 9) Caller enforcement requirements
 - Do not execute before receiving response.
 - Treat missing `receipt` or `receiptId` as deny.
 - Persist `receiptId` with execution logs.
 - Respect `mode` and `constraintsApplied` even when `decision=PERMIT`.
 - Route `STEP_UP` and `ESCALATE` to explicit re-attestation / human approval paths.
 
-## 8) Compatibility and versioning
+## 10) Compatibility and versioning
 - Receipt schema uses `schemaVersion`.
 - Clients should ignore unknown response fields for forward compatibility.
 - Contract changes should be introduced as additive fields or versioned endpoints.

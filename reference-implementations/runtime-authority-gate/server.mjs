@@ -12,6 +12,10 @@ const seedGrant = {
 };
 grants.set(seedGrant.grantId, seedGrant);
 
+function normalizeUrl(req) {
+  return new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+}
+
 function json(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json' });
   res.end(JSON.stringify(body));
@@ -109,6 +113,21 @@ function computeCompliance(request, risk) {
     exceptionRefs: [],
     auditTags: ['runtime-authority', 'trust-before-execution']
   };
+}
+
+function mapToRap(decision, mode) {
+  if (decision === 'PERMIT' && mode === 'FULL') return { rapDecision: 'allow', nextStep: 'execute' };
+  if (decision === 'PERMIT' && mode === 'CONSTRAINED') return { rapDecision: 'throttle', nextStep: 'execute_constrained' };
+  if (decision === 'STEP_UP') return { rapDecision: 'step_up', nextStep: 'reauthorize' };
+  if (decision === 'ESCALATE') return { rapDecision: 'escalate', nextStep: 'human_approval' };
+  return { rapDecision: 'deny', nextStep: 'block' };
+}
+
+function trustZone(trustScore) {
+  if (trustScore >= 0.8) return 'active';
+  if (trustScore >= 0.6) return 'degraded';
+  if (trustScore >= 0.35) return 'warning';
+  return 'critical';
 }
 
 function evaluateTrust(request) {
@@ -289,12 +308,58 @@ function buildReceipt(request, decisionResult) {
   return receipt;
 }
 
+function buildAuthorizeResponse(decisionResult, receipt) {
+  const rap = mapToRap(decisionResult.outcome, decisionResult.mode);
+  const zone = trustZone(decisionResult.trustScore);
+  const evaluationTier = decisionResult.trustScore >= 0.85 && decisionResult.risk.riskLevel === 'LOW' ? 'fast' : 'full';
+
+  return {
+    decision: decisionResult.outcome,
+    mode: decisionResult.mode,
+    reasonCodes: decisionResult.reasonCodes,
+    constraintsApplied: decisionResult.constraintsApplied,
+    approvalsRequired: decisionResult.approvalsRequired,
+    trust: { trustScore: decisionResult.trustScore, trustZone: zone },
+    risk: {
+      riskScore: decisionResult.risk.riskScore,
+      riskLevel: decisionResult.risk.riskLevel,
+      blastRadius: decisionResult.risk.blastRadius
+    },
+    cost: {
+      estimatedCost: decisionResult.cost.estimatedCost,
+      budgetDecision: decisionResult.cost.budgetDecision,
+      costCenter: decisionResult.cost.costCenter
+    },
+    compliance: {
+      retentionClass: decisionResult.compliance.retentionClass,
+      frameworkApplicability: decisionResult.compliance.frameworkApplicability
+    },
+    rapDecision: rap.rapDecision,
+    nextStep: rap.nextStep,
+    evaluationTier,
+    receiptId: receipt.receiptId,
+    receipt
+  };
+}
+
 const server = http.createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/healthz') {
+  const url = normalizeUrl(req);
+
+  if (req.method === 'GET' && url.pathname === '/healthz') {
     return json(res, 200, { status: 'ok', service: 'runtime-authority-gate', evaluatorVersion: 'runtime-authority-gate-v1' });
   }
 
-  if (req.method === 'POST' && req.url === '/re/authorize') {
+  if (req.method === 'POST' && url.pathname === '/utils/binding-hash') {
+    try {
+      const payload = await readBody(req);
+      const bindingHash = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+      return json(res, 200, { bindingHash, hashAlgorithm: 'SHA-256' });
+    } catch {
+      return json(res, 400, { error: 'invalid_request' });
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/re/authorize') {
     try {
       const request = await readBody(req);
       const started = Date.now();
@@ -303,33 +368,74 @@ const server = http.createServer(async (req, res) => {
       receipt.decision.latencyMs = Date.now() - started;
       receipts.push(receipt);
 
-      return json(res, 200, {
-        decision: decisionResult.outcome,
-        mode: decisionResult.mode,
-        reasonCodes: decisionResult.reasonCodes,
-        constraintsApplied: decisionResult.constraintsApplied,
-        approvalsRequired: decisionResult.approvalsRequired,
-        trust: { trustScore: decisionResult.trustScore },
-        risk: {
-          riskScore: decisionResult.risk.riskScore,
-          riskLevel: decisionResult.risk.riskLevel,
-          blastRadius: decisionResult.risk.blastRadius
-        },
-        cost: {
-          estimatedCost: decisionResult.cost.estimatedCost,
-          budgetDecision: decisionResult.cost.budgetDecision,
-          costCenter: decisionResult.cost.costCenter
-        },
-        compliance: {
-          retentionClass: decisionResult.compliance.retentionClass,
-          frameworkApplicability: decisionResult.compliance.frameworkApplicability
-        },
-        receiptId: receipt.receiptId,
-        receipt
-      });
+      return json(res, 200, buildAuthorizeResponse(decisionResult, receipt));
     } catch {
       return json(res, 400, { error: 'invalid_request' });
     }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/re/reauthorize') {
+    try {
+      const body = await readBody(req);
+      const priorReceipt = receipts.find((r) => r.receiptId === body.priorReceiptId);
+      if (!priorReceipt) return json(res, 404, { error: 'receipt_not_found' });
+
+      const approved = Boolean(body.approval?.approvedBy);
+      const decisionResult = approved
+        ? {
+            outcome: 'PERMIT',
+            mode: 'CONSTRAINED',
+            reasonCodes: ['human_approval_observed'],
+            constraintsApplied: ['approval-bound-session'],
+            approvalsRequired: [],
+            trustScore: priorReceipt.trust.trustScore,
+            risk: priorReceipt.risk,
+            cost: priorReceipt.cost,
+            compliance: priorReceipt.compliance
+          }
+        : {
+            outcome: 'ESCALATE',
+            mode: 'REQUIRES_HUMAN_APPROVAL',
+            reasonCodes: ['approval_missing_or_invalid'],
+            constraintsApplied: [],
+            approvalsRequired: ['security-approver'],
+            trustScore: priorReceipt.trust.trustScore,
+            risk: priorReceipt.risk,
+            cost: priorReceipt.cost,
+            compliance: priorReceipt.compliance
+          };
+
+      const syntheticRequest = {
+        requestId: body.requestId ?? crypto.randomUUID(),
+        subject: priorReceipt.execution.subject.id,
+        action: priorReceipt.execution.action,
+        resource: { id: priorReceipt.execution.resource },
+        context: {
+          ...priorReceipt.execution.context,
+          source: 'REAUTHORIZE',
+          evidenceRefs: [...(priorReceipt.evidence.evidenceRefs || []), body.approval?.evidenceRef].filter(Boolean)
+        },
+        authorityGrant: { grantId: priorReceipt.execution.authorityGrantRef, expiresAt: new Date(Date.now() + 300000).toISOString() }
+      };
+
+      const receipt = buildReceipt(syntheticRequest, decisionResult);
+      receipt.integrity.chainHash = priorReceipt.integrity.hash;
+      receipts.push(receipt);
+      return json(res, 200, buildAuthorizeResponse(decisionResult, receipt));
+    } catch {
+      return json(res, 400, { error: 'invalid_request' });
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/receipts') {
+    return json(res, 200, { count: receipts.length, receipts: receipts.map((r) => ({ receiptId: r.receiptId, issuedAt: r.issuedAt, outcome: r.decision.outcome })) });
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/receipts/')) {
+    const id = url.pathname.split('/')[2];
+    const receipt = receipts.find((r) => r.receiptId === id);
+    if (!receipt) return json(res, 404, { error: 'receipt_not_found' });
+    return json(res, 200, receipt);
   }
 
   return json(res, 404, { error: 'not_found' });

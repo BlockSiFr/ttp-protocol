@@ -14,7 +14,7 @@
 |---|---|---|
 | Runtime authority decision model | Complete baseline | 4 outcomes + mode semantics implemented. |
 | Receipt model | Complete baseline | Structured receipt sections + integrity hash/chain. |
-| API contract | Improved | Added status codes, required fields, response structure, caller rules. |
+| API contract | Improved | Added status codes, required fields, response structure, caller rules, RAP compatibility mapping, and reauthorization contract. |
 | User guide | Improved | Includes quickstart, enforcement matrix, checklist, troubleshooting. |
 | Admin guide | Improved | Includes governance model, runbooks, retention, KPIs. |
 | CI health checks | Complete baseline | Tests + smoke checks in `.github/workflows/ci.yml`. |
