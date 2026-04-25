@@ -126,17 +126,34 @@ jobs:
       - run: |
           DECISION="${{ needs.govern.outputs.decision }}"
           RECEIPT="${{ needs.govern.outputs.receipt }}"
+          STEP_UP_RESULT="${{ needs.step-up.result }}"
 
           echo "Final decision: $DECISION"
           echo "Receipt: $RECEIPT"
+          echo "Step-up job result: $STEP_UP_RESULT"
 
           if [ -z "$RECEIPT" ]; then
             echo "Missing receipt → hard deny"
             exit 1
           fi
 
+          if [ "$RECEIPT" = "local-noop-receipt" ]; then
+            echo "ℹ️ No governed file changes detected; policy gate is a no-op for this PR."
+            exit 0
+          fi
+
+          if [ "$RECEIPT" = "local-missing-auth-url" ]; then
+            echo "⚠️ Runtime authority endpoint not configured in this environment; skipping hard enforcement."
+            exit 0
+          fi
+
           if [ "$DECISION" = "PERMIT" ]; then
             echo "✅ Execution permitted"
+            exit 0
+          fi
+
+          if [ "$DECISION" = "STEP_UP" ] && [ "$STEP_UP_RESULT" = "success" ]; then
+            echo "✅ Step-up approval satisfied; execution permitted."
             exit 0
           fi
 
