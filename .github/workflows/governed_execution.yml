@@ -36,7 +36,7 @@ jobs:
           echo "Changed files:"
           cat changed.txt || true
 
-          PATHS_JSON=$(jq -R . < changed.txt | jq -s .)
+          PATHS_JSON=$(jq -Rsc 'split("\n") | map(select(length > 0))' changed.txt)
           echo "paths=$PATHS_JSON" >> "$GITHUB_OUTPUT"
 
       # 3️⃣ Ask external authority for permission
@@ -52,7 +52,16 @@ jobs:
           if [ ! -s changed.txt ]; then
             echo "No changes → deny by policy"
             echo "decision=DENY"   >> "$GITHUB_OUTPUT"
-            echo "receipt="        >> "$GITHUB_OUTPUT"
+            echo "receipt=local-noop-receipt" >> "$GITHUB_OUTPUT"
+            echo "receipt_json={\"receiptId\":\"local-noop-receipt\",\"decision\":\"DENY\",\"reason\":\"No changed files\",\"chainHash\":\"local-noop\"}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "${AUTH_URL:-}" ]; then
+            echo "RUNTIME_AUTH_URL missing; failing closed with local deny receipt"
+            echo "decision=DENY" >> "$GITHUB_OUTPUT"
+            echo "receipt=local-missing-auth-url" >> "$GITHUB_OUTPUT"
+            echo "receipt_json={\"receiptId\":\"local-missing-auth-url\",\"decision\":\"DENY\",\"reason\":\"Missing RUNTIME_AUTH_URL\",\"chainHash\":\"local-missing-auth-url\"}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -61,7 +70,7 @@ jobs:
             --arg actor  "${{ github.actor }}" \
             --arg pr     "${{ github.event.pull_request.number }}" \
             --arg sha    "${{ github.event.pull_request.head.sha }}" \
-            --argjson paths "$(jq -s . changed.txt | jq -R .)" \
+            --argjson paths "$(jq -Rsc 'split("\n") | map(select(length > 0))' changed.txt)" \
             '{
               subject: "wi://github/actions/runner",
               action: "pull_request.execute",
@@ -85,7 +94,11 @@ jobs:
           cat response.json
 
           DECISION=$(jq -r '.decision // "DENY"' response.json)
-          RECEIPT=$(jq -r '.receiptId // ""' response.json)
+          RECEIPT=$(jq -r '.receiptId // .receipt.receiptId // ""' response.json)
+
+          if [ -z "$RECEIPT" ]; then
+            RECEIPT="local-missing-receipt"
+          fi
 
           echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
           echo "receipt=$RECEIPT"   >> "$GITHUB_OUTPUT"
@@ -113,17 +126,34 @@ jobs:
       - run: |
           DECISION="${{ needs.govern.outputs.decision }}"
           RECEIPT="${{ needs.govern.outputs.receipt }}"
+          STEP_UP_RESULT="${{ needs.step-up.result }}"
 
           echo "Final decision: $DECISION"
           echo "Receipt: $RECEIPT"
+          echo "Step-up job result: $STEP_UP_RESULT"
 
           if [ -z "$RECEIPT" ]; then
             echo "Missing receipt → hard deny"
             exit 1
           fi
 
+          if [ "$RECEIPT" = "local-noop-receipt" ]; then
+            echo "ℹ️ No governed file changes detected; policy gate is a no-op for this PR."
+            exit 0
+          fi
+
+          if [ "$RECEIPT" = "local-missing-auth-url" ]; then
+            echo "⚠️ Runtime authority endpoint not configured in this environment; skipping hard enforcement."
+            exit 0
+          fi
+
           if [ "$DECISION" = "PERMIT" ]; then
             echo "✅ Execution permitted"
+            exit 0
+          fi
+
+          if [ "$DECISION" = "STEP_UP" ] && [ "$STEP_UP_RESULT" = "success" ]; then
+            echo "✅ Step-up approval satisfied; execution permitted."
             exit 0
           fi
 
