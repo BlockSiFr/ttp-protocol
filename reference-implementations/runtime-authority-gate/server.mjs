@@ -1,9 +1,11 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { loadReceipts, saveReceipts, storeMetadata } from './storage.mjs';
+import { signHash, signingMetadata } from './signing.mjs';
 
 const PORT = process.env.PORT || 8080;
 const grants = new Map();
-const receipts = [];
+const receipts = loadReceipts();
 
 const seedGrant = {
   grantId: 'grant-local-001',
@@ -295,6 +297,8 @@ function buildReceipt(request, decisionResult) {
       hashAlgorithm: 'SHA-256',
       hash: '',
       signatureStatus: 'UNSIGNED',
+      signature: '',
+      signatureAlg: '',
       signatureRef: '',
       signingKeyRef: '',
       chainHash: previousReceipt?.integrity?.hash ?? ''
@@ -304,6 +308,13 @@ function buildReceipt(request, decisionResult) {
   const canonical = JSON.stringify({ ...receipt, integrity: { ...receipt.integrity, hash: '' } });
   const hash = crypto.createHash('sha256').update(canonical).digest('hex');
   receipt.integrity.hash = hash;
+
+  const signed = signHash(hash);
+  receipt.integrity.signatureStatus = signed.signatureStatus;
+  receipt.integrity.signature = signed.signature;
+  receipt.integrity.signatureAlg = signed.signatureAlg;
+  receipt.integrity.signatureRef = signed.signatureRef;
+  receipt.integrity.signingKeyRef = signed.signingKeyRef;
 
   return receipt;
 }
@@ -346,7 +357,13 @@ const server = http.createServer(async (req, res) => {
   const url = normalizeUrl(req);
 
   if (req.method === 'GET' && url.pathname === '/healthz') {
-    return json(res, 200, { status: 'ok', service: 'runtime-authority-gate', evaluatorVersion: 'runtime-authority-gate-v1' });
+    return json(res, 200, {
+      status: 'ok',
+      service: 'runtime-authority-gate',
+      evaluatorVersion: 'runtime-authority-gate-v1',
+      storage: storeMetadata(),
+      signing: signingMetadata()
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/utils/binding-hash') {
@@ -367,6 +384,7 @@ const server = http.createServer(async (req, res) => {
       const receipt = buildReceipt(request, decisionResult);
       receipt.decision.latencyMs = Date.now() - started;
       receipts.push(receipt);
+      saveReceipts(receipts);
 
       return json(res, 200, buildAuthorizeResponse(decisionResult, receipt));
     } catch {
@@ -421,6 +439,7 @@ const server = http.createServer(async (req, res) => {
       const receipt = buildReceipt(syntheticRequest, decisionResult);
       receipt.integrity.chainHash = priorReceipt.integrity.hash;
       receipts.push(receipt);
+      saveReceipts(receipts);
       return json(res, 200, buildAuthorizeResponse(decisionResult, receipt));
     } catch {
       return json(res, 400, { error: 'invalid_request' });

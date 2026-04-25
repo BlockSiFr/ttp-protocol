@@ -1,5 +1,11 @@
 # SCIM-RE Authorize API (`POST /re/authorize`)
 
+## 0) Source-of-truth artifacts
+- OpenAPI: `specs/openapi/runtime-authority-gate.openapi.json`
+- JSON Schema (request): `specs/schemas/re-authorize-request.schema.json`
+- JSON Schema (response): `specs/schemas/re-authorize-response.schema.json`
+- JSON Schema (receipt): `specs/schemas/execution-receipt.schema.json`
+
 ## 1) Normative constraints
 - Trust is evaluated before execution.
 - No implicit trust exists after provisioning.

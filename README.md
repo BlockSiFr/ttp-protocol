@@ -39,6 +39,15 @@ This repository is positioned as:
 - **Cryptographic accountability**
 - **Enterprise-ready integration model**
 
+
+## Open-source vs paid boundary
+
+**Open-source (this repo):** protocol specs, schemas, reference implementations, SDK baselines, and conformance/integration examples.
+
+**Commercial (outside this repo):** managed operations, enterprise workflow products, premium connectors, and SLA-backed services.
+
+See the explicit boundary policy in `docs/open-source-boundary.md`.
+
 ## Repository layout
 
 - `docs/` — user and administrator documentation center.

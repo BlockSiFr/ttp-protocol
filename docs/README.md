@@ -28,3 +28,5 @@ All production documentation in this repository follows these principles:
 - **SCIM-RE** — Runtime Execution Governance Protocol
 - **RAP** — Runtime Authority Protocol
 - **FrontDesk** — Runtime Authority Gate
+
+- **Open-source vs paid boundary:** [`docs/open-source-boundary.md`](./open-source-boundary.md)
