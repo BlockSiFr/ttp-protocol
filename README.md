@@ -2,8 +2,6 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Positioning](https://img.shields.io/badge/focus-trust--before--execution-purple.svg)](#blocksifr-agent-trust-infrastructure)
-[![CI / Repository Health](https://github.com/blocksifrdev/ttp-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/blocksifrdev/ttp-protocol/actions/workflows/ci.yml)
-[![TTP / Governed Execution Proof](https://github.com/blocksifrdev/ttp-protocol/actions/workflows/governed_execution.yml/badge.svg)](https://github.com/blocksifrdev/ttp-protocol/actions/workflows/governed_execution.yml)
 
 Trust-before-execution infrastructure for enterprise agent systems.
 
@@ -54,25 +52,6 @@ This repository is positioned as:
 3. Wire callers through `POST /re/authorize` using the Node or Python SDK.
 4. Persist and verify each generated `ExecutionReceipt` for auditability.
 
-## Verify everything works
-
-Run the same checks validated in CI:
-
-```bash
-npm test
-python -m py_compile sdk/python/client.py
-```
-
-Optional local smoke test:
-
-```bash
-node reference-implementations/runtime-authority-gate/server.mjs
-```
-
-Then call:
-- `GET /healthz`
-- `POST /re/authorize`
-
 ## Non-goals
 
 This repository does **not** position:
@@ -80,3 +59,4 @@ This repository does **not** position:
 - TTP as a standalone runtime.
 - TTP as an independent execution authorizer.
 - Blockchain as a required runtime dependency.
+

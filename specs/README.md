@@ -6,4 +6,3 @@
 - `scim-re-authorize-api.md` — `POST /re/authorize` API contract.
 - `execution-receipt.md` — immutable decision record format.
 - `trust-decay.md` — trust aging and recovery semantics.
-- `runtime-authority-prompt.md` — mythos-aware runtime authority behavior contract.

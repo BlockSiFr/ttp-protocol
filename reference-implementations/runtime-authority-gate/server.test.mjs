@@ -54,12 +54,9 @@ test('runtime-authority-gate /healthz and /re/authorize contract', async () => {
     }).then((r) => r.json());
 
     assert.equal(result1.decision, 'PERMIT');
-    assert.equal(result1.mode, 'FULL');
     assert.ok(result1.receipt.receiptId);
-    assert.ok(result1.receipt.integrity.hash);
-    assert.equal(result1.receipt.integrity.chainHash, '');
-    assert.equal(result1.receipt.schemaVersion, '1.0.0');
-    assert.equal(result1.receipt.decision.outcome, 'PERMIT');
+    assert.ok(result1.receipt.chainHash);
+    assert.equal(result1.receipt.prevChainHash, null);
 
     const result2 = await fetch(`${BASE_URL}/re/authorize`, {
       method: 'POST',
@@ -68,8 +65,7 @@ test('runtime-authority-gate /healthz and /re/authorize contract', async () => {
     }).then((r) => r.json());
 
     assert.equal(result2.decision, 'PERMIT');
-    assert.ok(result2.mode === 'FULL' || result2.mode === 'CONSTRAINED');
-    assert.equal(result2.receipt.integrity.chainHash, result1.receipt.integrity.hash);
+    assert.equal(result2.receipt.prevChainHash, result1.receipt.chainHash);
 
     const denied = await fetch(`${BASE_URL}/re/authorize`, {
       method: 'POST',
@@ -82,7 +78,6 @@ test('runtime-authority-gate /healthz and /re/authorize contract', async () => {
     }).then((r) => r.json());
 
     assert.equal(denied.decision, 'DENY');
-    assert.equal(denied.mode, 'FAILED_CLOSED');
     assert.ok(denied.receipt.receiptId);
   } finally {
     server.kill('SIGTERM');

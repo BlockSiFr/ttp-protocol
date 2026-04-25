@@ -20,11 +20,3 @@ TTP defines the trust expression format used to carry intent, context, and risk 
 
 ## Required handoff
 TTP payloads MUST be passed to SCIM-RE and RAP controls for runtime authority evaluation at FrontDesk.
-
-## Evaluation dimensions required downstream
-SCIM-RE / RAP evaluation MUST include:
-- authority grant validity
-- trust state
-- risk posture
-- cost policy posture
-- compliance obligations and evidence sufficiency

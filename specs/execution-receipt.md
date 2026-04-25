@@ -9,24 +9,18 @@ ExecutionReceipt is the immutable decision artifact for runtime governance and a
 - Every governed action calls `POST /re/authorize`.
 - Every decision produces an `ExecutionReceipt`.
 
-## Required top-level sections
-- `schemaVersion`
+## Required fields
 - `receiptId`
-- `issuedAt`
-- `execution`
+- `requestId`
 - `decision`
-- `trust`
-- `risk`
-- `cost`
-- `compliance`
-- `evidence`
-- `integrity`
+- `reason`
+- `timestamp`
+- `chainHash`
+- `prevChainHash` (nullable for first record)
+- `evidenceDigest`
 
-## Decision rules
-- Outcome MUST be one of: `PERMIT`, `STEP_UP`, `ESCALATE`, `DENY`.
-- Constrained operation MUST use `outcome=PERMIT` and `mode=CONSTRAINED`.
+## Chain integrity
+`chainHash` MUST be computed from canonical decision content and `prevChainHash` to create tamper-evident linkage.
 
-## Integrity rules
-- `integrity.hash` MUST be derived from canonical receipt content.
-- `integrity.chainHash` SHOULD reference prior receipt hash to create tamper-evident linkage.
-- If signing is unavailable, receipt hash MUST still be generated for accountability.
+## Audit use
+Receipts MUST be retained for governance review, incident response, and compliance attestation.
