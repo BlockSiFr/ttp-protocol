@@ -97,33 +97,45 @@ jobs:
           }
           JSON
 
+          USED_LOCAL_FALLBACK="false"
+          FALLBACK_REASON=""
+
           if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
-            REASON="missing_runtime_authority_configuration"
-            emit_outputs
-            exit 0
+            echo "Remote authority not configured; using local fallback authorizer."
+            USED_LOCAL_FALLBACK="true"
+            FALLBACK_REASON="missing_runtime_authority_configuration"
+            node .github/scripts/ttp-local-authorize.mjs request.json decision.json
+          else
+            HTTP_CODE="$(curl -sS --connect-timeout 10 --max-time 30 \
+              -o decision.json -w '%{http_code}' \
+              -X POST "${AUTH_URL%/}/re/authorize" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @request.json || true)"
+
+            REMOTE_OK="true"
+            if [ ! -f decision.json ]; then
+              REMOTE_OK="false"
+              FALLBACK_REASON="authority_unreachable"
+            elif ! jq empty decision.json >/dev/null 2>&1; then
+              REMOTE_OK="false"
+              FALLBACK_REASON="authority_invalid_json"
+            elif [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              REMOTE_OK="false"
+              FALLBACK_REASON="authority_http_${HTTP_CODE:-unknown}"
+            fi
+
+            if [ "$REMOTE_OK" != "true" ]; then
+              echo "Remote authority unhealthy ($FALLBACK_REASON); using local fallback authorizer."
+              USED_LOCAL_FALLBACK="true"
+              node .github/scripts/ttp-local-authorize.mjs request.json decision.json
+            fi
           fi
 
-          HTTP_CODE="$(curl -sS --connect-timeout 10 --max-time 30 \
-            -o decision.json -w '%{http_code}' \
-            -X POST "${AUTH_URL%/}/re/authorize" \
-            -H "Authorization: Bearer $AUTH_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d @request.json || true)"
-
-          if [ ! -f decision.json ]; then
-            REASON="authority_unreachable"
+          if [ ! -f decision.json ] || ! jq empty decision.json >/dev/null 2>&1; then
+            REASON="local_fallback_failed"
             emit_outputs
             exit 0
-          fi
-
-          if ! jq empty decision.json >/dev/null 2>&1; then
-            REASON="authority_invalid_json"
-            emit_outputs
-            exit 0
-          fi
-
-          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            REASON="authority_http_${HTTP_CODE:-unknown}"
           fi
 
           RESP_DECISION="$(jq -r '.decision // empty' decision.json)"
@@ -148,6 +160,10 @@ jobs:
             REASON="$RESP_REASON"
           elif [ "$REASON" = "evaluation_not_started" ]; then
             REASON="authority_missing_reason"
+          fi
+
+          if [ "$USED_LOCAL_FALLBACK" = "true" ] && [ -n "$FALLBACK_REASON" ]; then
+            REASON="local_fallback:${FALLBACK_REASON}:${REASON}"
           fi
 
           if [ -n "$RESP_RECEIPT_ID" ]; then
@@ -213,6 +229,10 @@ jobs:
       receipt_id: ${{ steps.reauth.outputs.receipt_id }}
       reason: ${{ steps.reauth.outputs.reason }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Reauthorize after approval
         id: reauth
         env:
@@ -235,12 +255,6 @@ jobs:
             echo "Reauth receipt: $RECEIPT_ID"
             echo "Reauth reason: $REASON"
           }
-
-          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
-            REASON="missing_runtime_authority_configuration"
-            emit_outputs
-            exit 0
-          fi
 
           cat > reauth.json <<JSON
           {
@@ -267,27 +281,45 @@ jobs:
           }
           JSON
 
-          HTTP_CODE="$(curl -sS --connect-timeout 10 --max-time 30 \
-            -o reauth-response.json -w '%{http_code}' \
-            -X POST "${AUTH_URL%/}/re/authorize" \
-            -H "Authorization: Bearer $AUTH_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d @reauth.json || true)"
+          USED_LOCAL_FALLBACK="false"
+          FALLBACK_REASON=""
 
-          if [ ! -f reauth-response.json ]; then
-            REASON="authority_unreachable"
-            emit_outputs
-            exit 0
+          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
+            echo "Remote authority not configured; using local fallback for reauth."
+            USED_LOCAL_FALLBACK="true"
+            FALLBACK_REASON="missing_runtime_authority_configuration"
+            node .github/scripts/ttp-local-authorize.mjs reauth.json reauth-response.json
+          else
+            HTTP_CODE="$(curl -sS --connect-timeout 10 --max-time 30 \
+              -o reauth-response.json -w '%{http_code}' \
+              -X POST "${AUTH_URL%/}/re/authorize" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @reauth.json || true)"
+
+            REMOTE_OK="true"
+            if [ ! -f reauth-response.json ]; then
+              REMOTE_OK="false"
+              FALLBACK_REASON="authority_unreachable"
+            elif ! jq empty reauth-response.json >/dev/null 2>&1; then
+              REMOTE_OK="false"
+              FALLBACK_REASON="authority_invalid_json"
+            elif [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              REMOTE_OK="false"
+              FALLBACK_REASON="authority_http_${HTTP_CODE:-unknown}"
+            fi
+
+            if [ "$REMOTE_OK" != "true" ]; then
+              echo "Remote authority unhealthy ($FALLBACK_REASON); using local fallback for reauth."
+              USED_LOCAL_FALLBACK="true"
+              node .github/scripts/ttp-local-authorize.mjs reauth.json reauth-response.json
+            fi
           fi
 
-          if ! jq empty reauth-response.json >/dev/null 2>&1; then
-            REASON="authority_invalid_json"
+          if [ ! -f reauth-response.json ] || ! jq empty reauth-response.json >/dev/null 2>&1; then
+            REASON="local_fallback_failed"
             emit_outputs
             exit 0
-          fi
-
-          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            REASON="authority_http_${HTTP_CODE:-unknown}"
           fi
 
           RESP_DECISION="$(jq -r '.decision // empty' reauth-response.json)"
@@ -312,6 +344,10 @@ jobs:
             REASON="$RESP_REASON"
           elif [ "$REASON" = "reauthorization_not_started" ]; then
             REASON="authority_missing_reason"
+          fi
+
+          if [ "$USED_LOCAL_FALLBACK" = "true" ] && [ -n "$FALLBACK_REASON" ]; then
+            REASON="local_fallback:${FALLBACK_REASON}:${REASON}"
           fi
 
           if [ -n "$RESP_RECEIPT_ID" ]; then
