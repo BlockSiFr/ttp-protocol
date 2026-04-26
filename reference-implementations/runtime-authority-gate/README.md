@@ -1,8 +1,19 @@
-# Runtime Authority Gate (FrontDesk) - Reference Implementation
+# Runtime Authority Gate (FrontDesk) — Reference Implementation
 
-Minimal local service implementing runtime authority for governed actions.
+A runnable local Runtime Authority service for trust-before-execution enforcement.
 
-## Endpoints
+## Why this exists
+
+This service demonstrates the minimum operational path for governed execution:
+1. evaluate authority/trust/risk/cost/compliance before action,
+2. return a deterministic decision+mode,
+3. emit an `ExecutionReceipt` for every decision,
+4. support step-up/reauthorization flows.
+
+---
+
+## API surface
+
 - `GET /healthz`
 - `POST /utils/binding-hash`
 - `POST /re/authorize`
@@ -10,49 +21,78 @@ Minimal local service implementing runtime authority for governed actions.
 - `GET /receipts/:id`
 - `GET /receipts`
 
-## Features
-- Local trust/risk/cost/compliance evaluation.
-- Runtime decision outcomes: `PERMIT|STEP_UP|ESCALATE|DENY`.
-- Decision modes: `FULL|CONSTRAINED|REQUIRES_REATTESTATION|REQUIRES_HUMAN_APPROVAL|FAILED_CLOSED`.
-- `AuthorityGrant` validation.
-- Structured `ExecutionReceipt` generation for every decision (`execution`, `decision`, `trust`, `risk`, `cost`, `compliance`, `evidence`, `integrity`).
-- `chainHash` linking for tamper-evident local audit chains.
-- Receipt signing and verification utility.
-- Durable receipt backend abstraction (`memory` or `file`).
+Canonical contract references:
+- `specs/scim-re-authorize-api.md`
+- `specs/openapi/runtime-authority-gate.openapi.json`
 
-## Storage backend configuration
-- `RECEIPT_STORE_MODE=memory|file` (default: `memory`)
-- `RECEIPT_STORE_FILE=<path>` (default: `.runtime-authority-receipts.json`)
+---
 
-## Signing configuration
-- `RECEIPT_SIGNING_MODE=HMAC|RS256` (default: `HMAC`)
-- `RECEIPT_HMAC_SECRET=<secret>` (for HMAC)
-- `RECEIPT_PRIVATE_KEY_PATH=<pem>` (for RS256 signing)
-- `RECEIPT_PUBLIC_KEY_PATH=<pem>` (for RS256 verification)
+## Decision model
 
-## Run
+Top-level outcomes:
+- `PERMIT`
+- `STEP_UP`
+- `ESCALATE`
+- `DENY`
+
+Modes:
+- `FULL`
+- `CONSTRAINED`
+- `REQUIRES_REATTESTATION`
+- `REQUIRES_HUMAN_APPROVAL`
+- `FAILED_CLOSED`
+
+---
+
+## Quickstart
+
 ```bash
 node reference-implementations/runtime-authority-gate/server.mjs
 ```
 
-Default URL: `http://localhost:8080`
-
-## Verify a receipt signature
+Health:
 ```bash
-node reference-implementations/runtime-authority-gate/verify-receipt.mjs /path/to/receipt.json
+curl -sS http://127.0.0.1:8080/healthz | jq .
 ```
 
-## API usage
-See canonical contract: `specs/scim-re-authorize-api.md` and `specs/openapi/runtime-authority-gate.openapi.json`.
-
-Quick request:
+Authorize:
 ```bash
 curl -sS -X POST http://127.0.0.1:8080/re/authorize \
   -H 'content-type: application/json' \
   -d '{"requestId":"demo-1","action":"pipeline.deploy","resource":{"type":"environment","id":"prod"},"context":{"environment":"prod","trustScore":0.9},"authorityGrant":{"grantId":"grant-local-001"}}' | jq .
 ```
 
-## Test
+---
+
+## Configuration
+
+### Storage backend
+- `RECEIPT_STORE_MODE=memory|file` (default: `memory`)
+- `RECEIPT_STORE_FILE=<path>` (default: `.runtime-authority-receipts.json`)
+
+### Signing
+- `RECEIPT_SIGNING_MODE=HMAC|RS256` (default: `HMAC`)
+- `RECEIPT_HMAC_SECRET=<secret>`
+- `RECEIPT_PRIVATE_KEY_PATH=<pem>`
+- `RECEIPT_PUBLIC_KEY_PATH=<pem>`
+
+### Port
+- `PORT` (default: `8080`)
+
+---
+
+## Receipt verification
+
+```bash
+node reference-implementations/runtime-authority-gate/verify-receipt.mjs /path/to/receipt.json
+```
+
+---
+
+## Tests
+
 ```bash
 npm run test:runtime-authority-gate
 ```
+
+The test suite validates decision branches (`PERMIT`, `STEP_UP`, `ESCALATE`, `DENY`), reauthorization chaining, and durable file mode behavior.

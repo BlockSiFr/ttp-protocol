@@ -1,23 +1,25 @@
 # Specifications
 
-This directory defines canonical protocol and governance contracts.
+This folder is the protocol and contract source-of-truth for runtime authority integration.
 
-## Core specifications
-- `ttp.md` — Trust Expression Layer.
-- `scim-re.md` — Runtime Execution Governance Protocol.
-- `rap.md` — Runtime Authority Protocol.
-- `scim-re-authorize-api.md` — `POST /re/authorize` API contract.
-- `execution-receipt.md` — immutable decision record format.
-- `trust-decay.md` — trust aging and recovery semantics.
-- `runtime-authority-prompt.md` — mythos-aware runtime authority behavior contract.
+## Recommended reading order
 
-## Machine-readable contract artifacts
-- `openapi/runtime-authority-gate.openapi.json`
-- `schemas/re-authorize-request.schema.json`
-- `schemas/re-authorize-response.schema.json`
-- `schemas/execution-receipt.schema.json`
-- `examples/re-authorize.request.json`
-- `examples/re-authorize.response.json`
+1. `ttp.md` — trust expression scope and boundaries.
+2. `scim-re.md` — runtime execution governance semantics.
+3. `rap.md` — runtime authority protocol semantics.
+4. `scim-re-authorize-api.md` — endpoint and caller enforcement contract.
+5. `execution-receipt.md` — receipt evidence model.
 
-## Normative baseline
-All governed actions require runtime authorization (`POST /re/authorize`) and produce an `ExecutionReceipt`. Trust is evaluated before execution, and no implicit trust persists after provisioning.
+## Machine-readable artifacts
+
+- OpenAPI: `openapi/runtime-authority-gate.openapi.json`
+- Schemas:
+  - `schemas/re-authorize-request.schema.json`
+  - `schemas/re-authorize-response.schema.json`
+  - `schemas/execution-receipt.schema.json`
+- Contract examples:
+  - `examples/re-authorize.request.json`
+  - `examples/re-authorize.response.json`
+
+## Integration rule
+Every governed action must call `POST /re/authorize` and every decision must produce an `ExecutionReceipt`.

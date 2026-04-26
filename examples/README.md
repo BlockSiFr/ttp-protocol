@@ -1,15 +1,27 @@
-# Examples
+# Examples (Integration Patterns)
 
-This section contains practical integration patterns for governed execution.
+Use these examples to wire runtime authority into real execution surfaces.
 
-## CI/CD
+## Decision handling rule (applies to all examples)
+No protected action executes until `POST /re/authorize` returns a decision and receipt.
+
+## Choose by integration surface
+
+### CI/CD
 - `governed-ci/github-actions-governed-step.md`
 - `governed-ci/azure-devops-governed-pipeline.md`
 
-## Runtime/API enforcement
+### API / runtime enforcement
 - `api-gateway/api-gateway-enforcement.md`
 - `copilot-tool-gate/copilot-tool-call-gate.md`
 - `github-app-self-governance.md`
 
-## Usage note
-Treat examples as reference patterns. Production deployments should adapt policies, approval paths, and receipt retention to organizational controls.
+## How to use examples correctly
+
+1. Adapt request context fields to your environment/classification model.
+2. Keep decision enforcement logic thin in callers.
+3. Keep governance logic centralized in FrontDesk.
+4. Persist receipt IDs and integrity fields with execution logs.
+
+## Production note
+Examples are patterns, not production defaults. Apply your org’s auth, retention, and approval controls before rollout.

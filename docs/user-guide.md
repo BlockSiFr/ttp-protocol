@@ -1,27 +1,41 @@
 # User Guide (Integrators)
 
-## Audience
-Application teams, CI/CD owners, platform engineering, and agent-runtime integrators.
+## Who this guide is for
+Application teams, platform engineers, CI/CD owners, and agent-runtime integrators.
 
-## Outcome
-By the end of this guide, you should be able to:
-1. call `POST /re/authorize` before protected execution,
-2. enforce decision + mode correctly,
-3. persist `ExecutionReceipt` evidence for audit.
+## What you get from integration
+- A single runtime authority API (`POST /re/authorize`) before execution.
+- Deterministic decision handling (`PERMIT`, `STEP_UP`, `ESCALATE`, `DENY`).
+- Portable execution receipts for audit and investigations.
 
-## Quick start (15 minutes)
+---
 
-### Step 1: Run FrontDesk locally
+## Integration sequence (recommended)
+
+1. Read the API contract:
+   - `specs/scim-re-authorize-api.md`
+   - `specs/openapi/runtime-authority-gate.openapi.json`
+2. Run local FrontDesk:
+   - `reference-implementations/runtime-authority-gate/server.mjs`
+3. Integrate SDK calls from `sdk/node` or `sdk/python`.
+4. Enforce decision+mode at the caller boundary.
+5. Persist receipt metadata with your execution logs.
+
+---
+
+## Quick start (local)
+
+### 1) Start FrontDesk
 ```bash
 node reference-implementations/runtime-authority-gate/server.mjs
 ```
 
-### Step 2: Health check
+### 2) Health check
 ```bash
 curl -sS http://127.0.0.1:8080/healthz | jq .
 ```
 
-### Step 3: Authorize a governed action
+### 3) Authorize a governed action
 ```bash
 curl -sS -X POST http://127.0.0.1:8080/re/authorize \
   -H 'content-type: application/json' \
@@ -35,24 +49,23 @@ curl -sS -X POST http://127.0.0.1:8080/re/authorize \
   }' | jq .
 ```
 
+---
+
 ## Decision enforcement matrix
 
 | Decision | Mode | Caller action |
 |---|---|---|
-| PERMIT | FULL | Execute as requested. |
-| PERMIT | CONSTRAINED | Execute with constraints (reduced scope/capability). |
-| STEP_UP | REQUIRES_REATTESTATION | Pause and require fresh attestation/stronger proof. |
-| ESCALATE | REQUIRES_HUMAN_APPROVAL | Route to privileged human approval workflow. |
-| DENY | FAILED_CLOSED (or other) | Block execution; record receipt. |
+| PERMIT | FULL | Execute requested action. |
+| PERMIT | CONSTRAINED | Execute with constraints. |
+| STEP_UP | REQUIRES_REATTESTATION | Pause and gather stronger proof/attestation. |
+| ESCALATE | REQUIRES_HUMAN_APPROVAL | Route to human approval workflow. |
+| DENY | FAILED_CLOSED (or other) | Block execution and retain receipt evidence. |
 
-## SDK usage
-- Node SDK: `sdk/node`
-- Python SDK: `sdk/python`
+---
 
-Both SDKs return decision and mode. Integrations MUST evaluate both values.
+## Required logging/audit fields
 
-## Required logging and audit fields
-At minimum, store:
+At minimum:
 - `requestId`
 - `decision`
 - `mode`
@@ -60,14 +73,17 @@ At minimum, store:
 - `receipt.integrity.hash`
 - `receipt.integrity.chainHash`
 
-## Integration checklist
-- [ ] Every protected action calls `POST /re/authorize`.
-- [ ] Caller blocks on missing response/receipt.
-- [ ] `PERMIT+CONSTRAINED` is handled as constrained, not full permit.
-- [ ] `STEP_UP` and `ESCALATE` route to explicit control paths.
-- [ ] Receipt IDs are linked to runtime execution logs.
+---
 
-## Troubleshooting
-- **400 invalid_request**: verify required fields (`requestId`, `action`, `resource.id`).
-- **Unexpected DENY**: validate grant scope/expiry and trust inputs.
-- **Frequent ESCALATE in prod**: review risk triggers and mythos/advanced-agent policies.
+## Integration checklist
+
+- [ ] Every protected action calls `POST /re/authorize`.
+- [ ] Missing response/receipt is treated as deny.
+- [ ] `PERMIT+CONSTRAINED` is enforced as constrained.
+- [ ] `STEP_UP` and `ESCALATE` map to explicit control flows.
+- [ ] Receipt IDs are trace-linked to runtime execution logs.
+
+---
+
+## Next step
+For deployment and operational rollout, use [`docs/deployment-guide.md`](./deployment-guide.md).

@@ -20,6 +20,7 @@
 - CI smoke matrix expanded to assert `PERMIT`, `STEP_UP`, `ESCALATE`, `DENY`, and reauthorization path.
 
 ### Changed
+- Documentation overhaul for technical clarity: root value proposition, integration/deployment paths, SDK guides, examples map, and runtime gate operational README.
 - Governed execution workflow hardened to handle:
   - robust changed-file serialization,
   - local fallback receipts in no-op/misconfigured environments,

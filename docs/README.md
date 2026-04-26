@@ -1,32 +1,39 @@
 # Documentation Center
 
-This repository is documented for two primary audiences:
+Use this directory by objective, not by file name.
 
-1. **Users / Integrators** (application teams, platform engineers, developer tooling owners)
-2. **Administrators / Governance Owners** (security, compliance, identity, and operations)
+## 1) I need to integrate runtime authorization
 
-## Start here
+Start here in order:
+1. [`docs/user-guide.md`](./user-guide.md)
+2. [`docs/api/runtime-authority-gate.md`](./api/runtime-authority-gate.md)
+3. [`specs/scim-re-authorize-api.md`](../specs/scim-re-authorize-api.md)
+4. [`examples/README.md`](../examples/README.md)
 
-- **User documentation:** [`docs/user-guide.md`](./user-guide.md)
-- **Administrator documentation:** [`docs/admin-guide.md`](./admin-guide.md)
-- **Repository completeness assessment:** [`docs/repo-completeness-assessment.md`](./repo-completeness-assessment.md)
-- **Protocol specifications:** [`specs/README.md`](../specs/README.md)
-- **Examples:** [`examples/README.md`](../examples/README.md)
+## 2) I need to deploy/operate FrontDesk
 
-## Documentation standards
+Start here in order:
+1. [`docs/deployment-guide.md`](./deployment-guide.md)
+2. [`docs/admin-guide.md`](./admin-guide.md)
+3. [`docs/repo-completeness-assessment.md`](./repo-completeness-assessment.md)
+4. [`docs/security.md`](./security.md)
 
-All production documentation in this repository follows these principles:
+## 3) I need protocol and contract source-of-truth
 
-- **Trust-before-execution first:** no governed action proceeds without runtime authorization.
-- **Clear contract boundaries:** TTP expresses trust context; SCIM-RE/RAP enforce runtime authority.
-- **Auditability:** every decision creates an `ExecutionReceipt`.
-- **Enterprise readability:** concise, deterministic language suitable for architecture, security, and audit review.
+- [`specs/README.md`](../specs/README.md)
+- OpenAPI: [`specs/openapi/runtime-authority-gate.openapi.json`](../specs/openapi/runtime-authority-gate.openapi.json)
+- Schemas: [`specs/schemas/`](../specs/schemas)
 
-## Canonical terms
+## 4) I need governance/boundary context
 
-- **TTP** — Trust Expression Layer
-- **SCIM-RE** — Runtime Execution Governance Protocol
-- **RAP** — Runtime Authority Protocol
-- **FrontDesk** — Runtime Authority Gate
+- Open-source vs paid boundary: [`docs/open-source-boundary.md`](./open-source-boundary.md)
+- Governance posture: [`docs/governance.md`](./governance.md)
 
-- **Open-source vs paid boundary:** [`docs/open-source-boundary.md`](./open-source-boundary.md)
+---
+
+## Documentation principles for this repo
+
+- Trust is evaluated **before** execution.
+- No governed action bypasses `POST /re/authorize`.
+- Every decision emits an `ExecutionReceipt`.
+- TTP is trust-expression; SCIM-RE/RAP are runtime governance/enforcement.
