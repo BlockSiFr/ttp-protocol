@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-TTP GitHub Self-Governance is a protocol extension that applies **trust-before-execution** to AI role-agents operating in GitHub.
+TTP GitHub Self-Governance is a protocol extension that packages trust context for **trust-before-execution** governance of AI role-agents operating in GitHub.
 
 Every meaningful non-human action is gated by a Runtime Authority Gate (`POST /re/authorize`) before execution. The gate computes authority, trust, risk, compliance, and cost in one runtime decision and emits a signed, chain-hashed `ExecutionReceipt`.
 
@@ -10,7 +10,7 @@ This document specifies the architecture, decision model, policy patterns, and i
 
 ## 2. Why This Belongs in TTP
 
-TTP already solves runtime trust for autonomous actors. GitHub development workflows are high-impact execution surfaces for non-human identities. Governing repository actions with TTP is a natural extension of protocol scope because:
+TTP supplies delegated trust, trust routing, and attestation context for autonomous actors. GitHub development workflows are high-impact execution surfaces for non-human identities. Governing repository actions through Runtime Authority using TTP context is a natural extension of protocol scope because:
 
 - identity alone is insufficient for sensitive repo actions,
 - policy and trust must be evaluated at execution time,
@@ -42,7 +42,7 @@ Inputs:
 - active grants and constraints.
 
 Outputs:
-- decision outcome (`PERMIT`, `CONSTRAIN`, `STEP_UP`, `ESCALATE`, `DENY`),
+- decision outcome (`PERMIT`, `STEP_UP`, `ESCALATE`, `DENY`) with mode semantics (for constrained execution),
 - constraints/step-up requirements,
 - signed `ExecutionReceipt`.
 

@@ -1,0 +1,29 @@
+# Illustrative TTP example (non-executable)
+# Copilot delegates CRM read scope to an agent.
+
+trust_subject "human:alice" {}
+trust_subject "copilot:ms-session-001" {}
+trust_subject "agent:crm-assistant-7" {}
+
+delegation "human_to_copilot" {
+  from = "human:alice"
+  to = "copilot:ms-session-001"
+  scope = ["crm.read"]
+  decay_ttl_seconds = 900
+  attestation_ref = "session-attestation-v1"
+}
+
+delegation "copilot_to_agent" {
+  from = "copilot:ms-session-001"
+  to = "agent:crm-assistant-7"
+  scope = ["crm.read:accounts"]
+  decay_ttl_seconds = 600
+  attestation_ref = "copilot-attestation-v1"
+}
+
+execution_intent {
+  action = "crm.read.accounts"
+  resource = "crm/account"
+}
+
+# Runtime Authority enforces execution via /re/authorize.

@@ -1,0 +1,20 @@
+# Illustrative TTP example (non-executable)
+# GitHub Actions workflow receives temporary deploy authority.
+
+trust_subject "workload:github-actions-runner" {}
+trust_subject "service:deploy-agent" {}
+
+delegation "runner_to_deploy_agent" {
+  from = "workload:github-actions-runner"
+  to = "service:deploy-agent"
+  scope = ["deploy.environment:staging"]
+  decay_ttl_seconds = 300
+  attestation_ref = "gha-run-attestation-v1"
+}
+
+execution_intent {
+  action = "pipeline.deploy"
+  resource = "environment/staging"
+}
+
+# Runtime Authority evaluates this TTP context before execution.

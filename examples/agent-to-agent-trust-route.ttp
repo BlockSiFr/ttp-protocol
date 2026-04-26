@@ -1,0 +1,22 @@
+# Illustrative TTP example (non-executable)
+# Agent-to-agent delegation with decay.
+
+trust_subject "agent:planner" {}
+trust_subject "agent:executor" {}
+
+trust_route "plan_to_execute" {
+  hop {
+    from = "agent:planner"
+    to = "agent:executor"
+    delegated_scope = ["workflow.execute:reporting"]
+    decay_ttl_seconds = 240
+    attestation_ref = "planner-attestation-v1"
+  }
+}
+
+execution_intent {
+  action = "workflow.execute"
+  resource = "reporting"
+}
+
+# TTP defines trust transfer semantics; Runtime Authority enforces execution.

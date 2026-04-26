@@ -1,0 +1,20 @@
+# Illustrative TTP example (non-executable)
+# Terraform apply requires fresh trust and step-up.
+
+trust_subject "service:iac-agent" {}
+
+trust_grant "iac_apply" {
+  subject = "service:iac-agent"
+  scope = ["terraform.apply:prod-network"]
+  decay_ttl_seconds = 120
+  attestation_ref = "iac-attestation-fresh"
+  freshness_required_seconds = 60
+}
+
+execution_intent {
+  action = "terraform.apply"
+  resource = "prod-network"
+  risk_level = "high"
+}
+
+# Runtime Authority may return STEP_UP unless attestation freshness is satisfied.

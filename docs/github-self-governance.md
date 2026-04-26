@@ -1,6 +1,6 @@
 # GitHub Self-Governance (TTP Governing TTP)
 
-TTP governs protected GitHub actions by requiring a runtime authorization decision before execution.
+TTP supplies trust context for protected GitHub actions; Runtime Authority governs execution decisions before execution.
 
 Runtime gate endpoint: `POST /re/authorize`
 

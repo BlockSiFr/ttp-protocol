@@ -1,0 +1,20 @@
+# Illustrative TTP example (non-executable)
+# MCP server delegates tool access to an agent.
+
+trust_subject "service:mcp-server" {}
+trust_subject "agent:data-assistant-3" {}
+
+delegation "mcp_to_agent" {
+  from = "service:mcp-server"
+  to = "agent:data-assistant-3"
+  scope = ["tool.invoke:analytics_query"]
+  decay_ttl_seconds = 180
+  attestation_ref = "mcp-server-attestation-v2"
+}
+
+execution_intent {
+  action = "tool.invoke"
+  resource = "analytics_query"
+}
+
+# Runtime Authority gate evaluates policy + authority before tool invocation.
