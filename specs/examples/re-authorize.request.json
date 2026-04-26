@@ -1,0 +1,21 @@
+{
+  "requestId": "req-example-1",
+  "subject": "agent-42",
+  "action": "pipeline.deploy",
+  "resource": { "type": "environment", "id": "prod" },
+  "context": {
+    "environment": "prod",
+    "source": "github",
+    "agentType": "advanced",
+    "trustScore": 0.82,
+    "dataClassification": "internal",
+    "jurisdiction": "US",
+    "costCenter": "platform-security"
+  },
+  "attestationRef": "att-100",
+  "authorityGrant": {
+    "grantId": "grant-local-001",
+    "expiresAt": "2030-01-01T00:00:00Z",
+    "scope": ["pipeline.deploy:prod"]
+  }
+}

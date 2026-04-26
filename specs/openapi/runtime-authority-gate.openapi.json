@@ -1,0 +1,116 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BlockSiFr Runtime Authority Gate API",
+    "version": "1.0.0",
+    "description": "Trust-before-execution Runtime Authority contract for SCIM-RE/RAP flows."
+  },
+  "servers": [
+    { "url": "http://127.0.0.1:8080" }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health status",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/re/authorize": {
+      "post": {
+        "summary": "Authorize a governed execution request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "../schemas/re-authorize-request.schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision and ExecutionReceipt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../schemas/re-authorize-response.schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload"
+          }
+        }
+      }
+    },
+    "/re/reauthorize": {
+      "post": {
+        "summary": "Re-authorize after STEP_UP or ESCALATE",
+        "responses": {
+          "200": {
+            "description": "Decision and chained ExecutionReceipt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../schemas/re-authorize-response.schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "Prior receipt not found"
+          }
+        }
+      }
+    },
+    "/utils/binding-hash": {
+      "post": {
+        "summary": "Compute deterministic binding hash",
+        "responses": {
+          "200": {
+            "description": "Binding hash generated"
+          }
+        }
+      }
+    },
+    "/receipts": {
+      "get": {
+        "summary": "List receipts",
+        "responses": {
+          "200": {
+            "description": "Receipt summaries"
+          }
+        }
+      }
+    },
+    "/receipts/{receiptId}": {
+      "get": {
+        "summary": "Get receipt by ID",
+        "parameters": [
+          {
+            "name": "receiptId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ExecutionReceipt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../schemas/execution-receipt.schema.json" }
+              }
+            }
+          },
+          "404": { "description": "Receipt not found" }
+        }
+      }
+    }
+  }
+}
