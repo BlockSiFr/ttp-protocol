@@ -29,6 +29,19 @@ Start here in order:
 - Open-source vs paid boundary: [`docs/open-source-boundary.md`](./open-source-boundary.md)
 - Governance posture: [`docs/governance.md`](./governance.md)
 
+
+## 5) I need platform integration drafts
+
+- [`docs/integrations/openai-agents-scim-re-api-developer-guide.md`](./integrations/openai-agents-scim-re-api-developer-guide.md)
+- [`docs/integrations/microsoft-copilot-scim-re-api-developer-guide.md`](./integrations/microsoft-copilot-scim-re-api-developer-guide.md)
+- [`docs/integrations/microsoft-foundry-scim-re-api-developer-guide.md`](./integrations/microsoft-foundry-scim-re-api-developer-guide.md)
+- [`docs/integrations/zoho-scim-re-api-developer-guide.md`](./integrations/zoho-scim-re-api-developer-guide.md)
+- [`docs/integrations/talentgenius-scim-re-api-developer-guide.md`](./integrations/talentgenius-scim-re-api-developer-guide.md)
+
+## 6) I need commercialization planning docs
+
+- [`docs/gtm-assessment.md`](./gtm-assessment.md)
+
 ---
 
 ## Documentation principles for this repo

@@ -9,15 +9,42 @@ status: "Developer documentation draft"
 # Microsoft Copilot SCIM-RE API Developer Guide
 
 ## Purpose
-
-This document explains how to apply **SCIM-RE runtime execution governance** to Microsoft Copilot Studio and Microsoft 365 Copilot workflows. SCIM-RE does not replace native platform identity, API, workflow, or runtime controls. It adds an **Authority Plane** in front of protected execution so each high-impact action is evaluated before execution and each decision emits an **ExecutionReceipt**.
+SCIM-RE adds an Authority Plane in front of protected Copilot tool and connector execution.
 
 ## Platform Context
-
-Copilot Studio agents can combine connectors, APIs, prompts, and knowledge sources. Microsoft 365 Copilot connectors include synced connectors and federated MCP connectors. Recommended protection points include REST actions, custom connectors, MCP tools, Microsoft Graph mutations, and downstream business operations.
+Copilot Studio and Microsoft 365 Copilot can execute connectors, tools, and Graph actions. Protect write and delegation paths.
 
 ## Core Execution Invariant
-
 ```text
-Copilot agent/action/connector → FrontDesk Copilot Authority Middleware → /re/authorize → connector/API/tool execution → ExecutionReceipt
+Copilot agent/action/connector → FrontDesk Copilot Middleware → /re/authorize → connector/API/tool execution → ExecutionReceipt
 ```
+
+## Identity Mapping
+| Platform concept | SCIM-RE field |
+|---|---|
+| Entra tenant ID | `tenantId` |
+| Entra object ID | `subject` |
+| Copilot agent ID | `context.agentId` |
+| Connector ID | `context.connectorId` |
+| Graph resource | `resource` |
+
+## Action Namespace
+- Prefix: `microsoft-copilot.*`
+- Example: `microsoft-copilot.tool.invoke`
+
+## Enforcement Rules
+1. Graph mutations require explicit grant.
+2. MCP tool calls must bind arguments hash and agent/user identity.
+3. High-risk domains require `step-up` or `escalate`.
+4. Fail closed if `/re/authorize` is unavailable.
+
+## Required Tests
+- Read path allowed with grant.
+- Mutation denied without grant.
+- Sensitive action triggers `step-up`.
+- Receipt captured in audit log.
+
+## Source References
+- https://learn.microsoft.com/en-us/microsoft-copilot-studio/
+- https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-rest-api
+- https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/overview-copilot-connector

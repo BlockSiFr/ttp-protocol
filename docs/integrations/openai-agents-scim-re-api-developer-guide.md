@@ -9,15 +9,43 @@ status: "Developer documentation draft"
 # OpenAI Agents SCIM-RE API Developer Guide
 
 ## Purpose
-
-This document explains how to apply **SCIM-RE runtime execution governance** to OpenAI Agents SDK and Responses API tool workflows. SCIM-RE does not replace native platform identity, API, workflow, or runtime controls. It adds an **Authority Plane** in front of protected execution so each high-impact action is evaluated before execution and each decision emits an **ExecutionReceipt**.
+SCIM-RE adds an Authority Plane in front of protected OpenAI agent tool execution and handoff flows.
 
 ## Platform Context
-
-OpenAI Agents SDK supports agent planning, tool calls, handoffs, and multi-step orchestration. Recommended protection points include external tool invocations, handoffs, API mutations, file actions, computer-use actions, and sandbox commands.
+OpenAI Agents SDK and Responses API support tool invocation, orchestration, and handoffs. Protect external tools, side effects, and privileged operations.
 
 ## Core Execution Invariant
-
 ```text
-OpenAI agent tool call/handoff → SCIM-RE tool wrapper → /re/authorize → execute tool only if authorized → tool_result with receipt metadata
+OpenAI agent tool call/handoff → SCIM-RE tool wrapper → /re/authorize → execute only if authorized → ExecutionReceipt
 ```
+
+## Identity Mapping
+| Platform concept | SCIM-RE field |
+|---|---|
+| Agent ID | `subject` |
+| Tool name | `resource` |
+| Handoff target | `context.handoffTarget` |
+| Trace ID | `context.traceId` |
+| User ID | `context.userId` |
+
+## Action Namespace
+- Prefix: `openai-agents.*`
+- Example: `openai-agents.tool.invoke`
+
+## Enforcement Rules
+1. Every external tool call must authorize before execution.
+2. Handoffs are delegation events and require trust-route validation.
+3. Computer-use and sandbox actions default to full evaluation.
+4. Fail closed if `/re/authorize` is unavailable.
+
+## Required Tests
+- Low-risk operation allowed with grant.
+- Mutation denied without grant.
+- Sensitive operation returns `step-up`.
+- Receipt metadata attached to tool result or audit record.
+
+## Source References
+- https://developers.openai.com/api/docs/guides/agents
+- https://openai.github.io/openai-agents-python/tools/
+- https://developers.openai.com/api/docs/guides/agents/orchestration
+- https://openai.github.io/openai-agents-python/handoffs/
