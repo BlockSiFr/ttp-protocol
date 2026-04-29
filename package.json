@@ -6,6 +6,7 @@
     "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs",
     "test:runtime-authority-gate": "node --test reference-implementations/runtime-authority-gate/*.test.mjs",
     "test": "npm run test:contracts && npm run test:trust-routing && npm run test:runtime-authority-gate",
-    "test:contracts": "node tools/validate-contracts.mjs"
+    "test:contracts": "node tools/validate-contracts.mjs",
+    "test:ttp": "node --test tests/*.test.mjs"
   }
 }

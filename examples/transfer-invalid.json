@@ -1,0 +1,1 @@
+{"input":{"from":"user:finance-owner","to":"agent:invoice-bot"},"output":{"valid":false},"expectedResult":"transfer rejected","explanation":"Insufficient sender trust or expiry."}
