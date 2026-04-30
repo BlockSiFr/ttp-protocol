@@ -1,0 +1,1 @@
+{"input":{"delegator":"user:finance-owner","delegatee":"agent:invoice-bot"},"output":{"valid":false},"expectedResult":"delegation rejected","explanation":"Out-of-scope or expired."}

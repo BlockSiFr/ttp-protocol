@@ -1,0 +1,1 @@
+{"input":{"initialTrust":0.88},"output":{"finalTrust":0.82},"expectedResult":"decayed with recharge","explanation":"Exponential decay with verified signal recharge."}

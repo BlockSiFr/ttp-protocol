@@ -1,87 +1,82 @@
-# Go-To-Market (GTM) Assessment
+# Go-to-Market (GTM) Assessment
 
-## Scope and method
+## Purpose
 
-This assessment evaluates GTM readiness across:
-1. Market narrative and ICP clarity
-2. Product packaging and adoption friction
-3. Sales/partner enablement
-4. Proof points and trust signals
-5. Launch operations and growth loops
+This document summarizes how ready this repository is for go-to-market execution and what should be improved next.
 
-It is based on repository artifacts present as of **2026-04-29**.
+Assessment date: **2026-04-29**.
 
 ## Executive summary
 
-**Overall GTM readiness: 7.6 / 10 (strong technical launch posture, moderate commercial enablement gap).**
+**Overall GTM readiness: 7.5 / 10.**
 
-The repository is notably strong in protocol clarity, security posture, role-based documentation, and reference implementation depth. It is weaker in explicit buyer-facing messaging (persona/vertical packaging), quantified business outcomes, and commercial conversion assets (pricing/edition map, case studies, benchmark claims, partner playbooks).
+The project is technically strong and credible for developer adoption now. The main gaps are commercial clarity: clearly defined buyer segments, measurable business outcomes, and packaging/enablement materials for enterprise purchasing.
 
-## Scorecard
+## Assessment areas and scores
 
-| GTM area | Score | Rationale |
+| Area | Score | Summary |
 |---|---:|---|
-| Problem/solution narrative | 8.5 | Clear articulation of trust-before-execution, boundary between protocol and gate, and practical deployment model. |
-| ICP + persona targeting | 6.5 | Technical roles are well documented, but named ICP segments and prioritized buying triggers are not explicit. |
-| Product readiness for adoption | 8.5 | Strong specs, SDKs, reference gate, examples, and deployment guidance reduce technical adoption risk. |
-| Proof and credibility | 7.0 | Good security/governance artifacts and CI badges; limited public customer proof, benchmark data, or formal conformance certification evidence. |
-| Commercial packaging | 6.0 | Open-vs-commercial boundary is documented, but edition matrix, packaging/pricing cues, and procurement-facing collateral are missing. |
-| Distribution channels | 7.0 | Ecosystem integration docs and role-lane roadmap exist; partner/channel strategy and co-sell assets are not explicit. |
-| Launch operations | 8.0 | Public-readiness checklist, roadmap phases, and contribution governance are mature; launch metrics dashboard and demand-gen loop instrumentation are not yet visible. |
+| Narrative clarity | 8.5 | Strong technical story around runtime authorization and trust-before-execution. |
+| ICP and personas | 6.5 | Good role-based docs, but top buyer segments and purchase triggers are not explicit. |
+| Adoption readiness | 8.5 | Specs, SDKs, reference implementations, and examples are in good shape. |
+| Proof and trust signals | 7.0 | Security and governance docs are strong; external proof points are limited. |
+| Commercial packaging | 6.0 | Open-source vs commercial boundary is clear, but edition and procurement guidance is limited. |
+| Distribution and partnerships | 7.0 | Integration paths exist, but partner playbooks and co-sell assets are not documented. |
+| Launch operations | 8.0 | Roadmap and readiness docs are solid; launch KPI instrumentation is not yet explicit. |
 
-## What is GTM-ready now
+## What is working well
 
-- **Compelling technical wedge:** clear category position around runtime authorization for agent/CI/API control planes, with concrete protocol semantics and implementation path.
-- **Fast time-to-first-value:** practical “integrate in 15 minutes” path, SDK coverage, examples, and runnable reference components.
-- **Trust-oriented enterprise posture:** security documentation, threat modeling, governance model, and protected-action framing support enterprise buying conversations.
-- **Open-core clarity:** explicit open-source/commercial boundary reduces channel confusion and supports ecosystem trust.
+- Clear positioning for runtime governance in agent, CI/CD, and API environments.
+- Practical path to implementation using contracts, SDKs, and reference services.
+- Strong enterprise confidence signals via security, governance, and threat-model documentation.
+- Clear explanation of what is open-source versus commercial.
 
-## GTM gaps to close before broader scale
+## Key GTM gaps
 
-1. **ICP/segment crispness**
-   - No explicit tiered ICP list (e.g., regulated enterprises, platform engineering orgs, CI-heavy software companies).
-   - Missing verticalized positioning pages mapping pains to outcomes.
+1. **ICP definition is not explicit enough**
+   - The repo does not clearly prioritize the top 2–3 buyer segments.
+   - Segment-specific pain-to-value messaging is limited.
 
-2. **Economic value proof**
-   - No quantified ROI narratives (incident reduction, deployment risk reduction, MTTR/MTTQ impact).
-   - No benchmark or production performance summaries suitable for buyer diligence.
+2. **Business value proof is underdeveloped**
+   - Limited quantified outcome framing (e.g., risk reduction, policy coverage improvement, faster incident response).
+   - No public benchmark or case-study style proof in repo-facing materials.
 
-3. **Commercial packaging assets**
-   - Missing edition matrix (OSS baseline vs managed platform tiers).
-   - No operator/buyer procurement pack (security questionnaire starter, architecture decision one-pager, compliance mapping overview).
+3. **Commercial packaging needs to be clearer**
+   - No explicit edition matrix showing OSS baseline vs managed/enterprise offerings.
+   - Limited procurement-friendly collateral.
 
-4. **Sales and partner enablement**
-   - Strong implementer docs but no partner integration playbook, joint-solution narratives, or demo scripts for sales engineering.
+4. **Partner and sales enablement are light**
+   - Technical integration guidance is present, but partner activation material is limited.
 
-5. **Demand capture instrumentation**
-   - Not evident: conversion funnels for docs/quickstart usage, lead capture hooks, or launch KPI tracking artifacts.
+5. **Launch metrics are not codified**
+   - No single KPI definition document for launch health and funnel progression.
 
-## 30/60/90 day GTM plan (repo-visible deliverables)
+## Recommended 30/60/90 plan
 
-### Days 0–30: sharpen positioning and conversion assets
-- Add `docs/gtm/icp-and-personas.md` with top 3 ICPs, trigger events, and objections.
-- Add `docs/gtm/value-hypotheses.md` with measurable outcome hypotheses and baseline formulas.
-- Add `docs/gtm/edition-matrix.md` clarifying OSS vs managed capabilities and support boundaries.
-- Add a “Start here by role” CTA block in root `README.md` mapping user journeys to specific docs.
+### 0–30 days
+- Add `docs/gtm/icp-and-personas.md` with prioritized segments and buying triggers.
+- Add `docs/gtm/value-hypotheses.md` with measurable value statements.
+- Add `docs/gtm/edition-matrix.md` for OSS vs managed positioning.
+- Add a role-based CTA section in `README.md` for faster onboarding.
 
-### Days 31–60: add proof and partner acceleration
-- Publish `docs/gtm/reference-architectures-by-vertical.md` (e.g., fintech, healthcare, devtools SaaS).
-- Add reproducible performance/test methodology with published baseline numbers in `docs/ops/`.
-- Add `docs/gtm/partner-integration-playbook.md` for gateway, SIEM, and CI partners.
+### 31–60 days
+- Add `docs/gtm/reference-architectures-by-vertical.md` for key industries.
+- Publish a baseline performance/testing methodology in `docs/ops/`.
+- Add `docs/gtm/partner-integration-playbook.md`.
 
-### Days 61–90: scale launch operations
-- Add `docs/gtm/launch-kpis.md` with defined funnel metrics (activation, conversion, POC win-rate).
-- Add case-study template and first implementation story in `docs/gtm/case-studies/`.
-- Create lightweight release marketing checklist tied to roadmap milestones.
+### 61–90 days
+- Add `docs/gtm/launch-kpis.md` with target metrics and definitions.
+- Add a case study template and one initial implementation story.
+- Add a launch checklist tied to release milestones.
 
 ## Suggested GTM KPIs
 
-- **Activation:** % of new visitors who complete quickstart within 7 days.
-- **Technical conversion:** % of quickstart users invoking `/re/authorize` successfully in non-demo environment.
-- **POC velocity:** median days from first contact to first governed workflow in staging.
-- **Security value:** change in protected-action policy coverage over time.
-- **Ecosystem pull:** number of external adapters/integrations contributed per quarter.
+- Quickstart activation rate
+- Successful non-demo `/re/authorize` adoption rate
+- Time from first touch to first staged governed workflow
+- Protected-action policy coverage growth
+- External integration contributions per quarter
 
 ## Bottom line
 
-The repo is **technically launch-capable** and credible for developer-led adoption now. To become **commercially scale-ready**, prioritize ICP clarity, quantified outcome proof, and packaging/partner collateral so enterprise buyers can justify procurement quickly.
+The repository is ready for technical adoption and pilot deployments. To improve commercial conversion and enterprise scaling, prioritize clearer ICP messaging, quantified value proof, and stronger packaging/enablement assets.

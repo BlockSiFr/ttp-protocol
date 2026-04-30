@@ -29,7 +29,6 @@ Start here in order:
 - Open-source vs paid boundary: [`docs/open-source-boundary.md`](./open-source-boundary.md)
 - Governance posture: [`docs/governance.md`](./governance.md)
 
----
 
 ## Documentation principles for this repo
 
