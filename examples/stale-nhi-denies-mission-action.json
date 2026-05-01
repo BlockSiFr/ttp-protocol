@@ -1,0 +1,23 @@
+{
+  "profileType": "VerifiedTrustDenied",
+  "description": "Enterprise HR offboarding blocked because Workday connector credential is stale",
+  "tenantId": "tenant_enterprise_globex",
+  "environmentId": "env_azure_globex_eastus",
+  "missionId": "mission_hr_offboarding_q2",
+  "agentId": "ag_fd_workday_offboard",
+  "externalAgentId": "workday_offboard_agent_001",
+  "verifiedTrustContext": {
+    "tenantId": "tenant_enterprise_globex",
+    "nhiId": "svc_workday_connector_prod",
+    "trustScore": 0.55,
+    "lifecycleState": "stale",
+    "credentialFreshness": "expiring_soon",
+    "decision": "step_up_required"
+  },
+  "action": "people.employee.update",
+  "rapDecision": "STEP_UP",
+  "reason": "nhi_stale_requires_attestation",
+  "remediationRequired": ["refresh_workday_connector_credential", "rerun_verifiedtrust_attestation"],
+  "proofValid": false,
+  "proofFailureReason": "verifiedtrust_step_up_required"
+}

@@ -1,0 +1,14 @@
+{
+  "profileType": "CrossTenantDenied",
+  "description": "Agent from Tenant A attempts to access Tenant B connector — no delegation exists",
+  "requestTenantId": "tenant_smb_acme",
+  "targetResourceTenantId": "tenant_smb_other_corp",
+  "agentId": "ag_crm_001",
+  "action": "crm.contacts.read",
+  "resource": "zoho.contacts/tenant_smb_other_corp/all",
+  "crossTenantDelegation": null,
+  "rapDecision": "DENY",
+  "reason": "cross_tenant_access_denied",
+  "proofValid": false,
+  "proofFailureReason": "no_cross_tenant_delegation_found"
+}

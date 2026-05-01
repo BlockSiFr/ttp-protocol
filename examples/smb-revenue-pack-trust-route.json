@@ -1,0 +1,26 @@
+{
+  "profileType": "TenantBoundTrustRoute",
+  "description": "SMB Revenue Growth Pack — Zoho CRM contact update by external agent",
+  "tenantId": "tenant_smb_acme",
+  "environmentId": "env_docker_acme_001",
+  "missionId": "mission_revenue_q1",
+  "selectedPackId": "pack_zoho_revenue",
+  "agentId": "ag_fd_zoho_crm_001",
+  "externalAgentId": "zoho_crm_followup_001",
+  "platformId": "platform_zoho_acme",
+  "platformType": "zoho",
+  "connectorId": "conn_zoho_acme",
+  "verifiedTrustContext": {
+    "tenantId": "tenant_smb_acme",
+    "nhiId": "svc_zoho_frontdesk_prod",
+    "trustScore": 0.91,
+    "lifecycleState": "active",
+    "credentialFreshness": "valid",
+    "decision": "trusted"
+  },
+  "action": "crm.contacts.update",
+  "resource": "zoho.contacts/contact_8821",
+  "rapDecision": "PERMIT",
+  "receiptHash": "sha256:e3b0c44298fc1c149afbf4c8996fb924",
+  "proofValid": true
+}
