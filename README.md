@@ -22,34 +22,59 @@ node --test tests/*.test.mjs
 import {
   prove_trust_threshold,
   verify_attestation,
-  generate_trust_proof,
-  apply_decay
+  apply_decay,
+  generate_trust_proof
 } from './src/index.mjs';
 
-// Generate a verifiable trust proof for an agent identity
-const proof = generate_trust_proof({
-  identityId: 'agent_007',
-  attestations: [
-    { signal: 'signed_activity', weight: 0.8, rating: 0.95 },
-    { signal: 'verified_scope',  weight: 0.6, rating: 1.0  }
-  ],
-  threshold: 0.7,
-  decayLambda: 0.0001,
-  issuedAt: Date.now() - 60_000   // attestation is 60 seconds old
+// 1. Compute a verifiable trust threshold proof
+const thresholdProof = prove_trust_threshold({
+  subject:           'agent_007',
+  trustScore:        0.876,
+  requiredThreshold: 0.7,
+  dimension:         'execution',
+  evaluatedAt:       new Date().toISOString(),
 });
+console.log(thresholdProof.satisfied);  // true
+console.log(thresholdProof.proofHash);  // deterministic proof hash
 
+// 2. Verify an attestation object
+const attestationResult = verify_attestation({
+  attestation: {
+    subject:         'agent_007',
+    issuer:          'authority.example.com',
+    type:            'signed_activity',
+    expiresAt:       new Date(Date.now() + 3_600_000).toISOString(),
+    issuedAt:        new Date().toISOString(),
+    trustScoreDelta: 0.1,
+    ref:             'att_ref_001',
+    claims:          { scope: 'execute' },
+  },
+  subject: 'agent_007',
+  validAt: new Date().toISOString(),
+});
+console.log(attestationResult.valid);   // true
+
+// 3. Apply time-based trust decay
+const decayed = apply_decay({
+  initialTrust:   0.876,
+  decayConstant:  0.0001,
+  elapsedSeconds: 3600,
+});
+console.log(decayed.finalTrust);  // ~0.841 — degraded but still above threshold
+
+// 4. Compose a full verifiable trust proof (consumed by RAP / SCIM-RE)
+const proof = generate_trust_proof({
+  subject:             'agent_007',
+  action:              'deploy',
+  resource:            'cluster/prod',
+  trustThresholdProof: thresholdProof,
+  attestationResults:  [attestationResult],
+  delegationResults:   [],
+  routeResult:         { valid: true, routeId: 'route_001' },
+  generatedAt:         new Date().toISOString(),
+});
 console.log(proof.valid);       // true
-console.log(proof.trustScore);  // 0.876
-console.log(proof.token);       // signed proof token (JWT-style)
-
-// Any downstream verifier can check this without calling back:
-const check = verify_attestation(proof.token, { publicKey: VERIFIER_KEY });
-console.log(check.verified);    // true
-console.log(check.decayed);     // false — trust is still fresh
-
-// Apply decay to see future state
-const future = apply_decay({ trustScore: 0.876, lambda: 0.0001, deltaSeconds: 3600 });
-console.log(future.trustScore); // 0.841 — degraded but still above threshold
+console.log(proof.proofHash);   // verifiable by any downstream consumer
 ```
 
 ## Layer boundary
