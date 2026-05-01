@@ -1,6 +1,56 @@
 # Trust Transfer Protocol (TTP)
 
-TTP is a platform-agnostic trust protocol for proving, transferring, decaying, delegating, and verifying trust before agentic execution.
+**Without TTP, any system can claim trust. With TTP, trust must be provable.**
+
+TTP is the cryptographic trust layer for agentic systems. It generates verifiable proofs that a trust threshold is met before execution is allowed — and those proofs are checkable by any verifier, at any time, without calling back to the issuer.
+
+## What breaks without TTP
+
+- Authority decisions rely on trust that is asserted but never verified
+- Decayed or revoked attestations remain valid indefinitely with no signal
+- No proof artifact exists — auditors see a decision with no supporting evidence
+- Delegated trust chains cannot be validated end-to-end
+
+## 30-second demo
+
+```bash
+npm install
+node --test tests/*.test.mjs
+```
+
+```js
+import {
+  prove_trust_threshold,
+  verify_attestation,
+  generate_trust_proof,
+  apply_decay
+} from './src/index.mjs';
+
+// Generate a verifiable trust proof for an agent identity
+const proof = generate_trust_proof({
+  identityId: 'agent_007',
+  attestations: [
+    { signal: 'signed_activity', weight: 0.8, rating: 0.95 },
+    { signal: 'verified_scope',  weight: 0.6, rating: 1.0  }
+  ],
+  threshold: 0.7,
+  decayLambda: 0.0001,
+  issuedAt: Date.now() - 60_000   // attestation is 60 seconds old
+});
+
+console.log(proof.valid);       // true
+console.log(proof.trustScore);  // 0.876
+console.log(proof.token);       // signed proof token (JWT-style)
+
+// Any downstream verifier can check this without calling back:
+const check = verify_attestation(proof.token, { publicKey: VERIFIER_KEY });
+console.log(check.verified);    // true
+console.log(check.decayed);     // false — trust is still fresh
+
+// Apply decay to see future state
+const future = apply_decay({ trustScore: 0.876, lambda: 0.0001, deltaSeconds: 3600 });
+console.log(future.trustScore); // 0.841 — degraded but still above threshold
+```
 
 ## Layer boundary
 
