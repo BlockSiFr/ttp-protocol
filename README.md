@@ -1,6 +1,81 @@
 # Trust Transfer Protocol (TTP)
 
-TTP is a platform-agnostic trust protocol for proving, transferring, decaying, delegating, and verifying trust before agentic execution.
+**Without TTP, any system can claim trust. With TTP, trust must be provable.**
+
+TTP is the cryptographic trust layer for agentic systems. It generates verifiable proofs that a trust threshold is met before execution is allowed — and those proofs are checkable by any verifier, at any time, without calling back to the issuer.
+
+## What breaks without TTP
+
+- Authority decisions rely on trust that is asserted but never verified
+- Decayed or revoked attestations remain valid indefinitely with no signal
+- No proof artifact exists — auditors see a decision with no supporting evidence
+- Delegated trust chains cannot be validated end-to-end
+
+## 30-second demo
+
+```bash
+npm install
+node --test tests/*.test.mjs
+```
+
+```js
+import {
+  prove_trust_threshold,
+  verify_attestation,
+  apply_decay,
+  generate_trust_proof
+} from './src/index.mjs';
+
+// 1. Compute a verifiable trust threshold proof
+const thresholdProof = prove_trust_threshold({
+  subject:           'agent_007',
+  trustScore:        0.876,
+  requiredThreshold: 0.7,
+  dimension:         'execution',
+  evaluatedAt:       new Date().toISOString(),
+});
+console.log(thresholdProof.satisfied);  // true
+console.log(thresholdProof.proofHash);  // deterministic proof hash
+
+// 2. Verify an attestation object
+const attestationResult = verify_attestation({
+  attestation: {
+    subject:         'agent_007',
+    issuer:          'authority.example.com',
+    type:            'signed_activity',
+    expiresAt:       new Date(Date.now() + 3_600_000).toISOString(),
+    issuedAt:        new Date().toISOString(),
+    trustScoreDelta: 0.1,
+    ref:             'att_ref_001',
+    claims:          { scope: 'execute' },
+  },
+  subject: 'agent_007',
+  validAt: new Date().toISOString(),
+});
+console.log(attestationResult.valid);   // true
+
+// 3. Apply time-based trust decay
+const decayed = apply_decay({
+  initialTrust:   0.876,
+  decayConstant:  0.0001,
+  elapsedSeconds: 3600,
+});
+console.log(decayed.finalTrust);  // ~0.841 — degraded but still above threshold
+
+// 4. Compose a full verifiable trust proof (consumed by RAP / SCIM-RE)
+const proof = generate_trust_proof({
+  subject:             'agent_007',
+  action:              'deploy',
+  resource:            'cluster/prod',
+  trustThresholdProof: thresholdProof,
+  attestationResults:  [attestationResult],
+  delegationResults:   [],
+  routeResult:         { valid: true, routeId: 'route_001' },
+  generatedAt:         new Date().toISOString(),
+});
+console.log(proof.valid);       // true
+console.log(proof.proofHash);   // verifiable by any downstream consumer
+```
 
 ## Layer boundary
 
