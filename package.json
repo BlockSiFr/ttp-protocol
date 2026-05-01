@@ -7,6 +7,9 @@
   "engines": {
     "node": ">=18"
   },
+  "bin": {
+    "ttp": "bin/ttp.mjs"
+  },
   "exports": {
     ".": "./src/index.mjs",
     "./attestation": "./src/attestation.mjs",
