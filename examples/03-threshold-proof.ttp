@@ -1,0 +1,36 @@
+subject "pipeline:prod_deployer" {
+  type = "automation_pipeline"
+  issuer = "blocksifr.local"
+  domain = "platform"
+}
+
+trust "pipeline:prod_deployer" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.93
+  issued_at = "2026-05-11T13:00:00Z"
+  expires_at = "2026-05-11T15:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "2h"
+    minimum = 0.60
+  }
+
+  scope = [
+    "deploy.read",
+    "deploy.execute"
+  ]
+}
+
+proof "production_deploy_threshold" {
+  subject = "pipeline:prod_deployer"
+  required_score = 0.90
+  mode = "cleartext-dev"
+  freshness = "20m"
+}
+
+authority_context "production_deploy" {
+  action = "deploy.execute"
+  resource = "service:payments-api"
+  requires = proof.production_deploy_threshold
+}
