@@ -1,0 +1,36 @@
+subject "agent:invoice_reviewer" {
+  type = "ai_agent"
+  issuer = "blocksifr.local"
+  domain = "finance"
+}
+
+trust "agent:invoice_reviewer" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.86
+  issued_at = "2026-05-11T12:00:00Z"
+  expires_at = "2026-05-11T18:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "6h"
+    minimum = 0.40
+  }
+
+  scope = [
+    "invoice.read",
+    "invoice.recommend"
+  ]
+}
+
+proof "invoice_review_threshold" {
+  subject = "agent:invoice_reviewer"
+  required_score = 0.75
+  mode = "cleartext-dev"
+  freshness = "30m"
+}
+
+authority_context "invoice_review" {
+  action = "invoice.recommend"
+  resource = "invoice:*"
+  requires = proof.invoice_review_threshold
+}

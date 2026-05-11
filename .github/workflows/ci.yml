@@ -8,7 +8,7 @@ on:
 
 jobs:
   verify:
-    name: Demo and Tests
+    name: CLI, Examples, and Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +17,14 @@ jobs:
         with:
           node-version: 20
 
+      - name: Show CLI version
+        run: npm run ttp -- version
+
+      - name: Check TTP examples
+        run: npm run check:examples
+
       - name: Run local adoption demo
         run: npm run demo
 
-      - name: Run trust-routing tests
-        run: npm run test:trust-routing
+      - name: Run tests
+        run: npm test
