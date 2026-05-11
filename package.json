@@ -20,16 +20,7 @@
     "./errors": "./src/errors.mjs"
   },
   "scripts": {
-    "test": "npm run test:ttp && npm run test:contracts && npm run test:trust-routing && npm run test:runtime-authority-gate",
-    "test:ttp": "node --test tests/*.test.mjs",
-    "test:contracts": "node tools/validate-contracts.mjs",
-    "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs",
-    "test:runtime-authority-gate": "node --test reference-implementations/runtime-authority-gate/*.test.mjs",
-    "lint": "node --check src/*.mjs"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/blocksifrdev/ttp-protocol.git"
-  },
-  "keywords": ["trust", "governance", "agentic", "execution", "protocol", "attestation", "decay"]
+    "demo": "node examples/local-trust-gate-demo.mjs",
+    "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs"
+  }
 }

@@ -1,0 +1,39 @@
+name: Quickstart feedback
+description: Report friction from the first TTP demo or integration path.
+title: "[Quickstart]: "
+labels:
+  - docs
+  - developer-experience
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the local demo, getting started guide, or first integration path is unclear or does not work.
+  - type: input
+    id: path
+    attributes:
+      label: Path tried
+      description: Which path were you using?
+      placeholder: npm run demo, SDK install, Trust Authority setup, GitHub Actions gate
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected outcome
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual outcome
+      description: What happened instead? Include command output if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version, OS, package manager, and any relevant runtime context.
+      placeholder: Node 20, macOS/Linux/Windows, npm/pnpm/yarn

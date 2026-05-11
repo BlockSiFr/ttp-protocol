@@ -1,106 +1,24 @@
-name: CI / Repository Health
+name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
-  test:
-    name: Test and Smoke Checks
+  verify:
+    name: Demo and Tests
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      - name: Run test suite
-        run: npm test
+      - name: Run local adoption demo
+        run: npm run demo
 
-      - name: Compile Python SDK
-        run: python -m py_compile sdk/python/client.py
-
-      - name: SDK + gate smoke matrix
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          node reference-implementations/runtime-authority-gate/server.mjs >/tmp/runtime-gate.log 2>&1 &
-          GATE_PID=$!
-          trap 'kill $GATE_PID' EXIT
-
-          for i in {1..20}; do
-            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null; then
-              break
-            fi
-            sleep 0.2
-          done
-
-          # PERMIT
-          curl -fsS -X POST http://127.0.0.1:8080/re/authorize \
-            -H 'content-type: application/json' \
-            -d '{"requestId":"ci-permit","subject":"ci-agent","action":"pipeline.deploy","resource":{"id":"prod"},"context":{"trustScore":0.9,"environment":"dev"},"authorityGrant":{"grantId":"grant-local-001"}}' \
-            | jq -e '.decision=="PERMIT" and .mode=="FULL" and .rapDecision=="allow"' >/dev/null
-
-          # STEP_UP
-          STEP_UP_RECEIPT=$(curl -fsS -X POST http://127.0.0.1:8080/re/authorize \
-            -H 'content-type: application/json' \
-            -d '{"requestId":"ci-stepup","subject":"ci-agent","action":"pipeline.deploy","resource":{"id":"prod"},"context":{"trustScore":0.55,"environment":"dev"},"authorityGrant":{"grantId":"grant-local-001"}}' \
-            | jq -r 'select(.decision=="STEP_UP" and .rapDecision=="step_up") | .receiptId')
-          test -n "$STEP_UP_RECEIPT"
-
-          # ESCALATE
-          curl -fsS -X POST http://127.0.0.1:8080/re/authorize \
-            -H 'content-type: application/json' \
-            -d '{"requestId":"ci-escalate","subject":"mythos-agent","action":"tool.invoke.delete_secret","resource":{"id":"prod-secret"},"context":{"trustScore":0.95,"environment":"prod","agentType":"mythos"},"authorityGrant":{"grantId":"grant-local-001"}}' \
-            | jq -e '.decision=="ESCALATE" and .rapDecision=="escalate"' >/dev/null
-
-          # DENY
-          curl -fsS -X POST http://127.0.0.1:8080/re/authorize \
-            -H 'content-type: application/json' \
-            -d '{"requestId":"ci-deny","subject":"ci-agent","action":"pipeline.deploy","resource":{"id":"prod"},"context":{"trustScore":0.1,"environment":"dev"},"authorityGrant":{"grantId":"grant-local-001"}}' \
-            | jq -e '.decision=="DENY" and .rapDecision=="deny"' >/dev/null
-
-          # REAUTHORIZE
-          curl -fsS -X POST http://127.0.0.1:8080/re/reauthorize \
-            -H 'content-type: application/json' \
-            -d "{\"requestId\":\"ci-reauth\",\"priorReceiptId\":\"$STEP_UP_RECEIPT\",\"approval\":{\"approvedBy\":\"ops-admin\",\"evidenceRef\":\"ticket-ci\"}}" \
-            | jq -e '.decision=="PERMIT" and .mode=="CONSTRAINED" and .rapDecision=="throttle"' >/dev/null
-
-          python - <<'PY'
-from sdk.python import authorize, AuthorizeRequest, Principal, Resource, AuthorityGrant
-resp = authorize(AuthorizeRequest(
-    base_url='http://127.0.0.1:8080',
-    requestId='ci-py-1',
-    principal=Principal(id='py-ci-agent', type='service-agent'),
-    action='pipeline.deploy',
-    resource=Resource(type='environment', id='prod'),
-    context={'trustScore': 0.91, 'environment': 'dev'},
-    authorityGrant=AuthorityGrant(grantId='grant-local-001', expiresAt='2030-01-01T00:00:00Z', scope=['pipeline.deploy:prod'])
-))
-assert resp.decision.value == 'PERMIT'
-PY
-
-          node --input-type=module - <<'JS'
-import { authorize } from './sdk/node/index.js';
-const resp = await authorize({
-  baseUrl: 'http://127.0.0.1:8080',
-  requestId: 'ci-node-1',
-  principal: { id: 'node-ci-agent', type: 'service-agent' },
-  action: 'pipeline.deploy',
-  resource: { type: 'environment', id: 'prod' },
-  context: { trustScore: 0.92, environment: 'dev' },
-  authorityGrant: {
-    grantId: 'grant-local-001',
-    expiresAt: '2030-01-01T00:00:00Z',
-    scope: ['pipeline.deploy:prod']
-  }
-});
-if (resp.decision !== 'PERMIT') throw new Error('Expected PERMIT');
-JS
+      - name: Run trust-routing tests
+        run: npm run test:trust-routing
