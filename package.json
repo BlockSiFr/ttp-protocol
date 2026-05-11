@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "demo": "node examples/local-trust-gate-demo.mjs",
     "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs"
   }
 }

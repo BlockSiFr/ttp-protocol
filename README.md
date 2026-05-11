@@ -1,7 +1,8 @@
 # Trust Transfer Protocol (TTP)
 
-TTP is an open protocol for runtime trust verification of autonomous systems using signed behavioral evidence and short-lived trust tokens.
-It solves the gap between **identity authentication** and **execution-time trustworthiness**.
+TTP is an open protocol for deciding whether an autonomous system should be allowed to execute a protected action right now.
+
+It fills the gap between **identity authentication** and **execution-time trustworthiness** by using signed behavioral evidence, trust routing, short-lived trust tokens, and verifiable execution receipts.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Spec](https://img.shields.io/badge/spec-v1.0-green.svg)](protocol/spec.md)
@@ -9,22 +10,57 @@ It solves the gap between **identity authentication** and **execution-time trust
 
 ---
 
-## If you only read one section
+## Why Teams Adopt TTP
 
-TTP adds a trust check before execution. Issuers publish signed behavioral receipts, a Trust Authority aggregates them into a short-lived trust token, and services verify that token at the moment of action. The decision is scoped, time-bounded, and cryptographically verifiable; if trust requirements are not met, execution is denied or constrained.
+Autonomous agents can hold valid credentials while their behavior is stale, risky, compromised, or outside policy. TTP adds a runtime trust gate before high-impact actions such as production deploys, customer messaging, discount issuance, code changes, and tool execution.
+
+Instead of asking only "who is calling?", TTP asks:
+
+```text
+Should this subject execute this action on this resource now?
+```
+
+The answer is explicit: `PERMIT`, `DENY`, `STEP_UP`, `THROTTLE`, or `CONSTRAIN`, with a receipt that can be audited later.
 
 ---
 
-## What this is / What this is not
+## Try It In 60 Seconds
 
-### What TTP is
+Run the local trust-gate demo. It has no external dependencies and shows the core adoption wedge: a protected execution request is permitted, stepped up, or denied based on current trust evidence.
+
+```bash
+npm run demo
+```
+
+Expected shape:
+
+```text
+PERMIT trusted build action
+decision: PERMIT
+reason: route_valid
+
+STEP_UP production deploy
+decision: STEP_UP
+reason: step_up_required
+
+DENY revoked workload
+decision: DENY
+reason: revoked_subject
+```
+
+The demo is implemented in `examples/local-trust-gate-demo.mjs` and uses the routing engine in `packages/trust-routing-engine`.
+
+---
+
+## What TTP Is
 
 - A protocol for **runtime trust decisions**.
 - A receipt and token model for **stateless verification at service boundaries**.
 - A way to combine evidence from **multiple independent issuers**.
 - A trust-routing model for selecting a valid authority path before execution.
+- A portable foundation for agent, workflow, and service governance.
 
-### What TTP is not
+## What TTP Is Not
 
 - Not a replacement for OAuth/OIDC, IAM, SPIFFE, mTLS, ZTNA, or API gateways.
 - Not a generic monitoring dashboard.
@@ -33,29 +69,20 @@ TTP adds a trust check before execution. Issuers publish signed behavioral recei
 
 ---
 
-## Why this exists
-
-Most security controls answer: **who is calling**.
-TTP answers: **should this action run now, given recent behavior**.
-
-Static credentials can remain valid while an agent is compromised, manipulated, or drifting.
-TTP addresses that by making trust time-bounded and behavior-derived.
-
----
-
-## Minimal example (end-to-end)
+## Core Flow
 
 ```text
-Agent -> Trust Token -> Service -> Execute or Deny
+execution request -> route resolution -> authority decision -> execution receipt -> enforcement
 ```
 
 Concrete flow:
 
-1. Agent actions are observed by issuers.
-2. Issuers submit signed receipts.
-3. Trust Authority computes trust score and issues short-lived token.
-4. Service verifies token (signature, freshness, domain, minScore).
-5. Service executes or denies.
+1. A subject requests a protected action.
+2. Issuers provide signed behavioral evidence.
+3. A Trust Authority or resolver evaluates route, score, freshness, scope, and policy.
+4. The service receives a scoped decision.
+5. Execution is permitted, denied, stepped up, throttled, or constrained.
+6. An execution receipt records what happened and why.
 
 ---
 
@@ -91,16 +118,17 @@ Verification at the service boundary is stateless and cryptographic.
 
 -----
 
-## Trust Routing Subsystem (New)
+## Trust Routing Subsystem
 
-TTP now includes a runtime **Trust Routing** subsystem for trust-before-execution:
+TTP includes a runtime **Trust Routing** subsystem for trust-before-execution:
 
 `execution request -> route resolution -> authority decision -> execution receipt -> enforcement`
 
 Core implementation entry points:
 - `apps/trust-route-resolver/src/server.mjs` (runtime APIs)
 - `packages/trust-routing-engine/src/*` (resolver, decay, policy, receipt logic)
-- `.github/workflows/trust-routing-governed-steps.yml` (GitHub Actions wedge demo)
+- `.github/workflows/governed-execution.yml` (GitHub Actions governed execution example)
+- `examples/local-trust-gate-demo.mjs` (local permit/step-up/deny demo)
 
 -----
 
@@ -628,7 +656,8 @@ Key implementation entry points:
 
 - `apps/trust-route-resolver/src/server.mjs`
 - `packages/trust-routing-engine/src/*`
-- `.github/workflows/trust-routing-governed-steps.yml`
+- `.github/workflows/governed-execution.yml`
+- `examples/local-trust-gate-demo.mjs`
 
 ---
 
@@ -647,10 +676,9 @@ ttp-protocol/
 │   ├── schemas/             # JSON schemas
 │   └── rfc/                 # Protocol RFCs
 ├── sdk/
-│   ├── typescript/          # TypeScript SDK
-│   ├── python/              # Python SDK
-│   └── go/                  # Go SDK
+│   └── typescript/          # TypeScript SDK foundation
 ├── examples/
+│   ├── local-trust-gate-demo.mjs
 │   ├── retention-platform-integration.md
 │   ├── basic-agent/
 │   ├── service-integration/
@@ -666,8 +694,7 @@ ttp-protocol/
 │   └── ecosystem-integrations.md
 ├── reference-implementations/
 │   ├── trust-authority/
-│   ├── issuers/
-│   └── verifiers/
+│   └── issuers/
 └── README.md
 ```
 
@@ -709,11 +736,20 @@ Choose by role:
 
 ## Quickstart
 
-### 1) Run Trust Authority reference implementation
+### 1) Run the local trust-gate demo
+
+```bash
+npm run demo
+```
+
+This shows `PERMIT`, `STEP_UP`, and `DENY` decisions with execution receipts.
+
+### 2) Run Trust Authority reference implementation
 
 ```bash
 cd reference-implementations/trust-authority
 npm install
+npm run build
 npm run generate-keys
 npm start
 ```
@@ -772,21 +808,18 @@ See <CONTRIBUTING.md> for guidelines.
 
 ## Community
 
-- **Discussions:** [GitHub Discussions](https://github.com/blocksifr/ttp-protocol/discussions)
-- **Issues:** [GitHub Issues](https://github.com/blocksifr/ttp-protocol/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/blocksifrdev/ttp-protocol/discussions)
+- **Issues:** [GitHub Issues](https://github.com/blocksifrdev/ttp-protocol/issues)
 - **Email:** hello@blocksifr.com
 - **Twitter:** [@blocksifr](https://twitter.com/blocksifr)
 
 -----
 
-## Status
+## Integration References
 
-- Guide: `docs/easy-connect-api.md`
-- Contract: `runtime/api/connect.contract.md`
-
-### 3) Integrate full verification flow
-
-- `docs/integration-guide.md`
+- Easy connect API: `docs/easy-connect-api.md`
+- Runtime connect contract: `runtime/api/connect.contract.md`
+- Full verification flow: `docs/integration-guide.md`
 
 ---
 
