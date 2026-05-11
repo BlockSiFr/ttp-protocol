@@ -1,0 +1,1 @@
+{"input":{"from":"user:finance-owner","to":"agent:invoice-bot"},"output":{"valid":true},"expectedResult":"transfer valid","explanation":"Sender has sufficient trust and conditions pass."}

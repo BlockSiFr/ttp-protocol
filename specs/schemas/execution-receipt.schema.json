@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blocksifr.dev/schemas/execution-receipt.schema.json",
+  "title": "ExecutionReceipt",
+  "type": "object",
+  "required": ["schemaVersion", "receiptId", "issuedAt", "execution", "decision", "trust", "risk", "cost", "compliance", "evidence", "integrity"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "receiptId": { "type": "string" },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "execution": { "type": "object" },
+    "decision": {
+      "type": "object",
+      "required": ["outcome", "mode"],
+      "properties": {
+        "outcome": { "type": "string", "enum": ["PERMIT", "STEP_UP", "ESCALATE", "DENY"] },
+        "mode": { "type": "string", "enum": ["FULL", "CONSTRAINED", "REQUIRES_REATTESTATION", "REQUIRES_HUMAN_APPROVAL", "FAILED_CLOSED"] }
+      }
+    },
+    "trust": { "type": "object" },
+    "risk": { "type": "object" },
+    "cost": { "type": "object" },
+    "compliance": { "type": "object" },
+    "evidence": { "type": "object" },
+    "integrity": {
+      "type": "object",
+      "required": ["hashAlgorithm", "hash", "chainHash", "signatureStatus"],
+      "properties": {
+        "hashAlgorithm": { "type": "string" },
+        "hash": { "type": "string" },
+        "chainHash": { "type": "string" },
+        "signatureStatus": { "type": "string", "enum": ["UNSIGNED", "SIGNED", "VERIFIED", "FAILED_VERIFICATION"] },
+        "signature": { "type": "string" },
+        "signatureAlg": { "type": "string" },
+        "signatureRef": { "type": "string" },
+        "signingKeyRef": { "type": "string" }
+      }
+    }
+  }
+}

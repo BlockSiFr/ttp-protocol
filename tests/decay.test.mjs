@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {apply_decay} from '../src/index.mjs';
+test('decays',()=>assert.ok(apply_decay({initialTrust:0.9,decayConstant:0.0001,elapsedSeconds:1000,activitySignals:[],calculatedAt:'t'}).finalTrust<0.9));
+test('recharge',()=>assert.ok(apply_decay({initialTrust:0.5,decayConstant:0,elapsedSeconds:0,activitySignals:[{ref:'a',verified:true,weight:0.2,recencyFactor:1}],calculatedAt:'t'}).finalTrust>0.5));
+test('clamp upper/lower',()=>{assert.equal(apply_decay({initialTrust:0.99,decayConstant:0,elapsedSeconds:0,activitySignals:[{verified:true,weight:1,recencyFactor:1}],calculatedAt:'t'}).finalTrust,1);assert.equal(apply_decay({initialTrust:0.1,decayConstant:10,elapsedSeconds:10,activitySignals:[],calculatedAt:'t'}).finalTrust>=0,true);});
+test('risk tier acceleration',()=>assert.ok(apply_decay({initialTrust:0.9,decayConstant:0.001,elapsedSeconds:100,activitySignals:[],riskTier:'high',calculatedAt:'t'}).finalTrust<apply_decay({initialTrust:0.9,decayConstant:0.001,elapsedSeconds:100,activitySignals:[],riskTier:'low',calculatedAt:'t'}).finalTrust));

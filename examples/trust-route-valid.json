@@ -1,0 +1,1 @@
+{"input":{"routeId":"route-001"},"output":{"valid":true},"expectedResult":"route valid","explanation":"Hops trusted and policy-allowed."}

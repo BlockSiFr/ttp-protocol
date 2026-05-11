@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blocksifr.dev/schemas/re-authorize-response.schema.json",
+  "title": "ReAuthorizeResponse",
+  "type": "object",
+  "required": ["decision", "mode", "rapDecision", "nextStep", "receiptId", "receipt"],
+  "properties": {
+    "decision": { "type": "string", "enum": ["PERMIT", "STEP_UP", "ESCALATE", "DENY"] },
+    "mode": { "type": "string", "enum": ["FULL", "CONSTRAINED", "REQUIRES_REATTESTATION", "REQUIRES_HUMAN_APPROVAL", "FAILED_CLOSED"] },
+    "rapDecision": { "type": "string", "enum": ["allow", "throttle", "step_up", "escalate", "deny"] },
+    "nextStep": { "type": "string" },
+    "receiptId": { "type": "string" },
+    "receipt": { "$ref": "./execution-receipt.schema.json" }
+  }
+}
