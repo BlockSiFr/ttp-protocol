@@ -1,0 +1,6 @@
+import {failure} from './errors.mjs';import {hashObj} from './util.mjs';
+export function verify_trust_route(i){const r=[];if(!i.hops?.length)r.push(failure('ROUTE_INVALID','empty route'));if(i.hops.length>i.maxHops)r.push(failure('ROUTE_TOO_LONG','too many hops'));let eff=1;
+for(const h of i.hops||[]){if(!h.subject||!h.issuer)r.push(failure('ROUTE_INVALID','missing hop identity'));eff*=Math.max(0,(h.trustScore??0)-i.decayPerHop);if(eff<i.minIntermediateTrust)r.push(failure('ROUTE_INVALID','intermediate trust below threshold'));if(i.routePolicy?.trustedIssuers&&!i.routePolicy.trustedIssuers.includes(h.issuer))r.push(failure('ROUTE_POLICY_VIOLATION','untrusted issuer'));}
+if(i.routePolicy?.allowedDomains&&!i.routePolicy.allowedDomains.includes(`${i.sourceDomain}->${i.targetDomain}`))r.push(failure('ROUTE_POLICY_VIOLATION','domain crossing not allowed'));
+if(i.routePolicy?.allowedActions&&!i.routePolicy.allowedActions.includes(i.action))r.push(failure('ROUTE_POLICY_VIOLATION','action not allowed'));
+const routeHash=hashObj({routeId:i.routeId,hops:i.hops,action:i.action,resource:i.resource});return {valid:r.length===0,routeId:i.routeId,routeHash,sourceDomain:i.sourceDomain,targetDomain:i.targetDomain,delegationDepth:i.hops?.length??0,effectiveTrust:eff,policyRefs:i.routePolicy?.refs??[],failureReasons:r};}

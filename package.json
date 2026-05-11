@@ -1,7 +1,24 @@
 {
-  "name": "ttp-protocol-workspace",
+  "name": "@blocksifrdev/ttp-protocol",
+  "version": "0.1.0",
+  "description": "Trust Transfer Protocol — platform-agnostic trust proof, decay, delegation, and verification primitives for agentic execution governance",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./attestation": "./src/attestation.mjs",
+    "./decay": "./src/decay.mjs",
+    "./delegation": "./src/delegation.mjs",
+    "./transfer": "./src/transfer.mjs",
+    "./trust-proof": "./src/trust_proof.mjs",
+    "./trust-route": "./src/trust_route.mjs",
+    "./trust-threshold": "./src/trust_threshold.mjs",
+    "./types": "./src/types.mjs",
+    "./errors": "./src/errors.mjs"
+  },
   "scripts": {
     "demo": "node examples/local-trust-gate-demo.mjs",
     "test:trust-routing": "node --test packages/trust-routing-engine/tests/*.test.mjs"

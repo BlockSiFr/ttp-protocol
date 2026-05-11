@@ -4,11 +4,9 @@ TTP is an open protocol for deciding whether an autonomous system should be allo
 
 It fills the gap between **identity authentication** and **execution-time trustworthiness** by using signed behavioral evidence, trust routing, short-lived trust tokens, and verifiable execution receipts.
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Spec](https://img.shields.io/badge/spec-v1.0-green.svg)](protocol/spec.md)
-[![Status](https://img.shields.io/badge/status-active%20development-orange.svg)](docs/roadmap.md)
+TTP is the cryptographic trust layer for agentic systems. It generates verifiable proofs that a trust threshold is met before execution is allowed — and those proofs are checkable by any verifier, at any time, without calling back to the issuer.
 
----
+## What breaks without TTP
 
 ## Why Teams Adopt TTP
 
@@ -481,175 +479,104 @@ The reference Trust Authority includes admin endpoints that act as an operator-f
 ### Register known agents
 
 ```bash
-curl -X POST http://localhost:3000/v1/admin/agents \
-  -H "Authorization: Bearer $ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agent_id": "agent-retention-001",
-    "description": "Retention agent for production"
-  }'
+npm install
+node --test tests/*.test.mjs
 ```
 
-### Check agent status (active/quarantined/blocked)
+```js
+import {
+  prove_trust_threshold,
+  verify_attestation,
+  apply_decay,
+  generate_trust_proof
+} from './src/index.mjs';
 
-```bash
-curl -X GET http://localhost:3000/v1/admin/agents/agent-retention-001/status \
-  -H "Authorization: Bearer $ADMIN_KEY"
+// 1. Compute a verifiable trust threshold proof
+const thresholdProof = prove_trust_threshold({
+  subject:           'agent_007',
+  trustScore:        0.876,
+  requiredThreshold: 0.7,
+  dimension:         'execution',
+  evaluatedAt:       new Date().toISOString(),
+});
+console.log(thresholdProof.satisfied);  // true
+console.log(thresholdProof.proofHash);  // deterministic proof hash
+
+// 2. Verify an attestation object
+const attestationResult = verify_attestation({
+  attestation: {
+    subject:         'agent_007',
+    issuer:          'authority.example.com',
+    type:            'signed_activity',
+    expiresAt:       new Date(Date.now() + 3_600_000).toISOString(),
+    issuedAt:        new Date().toISOString(),
+    trustScoreDelta: 0.1,
+    ref:             'att_ref_001',
+    claims:          { scope: 'execute' },
+  },
+  subject: 'agent_007',
+  validAt: new Date().toISOString(),
+});
+console.log(attestationResult.valid);   // true
+
+// 3. Apply time-based trust decay
+const decayed = apply_decay({
+  initialTrust:   0.876,
+  decayConstant:  0.0001,
+  elapsedSeconds: 3600,
+});
+console.log(decayed.finalTrust);  // ~0.841 — degraded but still above threshold
+
+// 4. Compose a full verifiable trust proof (consumed by RAP / SCIM-RE)
+const proof = generate_trust_proof({
+  subject:             'agent_007',
+  action:              'deploy',
+  resource:            'cluster/prod',
+  trustThresholdProof: thresholdProof,
+  attestationResults:  [attestationResult],
+  delegationResults:   [],
+  routeResult:         { valid: true, routeId: 'route_001' },
+  generatedAt:         new Date().toISOString(),
+});
+console.log(proof.valid);       // true
+console.log(proof.proofHash);   // verifiable by any downstream consumer
 ```
 
-### Quarantine or block when behavior degrades
+## Layer boundary
 
-```bash
-# Quarantine (temporary)
-curl -X POST http://localhost:3000/v1/admin/agents/agent-retention-001/quarantine \
-  -H "Authorization: Bearer $ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"mode":"manual","reason":"investigating anomalous tool calls"}'
+- A2A moves agent messages.
+- MCP exposes tools.
+- SCIM-RE normalizes runtime authority objects.
+- TRP resolves trust paths.
+- RAP decides execution authority.
+- TTP proves whether trust is valid enough to support that decision.
 
-# Block (hard stop)
-curl -X POST http://localhost:3000/v1/admin/agents/agent-retention-001/block \
-  -H "Authorization: Bearer $ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"reason":"confirmed compromise"}'
-```
+TTP answers: trust validity, decay status, threshold satisfaction proof, delegation validity, transfer validity, route validity, and verifier-checkable proof outputs.
 
-### Capture trust score and behavior metrics
+TTP does not implement platform adapters or platform field mappings.
 
-- Use `POST /v1/tokens` responses for **current trust score** and **issuer participation** (`score`, `issuer_count`).
-- Use behavioral receipts as your event-level audit stream (`event_type`, `event_data`, `score`, `timestamp`).
-- Build dashboards around score trend, issuer diversity, and domain-specific trust drift.
+## Core primitive functions
 
------
+- `prove_trust_threshold()`
+- `verify_attestation()`
+- `apply_decay()`
+- `verify_delegation()`
+- `verify_trust_route()`
+- `generate_trust_proof()`
+- `validate_transfer()`
 
-## Repo Readiness Assessment (Intent, Onboarding, Integration)
-
-This repository is structured to support the intended platform model (open protocol + reference implementation + integration docs):
-
-- **Protocol clarity**: normative protocol and schemas under `protocol/`.
-- **Integration docs**: architecture, security, and integration guidance under `docs/`.
-- **Runnable reference stack**: trust authority and issuer reference implementations under `reference-implementations/`.
-- **Practical examples**: starter integration examples under `examples/`.
-
-Recommended next documentation improvements for onboarding at scale:
-
-- Add an "operator runbook" with production SLOs, backup/restore, and incident workflows.
-- Add a standard metrics spec for dashboards (score trend, quarantine rate, issuer coverage, replay rejects).
-- Add a single-page "day-0 to day-30" rollout checklist for platform teams.
-
------
-
-## Where TTP Fits
-
-|System         |Role                 |Relationship to TTP                                  |
-|---------------|---------------------|-----------------------------------------------------|
-|OAuth / OIDC   |Identity & authz     |Complementary — OAuth says *who*, TTP says *trustworthy now* |
-|IAM            |Static permissions   |Complementary — IAM grants access, TTP continuously earns it |
-|API Gateway    |Routing & rate limit |Integration point — gateway acts as an issuer        |
-|Service Mesh   |Connectivity (mTLS)  |Complementary — mesh verifies identity, TTP verifies behavior |
-|SPIFFE / SPIRE |Workload identity    |Complementary — SPIFFE issues SVIDs, TTP adds behavioral layer on top |
-|Network Security Platforms (Zscaler, Palo Alto, Juniper) |Network/session controls|Complementary — network controls enforce transport/session policy; TTP enforces behavior-aware action trust |
-|ZTNA           |Network access       |Complementary — ZTNA controls the network, TTP controls the action |
-|AI Agent Frameworks | Execution      |Integration point — LangChain, CrewAI agents become TTP-aware |
-
-TTP fills the gap between *authenticated* and *trustworthy*. It does not replace any layer in this stack — it adds the behavioral trust dimension that none of them provide.
-
------
-
-## Network-Level Agent Infrastructure (Zscaler, Palo Alto, Juniper)
-
-Short answer:
-- **Is it possible?** Yes.
-- **Is it in this repo today as first-party connectors?** Not yet.
-- **Is it a valid deployment pattern happening in practice?** Yes — via standard integration seams (gateways, identity, logs, policy engines).
-
-Practical integration model:
-1. Network/security platform observes session and policy events.
-2. An issuer adapter converts those events into signed TTP receipts.
-3. Trust Authority aggregates with other issuers (runtime, tool, API gateway).
-4. Verifiers enforce action-level trust with TTP tokens at service boundaries.
-
-This preserves clear responsibility layers:
-- Network stack decides connection/session posture.
-- TTP decides whether a specific autonomous action should execute now.
-
-If you need vendor-specific blueprints, start with the issuer adapter pattern in the integration guide and implement per-vendor event mappers.
-
------
-
-## Security Model
-
-Uses:
-
-- Ed25519 signatures
-- SHA-256 hashing
-- Stateless verification
-- Short-lived tokens
-
-Resistant to:
-
-- Token replay
-- Signature forgery
-- Tampering
-
------
-
-## Threat Model Considerations
-
-Known challenges:
-
-- Issuer collusion
-- Behavioral manipulation
-- Trust oscillation
-- Observation gaps
-
-Mitigations include:
-
-- Issuer diversity
-- Short token lifetime
-- Domain isolation
-- Multi-issuer requirements
-
-See <docs/security.md> for detailed threat analysis.
-
------
-
-## Performance Goals
-
-Designed for:
-
-- High-volume verification
-- Low-latency execution
-- Stateless service enforcement
-
-Verification requires only:
-
-- Signature validation
-- Token inspection
-
-No network calls required.
-
-Target latency: < 5ms for token verification.
-
------
-
-## Design Philosophy
-
-TTP is built with:
-
-- Minimal protocol surface
-- Cryptographic trust guarantees
-- Deployment flexibility
-- Vendor neutrality
-- Ecosystem openness
-
-TTP is infrastructure.
-
-## Trust Routing subsystem
-
-TTP includes Trust Routing for pre-execution authority-path resolution:
+## Minimal flow
 
 ```text
-execution request -> route resolution -> authority decision -> execution receipt -> enforcement
+request context
+     ↓
+trust route resolved by TRP
+     ↓
+trust proof generated by TTP
+     ↓
+authority evaluated by RAP / SCIM-RE
+     ↓
+execution allowed only if authority is valid
 ```
 
 Key implementation entry points:
@@ -714,25 +641,11 @@ Reference components in this repo:
 
 ## What you integrate
 
-Choose by role:
-
-### Agent/runtime team
-
-- Request domain-scoped trust tokens before sensitive actions.
-- Pass token to protected downstream service.
-
-### Service/API team
-
-- Verify token per route.
-- Enforce domain and minimum score.
-
-### Platform/security team
-
-- Operate Trust Authority.
-- Register issuers and agents.
-- Set thresholds and governance policy.
-
----
+- TTP does not replace SCIM-RE.
+- TTP does not implement platform adapters.
+- TTP does not replace A2A or MCP.
+- TTP does not decide enterprise business policy by itself.
+- TTP supplies trust proofs and validation primitives to the authority layer.
 
 ## Quickstart
 
@@ -747,7 +660,6 @@ This shows `PERMIT`, `STEP_UP`, and `DENY` decisions with execution receipts.
 ### 2) Run Trust Authority reference implementation
 
 ```bash
-cd reference-implementations/trust-authority
 npm install
 npm run build
 npm run generate-keys
@@ -867,4 +779,4 @@ See `docs/roadmap.md`.
 
 Apache License 2.0. See `LICENSE`.
 
-*Building the trust layer for autonomous systems.*
+See `spec/`, `profiles/`, and `examples/` for normative docs, profile mappings, and test vectors.

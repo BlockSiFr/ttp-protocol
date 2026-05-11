@@ -1,0 +1,1 @@
+{"input":{"subject":"agent:invoice-bot"},"output":{"type":"TrustThresholdProof"},"expectedResult":"satisfied=true","explanation":"Trust meets threshold."}

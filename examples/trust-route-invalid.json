@@ -1,0 +1,1 @@
+{"input":{"routeId":"route-002"},"output":{"valid":false},"expectedResult":"route rejected","explanation":"Untrusted issuer or policy violation."}

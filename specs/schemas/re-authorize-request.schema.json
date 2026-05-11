@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blocksifr.dev/schemas/re-authorize-request.schema.json",
+  "title": "ReAuthorizeRequest",
+  "type": "object",
+  "required": ["requestId", "action", "resource"],
+  "properties": {
+    "requestId": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string" },
+    "principal": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" }
+      }
+    },
+    "action": { "type": "string", "minLength": 1 },
+    "resource": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "environment": { "type": "string" },
+        "source": { "type": "string" },
+        "agentType": { "type": "string" },
+        "trustScore": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dataClassification": { "type": "string" },
+        "jurisdiction": { "type": "string" },
+        "costCenter": { "type": "string" }
+      }
+    },
+    "attestationRef": { "type": "string" },
+    "authorityGrant": {
+      "type": "object",
+      "required": ["grantId"],
+      "properties": {
+        "grantId": { "type": "string" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "scope": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "anyOf": [
+    { "required": ["subject"] },
+    { "required": ["principal"] }
+  ]
+}
