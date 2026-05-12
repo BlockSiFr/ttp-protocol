@@ -2,8 +2,11 @@
   "name": "@blocksifrdev/ttp-protocol",
   "version": "0.1.0",
   "description": "Trust Transfer Protocol — platform-agnostic trust proof, decay, delegation, and verification primitives for agentic execution governance",
-  "private": true,
+  "private": false,
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },

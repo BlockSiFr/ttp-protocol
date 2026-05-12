@@ -23,6 +23,16 @@ jobs:
       - name: Run test suite
         run: npm test
 
+      - name: Documentation smoke check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f README.md
+          test -f docs/getting-started.md
+          test -f docs/integration-guide.md
+          test -f docs/open-source-boundary.md
+          test -f docs/ops/persistent-storage.md
+
       - name: Compile Python SDK
         run: python -m py_compile sdk/python/client.py
 

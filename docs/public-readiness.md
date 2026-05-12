@@ -11,15 +11,15 @@ This checklist is used to decide whether TTP is ready for a public launch.
 ### 1) Build & Test Reliability
 
 - [x] Trust Authority TypeScript build compiles in local reference environment.
-- [ ] Automated CI workflow for build/test/docs checks on every PR.
-- [ ] Basic smoke tests for key admin/token endpoints.
+- [x] Automated CI workflow for build/test/docs checks on every PR.
+- [x] Basic smoke tests for key admin/token endpoints.
 
 ### 2) Documentation Quality
 
 - [x] Role-based onboarding docs are split by audience (`getting-started`, `operator-guide`, `ecosystem-integrations`).
 - [x] Contributing guide is role-based and structured.
 - [x] Integration guide includes AGT and network adapter patterns.
-- [ ] Add a concise "public quickstart" issue template for first-time contributors.
+- [x] Add a concise "public quickstart" issue template for first-time contributors.
 
 ### 3) Security & Governance Baseline
 
@@ -32,7 +32,7 @@ This checklist is used to decide whether TTP is ready for a public launch.
 
 - [x] Agent registry listing endpoint exists (`GET /v1/admin/agents`).
 - [x] Quarantine/block workflows documented and implemented.
-- [ ] Add persistent-storage guidance for production-like deployments in a dedicated operator runbook section.
+- [x] Add persistent-storage guidance for production-like deployments in a dedicated operator runbook section.
 
 ### 5) Repo Hygiene
 

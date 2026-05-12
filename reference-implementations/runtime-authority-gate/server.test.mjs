@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -22,7 +23,32 @@ async function waitForHealth(maxAttempts = 40) {
   throw new Error('runtime-authority-gate did not become healthy in time');
 }
 
-test('runtime-authority-gate supports all decision branches and durable storage mode', async () => {
+async function assertLocalListenAvailable(t) {
+  const probe = net.createServer();
+  let listening = false;
+  try {
+    await new Promise((resolve, reject) => {
+      probe.once('error', reject);
+      probe.listen(18080, '127.0.0.1', () => {
+        listening = true;
+        resolve();
+      });
+    });
+  } catch (err) {
+    if (err?.code === 'EPERM') {
+      t.skip('local TCP listen is unavailable in this sandbox');
+      return false;
+    }
+    throw err;
+  } finally {
+    if (listening) await new Promise((resolve) => probe.close(resolve));
+  }
+  return true;
+}
+
+test('runtime-authority-gate supports all decision branches and durable storage mode', async (t) => {
+  if (!(await assertLocalListenAvailable(t))) return;
+
   const receiptFile = path.join(os.tmpdir(), `runtime-gate-${Date.now()}.json`);
   const server = spawn('node', ['server.mjs'], {
     cwd: CWD,

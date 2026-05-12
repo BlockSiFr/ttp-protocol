@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { loadReceipts, saveReceipts, storeMetadata } from './storage.mjs';
 import { signHash, signingMetadata } from './signing.mjs';
 
+const HOST = process.env.HOST || '127.0.0.1';
 const PORT = process.env.PORT || 8080;
 const grants = new Map();
 const receipts = loadReceipts();
@@ -460,6 +461,6 @@ const server = http.createServer(async (req, res) => {
   return json(res, 404, { error: 'not_found' });
 });
 
-server.listen(PORT, () => {
-  console.log(`runtime-authority-gate listening on :${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`runtime-authority-gate listening on ${HOST}:${PORT}`);
 });

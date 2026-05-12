@@ -1,0 +1,49 @@
+name: Public quickstart
+description: Report friction from the first-run TTP quickstart.
+title: "Quickstart: "
+labels:
+  - quickstart
+  - adoption
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when you tried the public quickstart and something was confusing, broken, or slower than expected.
+  - type: textarea
+    id: path
+    attributes:
+      label: Adoption path
+      description: Which path were you trying?
+      placeholder: Agent builder, service/API owner, platform/security operator, or protocol contributor.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps run
+      description: Paste the commands or docs sections you followed.
+      placeholder: npm install, npm test, docs/getting-started.md...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected outcome
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual outcome
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Runtime, OS, Node/Python versions, and any relevant service setup.
+      placeholder: Node 20, Ubuntu, local reference gate...
+    validations:
+      required: false
