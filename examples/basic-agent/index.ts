@@ -5,20 +5,20 @@
  *
  * To run this example:
  *   1. Start the Trust Authority: cd reference-implementations/trust-authority && npm run dev
- *   2. Install dependencies: npm install @ttp/sdk
+ *   2. Install dependencies from this repo until the SDK is published: npm install ./sdk/typescript
  *   3. Run: ts-node examples/basic-agent/index.ts
  */
 
 import { TTPClient, TTPUnavailableError } from "@ttp/sdk"
 
-// ─── Configuration ────────────────────────────────────────────────────────────
+// Configuration
 
 const AUTHORITY_URL = process.env.TTP_AUTHORITY_URL ?? "http://localhost:3000"
 const AGENT_ID = process.env.TTP_AGENT_ID ?? "agent-dev-001"
 const AGENT_API_KEY = process.env.TTP_API_KEY ?? "dev-agent-key"
 const SERVICE_URL = process.env.SERVICE_URL ?? "http://localhost:4000"
 
-// ─── Initialize TTP Client ────────────────────────────────────────────────────
+// Initialize TTP Client
 
 const ttp = new TTPClient({
   agentId: AGENT_ID,
@@ -26,7 +26,7 @@ const ttp = new TTPClient({
   authorityUrl: AUTHORITY_URL
 })
 
-// ─── Agent Logic ──────────────────────────────────────────────────────────────
+// Agent Logic
 
 async function run() {
   console.log(`[Agent] Starting — ID: ${AGENT_ID}`)

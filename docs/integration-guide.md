@@ -8,7 +8,7 @@ This guide walks through integrating TTP into your services and agent infrastruc
 
 - A running Trust Authority (self-hosted or managed). See [reference-implementations/trust-authority](../reference-implementations/trust-authority/).
 - At least one registered issuer observing your agent.
-- The Trust Authority's public key (available at `GET /authority/.well-known/ttp-keys`).
+- The Trust Authority's public key (available at `GET /.well-known/ttp-keys`).
 
 ---
 
@@ -16,9 +16,14 @@ This guide walks through integrating TTP into your services and agent infrastruc
 
 ### Step 1 — Install the SDK
 
+The TypeScript SDK lives in this repository under `sdk/typescript`. The intended package name is `@ttp/sdk`, but it is not yet published to npm. Until publication, treat this section as the stable integration shape and use the local demo for a runnable first pass.
+
 ```bash
+# Once published:
 npm install @ttp/sdk
 ```
+
+The examples below use the intended stable import path.
 
 ### Step 2 — Initialize the Client
 
@@ -249,18 +254,22 @@ function scoreRequest(req: express.Request, res: express.Response, latencyMs: nu
 }
 ```
 
-See [reference-implementations/issuers](../reference-implementations/issuers/) for a full production-ready issuer.
+See [reference-implementations/issuers](../reference-implementations/issuers/) for a fuller issuer example.
 
 ---
 
 ## Part 4: Trust Authority Setup
 
-### Self-Hosted (Docker)
+### Self-Hosted Reference Authority
 
 ```bash
-# Clone the reference implementation
-git clone https://github.com/blocksifr/ttp-protocol
+# Clone the repository
+git clone https://github.com/blocksifrdev/ttp-protocol
 cd ttp-protocol/reference-implementations/trust-authority
+
+# Install and build
+npm install
+npm run build
 
 # Generate keypair
 npm run generate-keys
@@ -268,11 +277,15 @@ npm run generate-keys
 
 # Configure
 cp .env.example .env
-# Edit .env: set DATABASE_URL, REDIS_URL, KEY_PATH, etc.
+# Edit .env for local keys, admin credentials, and network settings.
 
-# Start with Docker
-docker-compose up -d
+# Start the reference authority
+npm start
+```
 
+In a separate shell, register an issuer and agent:
+
+```bash
 # Register an issuer
 curl -X POST http://localhost:3000/v1/admin/issuers \
   -H "Authorization: Bearer $ADMIN_KEY" \

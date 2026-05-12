@@ -1,80 +1,57 @@
-TTP Roadmap
+# TTP Roadmap
 
-Current Stage
+TTP is in a specification-first, implementation-seeding phase. The immediate objective is a credible protocol kernel: clear grammar, runnable examples, testable evaluation semantics, and explicit boundaries with runtime enforcement systems.
 
-Specification-first, implementation-seeding phase.
+## Phase 0 - Protocol Cleanup
 
-The protocol core is stabilizing while reference implementations mature.
-Primary objectives are interoperability validation, ecosystem signaling, and developer accessibility.
+- Rewrite README positioning and scope.
+- Publish core specification.
+- Add `.ttp` examples.
+- Add threat model and security policy.
+- Clarify TTP, SCIM-RE, RAP, Execution Exchange, FrontDesk, and VerifiedTrust boundaries.
+- Remove language that implies production readiness or complete governance coverage.
 
-⸻
+## Phase 1 - MVP Parser/Evaluator
 
-Next 30 Days
+- Parse core blocks: `subject`, `trust`, `proof`, `authority_context`, `delegation`.
+- Build an AST/object model.
+- Validate required syntax and useful errors.
+- Evaluate static trust scores.
+- Evaluate trust decay over time.
+- Evaluate threshold conditions.
+- Emit JSON evaluation results.
+- Add fixture and CLI tests.
 
-Protocol
-	•	Finalize token claim set
-	•	Finalize receipt structure
-	•	Finalize issuer responsibility model
-	•	Establish versioning policy for spec evolution
+## Phase 2 - Runtime Integration
 
-Implementations
-	•	Harden Go verifier reference implementation
-	•	Release minimal issuer reference service
-	•	Baseline aggregation reference logic
-	•	Introduce interoperability test fixtures
+- Map TTP evaluation context into RAP requests.
+- Map TTP subject and attestation fields into SCIM-RE resources.
+- Add an `ExecutionReceipt` placeholder mapping.
+- Publish a small SDK for embedding the evaluator.
+- Provide integration examples for CI, API gateways, MCP tool gateways, and agent runtimes.
 
-SDK
-	•	Stabilize Python SDK interface
-	•	Achieve feature parity for JavaScript SDK
-	•	Implement token auto-refresh lifecycle handling
+## Phase 3 - Proof Hardening
 
-Documentation
-	•	Publish architecture diagrams
-	•	Expand threat model documentation
-	•	Release deployment guide (single-node reference)
-	•	Improve contributor onboarding materials
+- Add signed trust claims.
+- Define issuer registry and issuer validation rules.
+- Add replay protection guidance.
+- Add receipt hash semantics.
+- Prototype a ZKP-compatible proof backend.
+- Keep `cleartext-dev` as the non-production development mode.
 
-⸻
+## Phase 4 - Ecosystem
 
-Next 60 Days
-	•	Release Rust SDK (developer ecosystem expansion)
-	•	Introduce CLI tooling
-	•	ttp verify
-	•	ttp issue
-	•	Production-grade LangChain integration
-	•	Gateway middleware packages
-	•	Publish empirical performance benchmarks
-	•	Begin issuer certification framework draft
+- Add VSCode language support.
+- Add formatter and linter.
+- Publish conformance tests.
+- Define policy registry conventions.
+- Build reference gateway integration.
+- Encourage independent implementations.
 
-⸻
+## Roadmap Principles
 
-Next 90 Days
-	•	Multi-issuer simulation environment
-	•	Adversarial testing harness
-	•	High-availability verifier deployment model
-	•	Hosted reference issuer infrastructure
-	•	Aggregation model exploration draft
-	•	Independent implementation outreach
-
-⸻
-
-Long-Term Direction
-	•	Multiple independent protocol implementations
-	•	Formal specification standardization pathway
-	•	Academic research collaboration
-	•	Production adoption case studies
-	•	Ecosystem issuer diversity growth
-	•	Governance model evolution
-	•	Cross-organization trust federation pilots
-
-⸻
-
-Roadmap Philosophy
-
-This roadmap prioritizes:
-	•	protocol stability before expansion
-	•	ecosystem participation over feature breadth
-	•	reference interoperability over vendor lock-in
-	•	measured evolution over premature formalization
-
-Milestones are directional rather than rigid commitments and will adapt as community and deployment feedback emerge.
+- Protocol clarity before feature breadth.
+- Narrow TTP scope; no blurred product-layer claims.
+- Security review before production recommendations.
+- Interoperability over vendor lock-in.
+- Concrete examples and tests over manifesto language.

@@ -1,0 +1,131 @@
+name: TTP / Governed Execution Proof
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  govern:
+    name: Governed Execution
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    outputs:
+      decision: ${{ steps.authorize.outputs.decision }}
+      receipt:  ${{ steps.authorize.outputs.receipt }}
+
+    steps:
+      # 1️⃣ Full checkout (safe and correct)
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2️⃣ Detect changed files
+      - name: Detect changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          git diff --name-only "$BASE" "$HEAD" > changed.txt || true
+
+          echo "Changed files:"
+          cat changed.txt || true
+
+          PATHS_JSON=$(jq -R . < changed.txt | jq -s .)
+          echo "paths=$PATHS_JSON" >> "$GITHUB_OUTPUT"
+
+      # 3️⃣ Ask external authority for permission
+      - name: Authorize execution
+        id: authorize
+        env:
+          AUTH_URL:   ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s changed.txt ]; then
+            echo "No changes → deny by policy"
+            echo "decision=DENY"   >> "$GITHUB_OUTPUT"
+            echo "receipt="        >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          jq -n \
+            --arg repo   "${{ github.repository }}" \
+            --arg actor  "${{ github.actor }}" \
+            --arg pr     "${{ github.event.pull_request.number }}" \
+            --arg sha    "${{ github.event.pull_request.head.sha }}" \
+            --argjson paths "$(jq -s . changed.txt | jq -R .)" \
+            '{
+              subject: "wi://github/actions/runner",
+              action: "pull_request.execute",
+              resource: ("repo:" + $repo + ":pr/" + $pr),
+              commitSha: $sha,
+              actor: $actor,
+              pathsTouched: $paths,
+              context: {
+                event: "pull_request",
+                repo: $repo
+              }
+            }' > request.json
+
+          curl -sS \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST "$AUTH_URL/re/authorize" \
+            -d @request.json \
+            > response.json
+
+          cat response.json
+
+          DECISION=$(jq -r '.decision // "DENY"' response.json)
+          RECEIPT=$(jq -r '.receiptId // ""' response.json)
+
+          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+          echo "receipt=$RECEIPT"   >> "$GITHUB_OUTPUT"
+
+      # 4️⃣ Human approval if required
+  step-up:
+    name: Step‑Up Approval
+    runs-on: ubuntu-latest
+    needs: govern
+    if: needs.govern.outputs.decision == 'STEP_UP'
+    environment:
+      name: protected-execution
+    steps:
+      - run: |
+          echo "Manual authorization granted via environment."
+          echo "Receipt: ${{ needs.govern.outputs.receipt }}"
+
+  # 5️⃣ Final enforcement gate
+  enforce:
+    name: Enforce Authority Decision
+    runs-on: ubuntu-latest
+    needs: [govern, step-up]
+    if: always()
+    steps:
+      - run: |
+          DECISION="${{ needs.govern.outputs.decision }}"
+          RECEIPT="${{ needs.govern.outputs.receipt }}"
+
+          echo "Final decision: $DECISION"
+          echo "Receipt: $RECEIPT"
+
+          if [ -z "$RECEIPT" ]; then
+            echo "Missing receipt → hard deny"
+            exit 1
+          fi
+
+          if [ "$DECISION" = "PERMIT" ]; then
+            echo "✅ Execution permitted"
+            exit 0
+          fi
+
+          echo "❌ Execution denied"
+          exit 1

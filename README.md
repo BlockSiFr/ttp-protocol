@@ -17,7 +17,12 @@
 > [!WARNING]
 > Identity is not authority. A valid token is not sufficient to permit protected execution.
 
-**Without TTP, any system can claim trust. With TTP, trust must be provable.**
+[![Protocol](https://img.shields.io/badge/protocol-draft-2f6fed)](SPECIFICATION.md)
+[![Reference Implementation](https://img.shields.io/badge/reference%20implementation-active%20development-f59e0b)](MVP.md)
+[![Node.js](https://img.shields.io/badge/runtime-Node.js%2020-339933)](package.json)
+[![Security Model](https://img.shields.io/badge/security-model%20documented-7c3aed)](THREAT_MODEL.md)
+[![Production Use](https://img.shields.io/badge/production%20use-not%20recommended-b91c1c)](SECURITY.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 TTP is a platform-agnostic trust protocol and cryptographic trust layer for agentic systems. It generates verifiable proofs that a trust threshold is met before execution is allowed — and those proofs are checkable by any verifier, at any time, without calling back to the issuer.
 
@@ -54,140 +59,151 @@ flowchart TD
   </tr>
 </table>
 
-## What breaks without TTP
+It is designed for AI agents, non-human identities, automation pipelines, service accounts, APIs, and cross-system workflows where static access is not enough.
 
-- Authority decisions rely on trust that is asserted but never verified
-- Decayed or revoked attestations remain valid indefinitely with no signal
-- No proof artifact exists — auditors see a decision with no supporting evidence
-- Delegated trust chains cannot be validated end-to-end
+TTP answers one question:
 
-## 30-second demo
+> Can this actor prove enough current trust to attempt this action now?
+
+TTP does not replace IAM, SCIM, OPA, PAM, SPIFFE, OAuth, OIDC, API gateways, or policy engines. It provides the trust expression layer that runtime authority systems can evaluate before execution.
+
+> **Status:** Protocol specification draft complete. Reference implementation in active development.  
+> **Current milestone:** MVP parser + trust decay evaluator.  
+> **Production use:** Not yet recommended.
+
+---
+
+## Why TTP Exists
+
+Modern systems increasingly delegate meaningful work to agents, pipelines, service accounts, and autonomous workflows. These actors may hold valid credentials while their trust context is stale, overbroad, delegated too far, or no longer appropriate for the action they are about to attempt.
+
+Identity systems prove who an actor is. Policy engines decide whether a rule allows an action. TTP fills the gap between those layers by expressing current, scoped, decaying trust that can be evaluated before execution.
+
+TTP is useful when reviewers need to know:
+
+| Question | TTP Contribution |
+| --- | --- |
+| Is this trust claim fresh enough? | Expiration and freshness requirements |
+| Has trust decayed below the action threshold? | Time-aware trust decay evaluation |
+| Who issued this trust, and for what scope? | Issuer, domain, scope, and evidence fields |
+| Is delegated authority still bounded? | Delegation and authority context grammar |
+| What result should a runtime authority system evaluate? | Structured trust context and evaluation output |
+
+---
+
+## What TTP Is
+
+TTP is:
+
+- A portable trust expression protocol.
+- A declarative language for trust claims, proof requirements, authority context, delegation, expiration, and decay.
+- A grammar runtime authority systems can evaluate before autonomous execution.
+- A foundation for interoperability between agent runtimes, NHI governance systems, policy engines, gateways, and audit surfaces.
+- A protocol layer beneath BlockSiFr runtime authority products and reference implementations.
+
+---
+
+## What TTP Is Not
+
+TTP is not:
+
+- A replacement for IAM, OAuth, OIDC, SAML, SCIM, SPIFFE, PAM, OPA, Cedar, API gateways, SIEM, or SOAR.
+- A complete governance product or control plane.
+- A runtime enforcement gateway by itself.
+- A blockchain-dependent system.
+- Production-ready cryptographic infrastructure in the current MVP.
+- A claim that trust can be made permanent, universal, or risk-free.
+
+Runtime enforcement belongs in systems such as RAP, Execution Exchange, and integrated gateways. TTP supplies the trust grammar those systems can evaluate.
+
+---
+
+## Core Concepts
+
+| Concept | Meaning |
+| --- | --- |
+| Subject | Actor whose trust is being evaluated, such as an agent, service account, workload, API, or pipeline. |
+| Trust claim | A scoped statement that a subject has a trust score issued by a trust issuer. |
+| Trust issuer | Entity that issues or attests to a trust claim. Issuers must be validated by the evaluator or runtime authority layer. |
+| Trust score | Numeric signal, usually `0.0` to `1.0`, representing current trust for a specific scope. |
+| Trust decay | Time-based reduction of effective trust after issuance. |
+| Delegation | Bounded transfer of authority from one subject or issuer context to another. |
+| Authority context | Action, resource, proof, and runtime context required before execution. |
+| Proof | Requirement that a subject must satisfy, including threshold, freshness, issuer, and proof mode. |
+| Attestation | Evidence from an issuer, runtime, gateway, or governance system supporting a trust claim. |
+| Threshold | Required trust score for a proof or authority context. |
+| Expiration | Time after which a trust claim or proof must fail. |
+| Evaluation result | Structured output showing effective score, required score, result, reason, proof mode, and evaluation time. |
+
+---
+
+## Simple Example
+
+```ttp
+subject "agent:invoice_reviewer" {
+  type = "ai_agent"
+  issuer = "blocksifr.local"
+  domain = "finance"
+}
+
+trust "agent:invoice_reviewer" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.86
+  issued_at = "2026-05-11T12:00:00Z"
+  expires_at = "2026-05-11T18:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "6h"
+    minimum = 0.40
+  }
+
+  scope = [
+    "invoice.read",
+    "invoice.recommend"
+  ]
+}
+
+proof "invoice_review_threshold" {
+  subject = "agent:invoice_reviewer"
+  required_score = 0.75
+  mode = "cleartext-dev"
+  freshness = "30m"
+}
+
+authority_context "invoice_review" {
+  action = "invoice.recommend"
+  resource = "invoice:*"
+  requires = proof.invoice_review_threshold
+}
+```
+
+More examples are in [`examples/`](examples/).
+
+---
+
+## CLI Preview
+
+The current CLI is an MVP reference scaffold. It performs basic parsing, validation, linear trust decay, expiration checks, threshold checks, and JSON output.
 
 ```bash
-npm install
-node --test tests/*.test.mjs
+npm run ttp -- check examples/01-basic-agent.ttp
+npm run ttp -- eval examples/02-trust-decay.ttp --subject agent:invoice_reviewer --at now
+npm run ttp -- version
 ```
 
-```js
-import {
-  prove_trust_threshold,
-  verify_attestation,
-  apply_decay,
-  generate_trust_proof
-} from './src/index.mjs';
+Expected JSON shape:
 
-// 1. Compute a verifiable trust threshold proof
-const thresholdProof = prove_trust_threshold({
-  subject:           'agent_007',
-  trustScore:        0.876,
-  requiredThreshold: 0.7,
-  dimension:         'execution',
-  evaluatedAt:       new Date().toISOString(),
-});
-console.log(thresholdProof.satisfied);  // true
-console.log(thresholdProof.proofHash);  // deterministic proof hash
-
-// 2. Verify an attestation object
-const attestationResult = verify_attestation({
-  attestation: {
-    subject:         'agent_007',
-    issuer:          'authority.example.com',
-    type:            'signed_activity',
-    expiresAt:       new Date(Date.now() + 3_600_000).toISOString(),
-    issuedAt:        new Date().toISOString(),
-    trustScoreDelta: 0.1,
-    ref:             'att_ref_001',
-    claims:          { scope: 'execute' },
-  },
-  subject: 'agent_007',
-  validAt: new Date().toISOString(),
-});
-console.log(attestationResult.valid);   // true
-
-// 3. Apply time-based trust decay
-const decayed = apply_decay({
-  initialTrust:   0.876,
-  decayConstant:  0.0001,
-  elapsedSeconds: 3600,
-});
-console.log(decayed.finalTrust);  // ~0.841 — degraded but still above threshold
-
-// 4. Compose a full verifiable trust proof (consumed by RAP / SCIM-RE)
-const proof = generate_trust_proof({
-  subject:             'agent_007',
-  action:              'deploy',
-  resource:            'cluster/prod',
-  trustThresholdProof: thresholdProof,
-  attestationResults:  [attestationResult],
-  delegationResults:   [],
-  routeResult:         { valid: true, routeId: 'route_001' },
-  generatedAt:         new Date().toISOString(),
-});
-console.log(proof.valid);       // true
-console.log(proof.proofHash);   // verifiable by any downstream consumer
-```
-
-## Layer boundary
-
-- A2A moves agent messages.
-- MCP exposes tools.
-- SCIM-RE normalizes runtime authority objects.
-- TRP resolves trust paths.
-- RAP decides execution authority.
-- TTP proves whether trust is valid enough to support that decision.
-
-TTP answers: trust validity, decay status, threshold satisfaction proof, delegation validity, transfer validity, route validity, and verifier-checkable proof outputs.
-
-TTP does not implement platform adapters or platform field mappings.
-
-## Core primitive functions
-
-- `prove_trust_threshold()`
-- `verify_attestation()`
-- `apply_decay()`
-- `verify_delegation()`
-- `verify_trust_route()`
-- `generate_trust_proof()`
-- `validate_transfer()`
-
-## Minimal flow
-
-```text
-request context
-     ↓
-trust route resolved by TRP
-     ↓
-trust proof generated by TTP
-     ↓
-authority evaluated by RAP / SCIM-RE
-     ↓
-execution allowed only if authority is valid
-```
-
-## Non-goals
-
-- TTP does not replace SCIM-RE.
-- TTP does not implement platform adapters.
-- TTP does not replace A2A or MCP.
-- TTP does not decide enterprise business policy by itself.
-- TTP supplies trust proofs and validation primitives to the authority layer.
-
-## Quickstart
-
-```bash
-npm install
-node --test tests/*.test.mjs
-```
-
-```js
-import {
-  prove_trust_threshold,
-  verify_attestation,
-  apply_decay,
-  verify_delegation,
-  verify_trust_route,
-  validate_transfer
-} from './src/index.mjs';
+```json
+{
+  "subject": "agent:invoice_reviewer",
+  "effective_score": 0.84,
+  "required_score": 0.75,
+  "result": "TRUST_PROOF_VALID",
+  "reason": "effective trust score meets threshold",
+  "proof_mode": "cleartext-dev",
+  "evaluated_at": "2026-05-11T12:30:00.000Z"
+}
 ```
 
 ## Examples Gallery

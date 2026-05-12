@@ -4,7 +4,9 @@ This checklist is used to decide whether TTP is ready for a public launch.
 
 ## Current Assessment
 
-**Status:** Almost ready, with a short pre-launch hardening list.
+**Status:** Adoption-ready for early technical evaluators; not yet ready for a broad public launch.
+
+The repo now has a dependency-free local demo that shows the central value proposition: a protected action can be permitted, stepped up, or denied with an execution receipt. The remaining launch gates are mostly packaging, CI, and production-readiness polish.
 
 ## Release Gates
 
@@ -37,7 +39,7 @@ This checklist is used to decide whether TTP is ready for a public launch.
 ### 5) Repo Hygiene
 
 - [x] Core docs references resolve (roadmap, guides, contributing).
-- [ ] Add CI badge/status in README once workflow is live.
+- [ ] Add CI badge/status in README once workflow is live and passing.
 - [x] CODEOWNERS exists for protocol/security/runtime critical paths.
 
 ### 6) Open-Source Boundary Integrity
@@ -48,10 +50,11 @@ This checklist is used to decide whether TTP is ready for a public launch.
 
 ## Recommended Pre-Public Action Plan (Fast)
 
-1. Add CI workflow (build + test + markdown/link checks).
-2. Enforce branch protection + required checks in repository settings.
-3. Add one smoke-test script for core Trust Authority endpoints.
-4. Cut a tagged pre-release (`v1.0.0-rc1`) with changelog.
-5. Run open-source boundary audit against `docs/open-source-boundary.md`.
+1. Publish or explicitly reserve the SDK package name used in docs.
+2. Extend CI to build SDK/reference packages and run markdown/link checks.
+3. Enforce branch protection + required checks in repository settings.
+4. Add one smoke-test script for core Trust Authority endpoints.
+5. Cut a tagged pre-release (`v1.0.0-rc1`) with changelog.
+6. Run open-source boundary audit against `docs/open-source-boundary.md`.
 
-If those are done, the repo is in strong shape for public launch.
+If those are done, the repo is in strong shape for a broader public launch.

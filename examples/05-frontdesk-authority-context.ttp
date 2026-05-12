@@ -1,0 +1,40 @@
+subject "service_account:frontdesk_runtime_gate" {
+  type = "service_account"
+  issuer = "blocksifr.local"
+  domain = "customer-operations"
+}
+
+trust "service_account:frontdesk_runtime_gate" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.91
+  issued_at = "2026-05-11T12:15:00Z"
+  expires_at = "2026-05-11T14:15:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "2h"
+    minimum = 0.55
+  }
+
+  scope = [
+    "customer.approval.present",
+    "execution.receipt.record"
+  ]
+
+  evidence = [
+    "receipt:frontdesk_gate_health_20260511"
+  ]
+}
+
+proof "frontdesk_gate_threshold" {
+  subject = "service_account:frontdesk_runtime_gate"
+  required_score = 0.80
+  mode = "cleartext-dev"
+  freshness = "45m"
+}
+
+authority_context "customer_impacting_action" {
+  action = "customer.approval.present"
+  resource = "customer:*"
+  requires = proof.frontdesk_gate_threshold
+}
