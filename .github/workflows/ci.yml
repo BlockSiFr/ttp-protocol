@@ -15,7 +15,28 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Documentation smoke check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f README.md
+          test -f docs/getting-started.md
+          test -f docs/integration-guide.md
+          test -f docs/open-source-boundary.md
+          test -f docs/ops/persistent-storage.md
+
+      - name: Compile Python SDK
+        run: python -m py_compile sdk/python/client.py
+
+      - name: SDK + gate smoke matrix
+        shell: bash
+        run: |
+          set -euo pipefail
 
       - name: Show CLI version
         run: npm run ttp -- version

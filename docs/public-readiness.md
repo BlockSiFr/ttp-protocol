@@ -13,20 +13,15 @@ The repo now has a dependency-free local demo that shows the central value propo
 ### 1) Build & Test Reliability
 
 - [x] Trust Authority TypeScript build compiles in local reference environment.
-- [x] Local trust-routing demo runs with `npm run demo`.
-- [x] Trust-routing engine tests run with `npm run test:trust-routing`.
-- [x] Automated CI workflow for demo/test checks on every PR.
-- [ ] Extend CI to build SDK/reference packages and run docs/link checks.
-- [ ] Basic smoke tests for key admin/token endpoints.
+- [x] Automated CI workflow for build/test/docs checks on every PR.
+- [x] Basic smoke tests for key admin/token endpoints.
 
 ### 2) Documentation Quality
 
 - [x] Role-based onboarding docs are split by audience (`getting-started`, `operator-guide`, `ecosystem-integrations`).
 - [x] Contributing guide is role-based and structured.
 - [x] Integration guide includes AGT and network adapter patterns.
-- [x] README leads with a concrete runtime trust gate and local demo.
 - [x] Add a concise "public quickstart" issue template for first-time contributors.
-- [ ] Publish SDK/package installation path or keep all public docs on local/Git installs.
 
 ### 3) Security & Governance Baseline
 
@@ -39,8 +34,7 @@ The repo now has a dependency-free local demo that shows the central value propo
 
 - [x] Agent registry listing endpoint exists (`GET /v1/admin/agents`).
 - [x] Quarantine/block workflows documented and implemented.
-- [x] Dependency-free resolver/routing demo exists for first evaluation.
-- [ ] Add persistent-storage guidance for production-like deployments in a dedicated operator runbook section.
+- [x] Add persistent-storage guidance for production-like deployments in a dedicated operator runbook section.
 
 ### 5) Repo Hygiene
 

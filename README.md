@@ -1,4 +1,21 @@
-# Trust Transfer Protocol
+<div align="center">
+  <img src="./assets/brand/repo-icon.svg" alt="Trust Transfer Protocol icon" width="96" />
+
+  <h1>Trust Transfer Protocol (TTP)</h1>
+
+  <p><strong>Trust semantics for autonomous execution.</strong></p>
+
+  <p>Runtime authority infrastructure for continuous AI execution.</p>
+
+  <p>
+    <img alt="Status" src="https://img.shields.io/badge/status-active-10B981">
+    <img alt="Category" src="https://img.shields.io/badge/category-trust_semantics-3B82F6">
+    <img alt="BlockSiFr" src="https://img.shields.io/badge/BlockSiFr-execution_governance-8B5CF6">
+  </p>
+</div>
+
+> [!WARNING]
+> Identity is not authority. A valid token is not sufficient to permit protected execution.
 
 [![Protocol](https://img.shields.io/badge/protocol-draft-2f6fed)](SPECIFICATION.md)
 [![Reference Implementation](https://img.shields.io/badge/reference%20implementation-active%20development-f59e0b)](MVP.md)
@@ -7,7 +24,40 @@
 [![Production Use](https://img.shields.io/badge/production%20use-not%20recommended-b91c1c)](SECURITY.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-TTP is an open protocol and declarative language for expressing verifiable trust, authority context, delegation, and decay before autonomous systems execute.
+TTP is a platform-agnostic trust protocol and cryptographic trust layer for agentic systems. It generates verifiable proofs that a trust threshold is met before execution is allowed — and those proofs are checkable by any verifier, at any time, without calling back to the issuer.
+
+BlockSiFr provides runtime authority infrastructure for continuous AI execution. As AI systems move from single prompts to persistent multimodal work sessions, BlockSiFr verifies authority before meaningful actions execute and generates receipts proving what happened, why it was allowed, and under what trust state.
+
+## BlockSiFr Stack Alignment
+
+TTP expresses trust. SCIM-RE structures execution. RAP decides authority. Execution Exchange routes protected execution. CortexTrace records proof. FrontDesk operationalizes it.
+
+```mermaid
+flowchart TD
+    TTP["ttp-protocol<br/>Trust + Authority Semantics"]
+    SCIM["scim-re<br/>Execution Governance Schemas"]
+    RAP["runtime-authority<br/>RAP Decision Engine"]
+    EX["execution-exchange<br/>Protected Execution Routing"]
+    CT["cortextrace<br/>Receipts + Evidence"]
+    FD["frontdesk_v001<br/>AI Workforce Command Center"]
+    SYS["Target Systems<br/>Zoho · Microsoft · GitHub · Azure · APIs · Cloud"]
+
+    TTP --> SCIM --> RAP --> EX --> SYS
+    SYS --> EX
+    RAP --> CT
+    EX --> CT
+    CT --> FD
+    FD --> RAP
+    FD --> EX
+```
+
+<table>
+  <tr>
+    <td><strong>Continuous Trust</strong><br/>Trust changes as sessions, signals, attestations, and risk change.</td>
+    <td><strong>Authority Semantics</strong><br/>Grants, constraints, provenance, decay, and proof are expressed consistently.</td>
+    <td><strong>Receipt Proof</strong><br/>Downstream layers can prove why protected execution was allowed, constrained, or denied.</td>
+  </tr>
+</table>
 
 It is designed for AI agents, non-human identities, automation pipelines, service accounts, APIs, and cross-system workflows where static access is not enough.
 
@@ -156,93 +206,15 @@ Expected JSON shape:
 }
 ```
 
----
+## Examples Gallery
 
-## BlockSiFr Stack Boundary
+| Example | What it shows | File |
+| --- | --- | --- |
+| Trust threshold proof | Deterministic trust proof output | `examples/trust-threshold-proof.json` |
+| Attestation verification | Freshness and issuer validation | `examples/attestation-verification.json` |
+| Trust decay application | Time-based trust degradation | `examples/trust-decay-application.json` |
+| Delegation validity | End-to-end delegated authority check | `examples/delegation-valid.json` |
+| Trust route validity | Cross-system trust path validation | `examples/trust-route-valid.json` |
+| Receipt proof | Proof consumed by RAP / SCIM-RE | `specs/execution-receipt.md` |
 
-TTP is the protocol foundation beneath the BlockSiFr stack. It should remain narrow and portable.
-
-| Layer | Responsibility |
-| --- | --- |
-| TTP | Trust expression, delegation, decay, proof semantics, authority context grammar. |
-| SCIM-RE | Runtime execution resource model: `WorkloadIdentity`, `AuthorityGrant`, `Attestation`, `ExecutionRequest`, `ExecutionReceipt`. |
-| RAP | Runtime Authority Protocol decision exchange: `PERMIT`, `STEP_UP`, `DENY`, `THROTTLE`, `ESCALATE`, `CONSTRAIN`. |
-| Execution Exchange | Enforcement gateway, route, and runtime integration layer. |
-| FrontDesk | Operator/customer UI, AI workforce command center, business approval, and evidence surface. |
-| VerifiedTrust | Enterprise NHI posture, policy, lifecycle governance, and compliance control plane. |
-
-See [`docs/ttp-vs-rap-vs-scim-re.md`](docs/ttp-vs-rap-vs-scim-re.md).
-
----
-
-## Current Implementation Status
-
-| Area | Status |
-| --- | --- |
-| Protocol specification | Draft complete, still open for review |
-| `.ttp` examples | Initial examples added |
-| Parser | MVP parser scaffold |
-| AST | Initial object model |
-| Trust decay evaluator | Linear decay implemented for MVP examples |
-| Proof engine | Cleartext-dev threshold evaluation |
-| ZKP support | Future/advanced backend, not required for MVP |
-| Runtime enforcement | Out of scope for TTP core; belongs in RAP/Execution Exchange integrations |
-
----
-
-## MVP Scope
-
-The MVP focuses on a buildable, testable protocol kernel:
-
-- Parse `.ttp` files.
-- Validate required `subject`, `trust`, `proof`, and `authority_context` blocks.
-- Build an AST-like object model.
-- Evaluate static trust score.
-- Evaluate linear trust decay over time.
-- Evaluate threshold conditions.
-- Emit JSON evaluation results.
-- Support `cleartext-dev` proof mode.
-
-See [`MVP.md`](MVP.md).
-
----
-
-## Roadmap
-
-| Phase | Focus |
-| --- | --- |
-| Phase 0 | Protocol cleanup, examples, threat model, stack boundaries |
-| Phase 1 | MVP parser/evaluator, AST, decay evaluator, JSON output |
-| Phase 2 | RAP request mapping, SCIM-RE resource mapping, SDK |
-| Phase 3 | Signed claims, issuer registry, replay protection, ZKP backend prototype |
-| Phase 4 | VSCode extension, formatter, conformance tests, reference gateway integration |
-
-See [`ROADMAP.md`](ROADMAP.md).
-
----
-
-## Security Model
-
-TTP assumes trust is scoped, temporary, issuer-bound, and evaluated at execution time. Trust claims must expire. Proof freshness matters. Issuers must be validated. Runtime enforcement must fail closed when trust context cannot be evaluated.
-
-TTP alone does not enforce execution. Enforcement happens through RAP, Execution Exchange, FrontDesk-integrated gateways, or equivalent runtime controls.
-
-Read:
-
-- [`THREAT_MODEL.md`](THREAT_MODEL.md)
-- [`SECURITY.md`](SECURITY.md)
-- [`docs/protocol-security-model.md`](docs/protocol-security-model.md)
-
----
-
-## Contributing
-
-Contributions are welcome when they improve protocol clarity, implementation correctness, examples, tests, security review, or interoperability.
-
-Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`GOVERNANCE.md`](GOVERNANCE.md).
-
----
-
-## License
-
-TTP is licensed under the [Apache License 2.0](LICENSE).
+See `spec/`, `profiles/`, and `examples/` for normative docs, profile mappings, and test vectors.
