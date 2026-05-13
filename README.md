@@ -28,17 +28,19 @@ BlockSiFr provides runtime authority infrastructure for continuous AI execution.
 TTP expresses trust. SCIM-RE structures execution. RAP decides authority. Execution Exchange routes protected execution. CortexTrace records proof. FrontDesk operationalizes it.
 
 ```mermaid
-flowchart TD
-    TTP["ttp-protocol<br/>Trust + Authority Semantics"]
-    SCIM["scim-re<br/>Execution Governance Schemas"]
-    RAP["runtime-authority<br/>RAP Decision Engine"]
-    EX["execution-exchange<br/>Protected Execution Routing"]
-    CT["cortextrace<br/>Receipts + Evidence"]
-    FD["frontdesk_v001<br/>AI Workforce Command Center"]
-    SYS["Target Systems<br/>Zoho · Microsoft · GitHub · Azure · APIs · Cloud"]
+flowchart LR
+    TTP["TTP"]
+    SCIM["SCIM-RE"]
+    RAP["Runtime Authority"]
+    EX["Execution Exchange"]
+    CT["CortexTrace"]
+    FD["FrontDesk"]
+    SYS["Target Systems"]
 
-    TTP --> SCIM --> RAP --> EX --> SYS
-    SYS --> EX
+    TTP --> SCIM
+    SCIM --> RAP
+    RAP --> EX
+    EX --> SYS
     RAP --> CT
     EX --> CT
     CT --> FD
