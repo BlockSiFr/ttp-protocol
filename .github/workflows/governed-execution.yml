@@ -11,23 +11,23 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-
     outputs:
       decision: ${{ steps.authorize.outputs.decision }}
       receipt:  ${{ steps.authorize.outputs.receipt }}
 
     steps:
-      # 1️⃣ Full checkout (safe and correct)
+      # 1️⃣ Full checkout — fetch-depth 0 required for accurate diff
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2️⃣ Detect changed files
+      # 2️⃣ Detect changed files and build JSON array
       - name: Detect changes
         id: changes
         shell: bash
         run: |
           set -euo pipefail
+
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
 
@@ -36,8 +36,13 @@ jobs:
           echo "Changed files:"
           cat changed.txt || true
 
-          PATHS_JSON=$(jq -R . < changed.txt | jq -s .)
+          # Build a proper JSON array of file paths
+          PATHS_JSON=$(jq -R . < changed.txt | jq -s '.')
           echo "paths=$PATHS_JSON" >> "$GITHUB_OUTPUT"
+
+          # Count for downstream decision
+          FILE_COUNT=$(wc -l < changed.txt | tr -d ' ')
+          echo "count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
 
       # 3️⃣ Ask external authority for permission
       - name: Authorize execution
@@ -49,48 +54,78 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Guard: no changes → deny by policy
           if [ ! -s changed.txt ]; then
-            echo "No changes → deny by policy"
-            echo "decision=DENY"   >> "$GITHUB_OUTPUT"
-            echo "receipt="        >> "$GITHUB_OUTPUT"
+            echo "No changes detected → deny by policy"
+            echo "decision=DENY" >> "$GITHUB_OUTPUT"
+            echo "receipt="      >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          # Guard: secrets not configured → fail clearly, not silently
+          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
+            echo "❌ RUNTIME_AUTH_URL or RUNTIME_AUTH_TOKEN is not set."
+            echo "Configure both secrets in repository settings before running governed execution."
+            echo "decision=DENY" >> "$GITHUB_OUTPUT"
+            echo "receipt="      >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          # Build authorization request payload
           jq -n \
             --arg repo   "${{ github.repository }}" \
             --arg actor  "${{ github.actor }}" \
             --arg pr     "${{ github.event.pull_request.number }}" \
             --arg sha    "${{ github.event.pull_request.head.sha }}" \
-            --argjson paths "$(jq -s . changed.txt | jq -R .)" \
+            --argjson paths '${{ steps.changes.outputs.paths }}' \
             '{
-              subject: "wi://github/actions/runner",
-              action: "pull_request.execute",
-              resource: ("repo:" + $repo + ":pr/" + $pr),
-              commitSha: $sha,
-              actor: $actor,
+              subject:      "wi://github/actions/runner",
+              action:       "pull_request.execute",
+              resource:     ("repo:" + $repo + ":pr/" + $pr),
+              commitSha:    $sha,
+              actor:        $actor,
               pathsTouched: $paths,
               context: {
                 event: "pull_request",
-                repo: $repo
+                repo:  $repo
               }
             }' > request.json
 
-          curl -sS \
+          echo "Authorization request:"
+          cat request.json
+
+          # Call authority endpoint — capture HTTP status separately
+          HTTP_CODE=$(curl -sS \
+            -o response.json \
+            -w "%{http_code}" \
             -H "Authorization: Bearer $AUTH_TOKEN" \
             -H "Content-Type: application/json" \
             -X POST "$AUTH_URL/re/authorize" \
-            -d @request.json \
-            > response.json
+            -d @request.json)
 
+          echo "HTTP status: $HTTP_CODE"
+          echo "Authority response:"
           cat response.json
 
+          # Guard: non-200 response → deny by policy, do not silently pass
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Authority endpoint returned HTTP $HTTP_CODE — deny by policy"
+            echo "decision=DENY" >> "$GITHUB_OUTPUT"
+            echo "receipt="      >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Extract decision and receipt from response
           DECISION=$(jq -r '.decision // "DENY"' response.json)
           RECEIPT=$(jq -r '.receiptId // ""' response.json)
+
+          echo "Decision: $DECISION"
+          echo "Receipt:  $RECEIPT"
 
           echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
           echo "receipt=$RECEIPT"   >> "$GITHUB_OUTPUT"
 
-      # 4️⃣ Human approval if required
+  # 4️⃣ Human step-up approval if authority returns STEP_UP
   step-up:
     name: Step‑Up Approval
     runs-on: ubuntu-latest
@@ -99,33 +134,64 @@ jobs:
     environment:
       name: protected-execution
     steps:
-      - run: |
-          echo "Manual authorization granted via environment."
+      - name: Manual authorization granted
+        run: |
+          echo "✅ Manual authorization granted via environment gate."
           echo "Receipt: ${{ needs.govern.outputs.receipt }}"
 
-  # 5️⃣ Final enforcement gate
+  # 5️⃣ Final enforcement gate — always runs
   enforce:
     name: Enforce Authority Decision
     runs-on: ubuntu-latest
     needs: [govern, step-up]
     if: always()
     steps:
-      - run: |
+      - name: Enforce authority decision
+        shell: bash
+        run: |
+          set -euo pipefail
+
           DECISION="${{ needs.govern.outputs.decision }}"
           RECEIPT="${{ needs.govern.outputs.receipt }}"
 
-          echo "Final decision: $DECISION"
-          echo "Receipt: $RECEIPT"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  TTP / Governed Execution Enforcement"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Decision : $DECISION"
+          echo "  Receipt  : ${RECEIPT:-<none>}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+          # Hard deny: no receipt means no provable authorization
           if [ -z "$RECEIPT" ]; then
-            echo "Missing receipt → hard deny"
+            echo ""
+            echo "❌ Missing receipt — hard deny."
+            echo "   Every governed execution requires a verifiable receipt."
+            echo "   Ensure RUNTIME_AUTH_URL and RUNTIME_AUTH_TOKEN are configured"
+            echo "   and the authority endpoint is returning a receiptId."
             exit 1
           fi
 
-          if [ "$DECISION" = "PERMIT" ]; then
-            echo "✅ Execution permitted"
-            exit 0
-          fi
-
-          echo "❌ Execution denied"
-          exit 1
+          # Enforce decision
+          case "$DECISION" in
+            PERMIT)
+              echo ""
+              echo "✅ Execution permitted."
+              echo "   Receipt: $RECEIPT"
+              exit 0
+              ;;
+            STEP_UP)
+              # step-up job handles this — if we reach here, approval was granted
+              echo ""
+              echo "✅ Step-up approval granted. Execution permitted."
+              echo "   Receipt: $RECEIPT"
+              exit 0
+              ;;
+            DENY|*)
+              echo ""
+              echo "❌ Execution denied."
+              echo "   Decision: $DECISION"
+              echo "   Receipt:  $RECEIPT"
+              echo "   Contact your authorization administrator to review policy."
+              exit 1
+              ;;
+          esac
