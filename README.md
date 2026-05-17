@@ -218,3 +218,16 @@ Expected JSON shape:
 | Receipt proof | Proof consumed by RAP / SCIM-RE | `specs/execution-receipt.md` |
 
 See `spec/`, `profiles/`, and `examples/` for normative docs, profile mappings, and test vectors.
+
+## Adoption Paths
+
+Choose the path that matches the first protected boundary you own:
+
+| Audience | Start here | Outcome |
+| --- | --- | --- |
+| Agent builders | [`docs/getting-started.md`](docs/getting-started.md) and [`sdk/typescript/`](sdk/typescript/) | Request and pass short-lived trust tokens from an agent runtime. |
+| Service/API owners | [`docs/integration-guide.md`](docs/integration-guide.md) and [`sdk/node/`](sdk/node/) | Verify trust before sensitive API or workflow actions execute. |
+| Platform/security operators | [`docs/operator-guide.md`](docs/operator-guide.md) and [`reference-implementations/trust-authority/`](reference-implementations/trust-authority/) | Run a pilot Trust Authority, issuer registry, and receipt review loop. |
+| Partners/integrators | [`docs/ecosystem-integrations.md`](docs/ecosystem-integrations.md) and [`docs/gtm/partner-integration-playbook.md`](docs/gtm/partner-integration-playbook.md) | Map TTP into existing gateways, CI systems, identity providers, and agent platforms. |
+
+For commercial positioning, see the [edition matrix](docs/gtm/edition-matrix.md), [ICP and personas](docs/gtm/icp-and-personas.md), and [value hypotheses](docs/gtm/value-hypotheses.md).

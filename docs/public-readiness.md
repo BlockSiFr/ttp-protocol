@@ -57,4 +57,14 @@ The repo now has a dependency-free local demo that shows the central value propo
 5. Cut a tagged pre-release (`v1.0.0-rc1`) with changelog.
 6. Run open-source boundary audit against `docs/open-source-boundary.md`.
 
+## Packaging Notes
+
+The root npm package is scoped to protocol runtime primitives, schemas, and release-critical documentation through the `files` allowlist in `package.json`. Reference implementations, broad documentation, tests, CI workflows, policies, and partner collateral remain in the repository but are not part of the root npm tarball.
+
+Pre-release package names are aligned under the BlockSiFr npm scope:
+
+- `@blocksifrdev/ttp-protocol`
+- `@blocksifrdev/ttp-sdk`
+- `@blocksifrdev/ttp-trust-authority`
+
 If those are done, the repo is in strong shape for a broader public launch.

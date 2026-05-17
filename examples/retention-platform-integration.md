@@ -82,7 +82,7 @@ export const TRUST_THRESHOLDS = {
 ```typescript
 // retention-api/server.ts
 import express from "express"
-import { createTTPMiddleware, fetchTTPAuthorityKey } from "@ttp/sdk"
+import { createTTPMiddleware, fetchTTPAuthorityKey } from "@blocksifrdev/ttp-sdk"
 import { TRUST_THRESHOLDS } from "./trust-config"
 
 const app = express()
@@ -210,7 +210,7 @@ async function safetyCheck(decision: RetentionDecision): Promise<number> {
 
 ```typescript
 // retention-agent/agent.ts
-import { TTPClient } from "@ttp/sdk"
+import { TTPClient } from "@blocksifrdev/ttp-sdk"
 
 const ttp = new TTPClient({
   agentId: process.env.TTP_AGENT_ID,

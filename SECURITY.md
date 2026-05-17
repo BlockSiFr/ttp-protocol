@@ -7,8 +7,10 @@ TTP is security-sensitive protocol work. The current repository contains a draft
 | Version / Branch | Security Support |
 | --- | --- |
 | `main` | Best-effort security review during active development |
-| Released packages | Not yet available |
-| Pre-MVP examples | Documentation and test fixture support only |
+| `@blocksifrdev/ttp-protocol@0.1.x` | Best-effort security review for pre-release protocol primitives |
+| `@blocksifrdev/ttp-sdk@0.1.x` | Best-effort security review for pre-release SDK interfaces |
+| `@blocksifrdev/ttp-trust-authority@0.1.x` | Best-effort security review for reference implementation pilots |
+| Examples and demos | Documentation and test fixture support only |
 
 ## Reporting Vulnerabilities
 

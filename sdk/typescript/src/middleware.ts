@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { createTTPMiddleware } from "@ttp/sdk"
+ * import { createTTPMiddleware } from "@blocksifrdev/ttp-sdk"
  *
  * app.use("/api/issue-discount", createTTPMiddleware({
  *   domain: "retention",
