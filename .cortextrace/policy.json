@@ -1,0 +1,45 @@
+{
+  "rules": [
+    {
+      "id": "protect-env-files",
+      "description": "Block changes to environment files",
+      "match": {
+        "files": [
+          ".env",
+          ".env.*"
+        ]
+      },
+      "decision": "DENY",
+      "severity": "HIGH"
+    },
+    {
+      "id": "review-package-changes",
+      "description": "Require review when dependency files change",
+      "match": {
+        "files": [
+          "package.json",
+          "package-lock.json",
+          "pnpm-lock.yaml",
+          "yarn.lock"
+        ]
+      },
+      "decision": "REVIEW",
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "detect-dangerous-command",
+      "description": "Block destructive shell commands",
+      "match": {
+        "commands": [
+          "rm -rf",
+          "sudo rm",
+          "curl | sh",
+          "npm publish",
+          "git push --force"
+        ]
+      },
+      "decision": "DENY",
+      "severity": "CRITICAL"
+    }
+  ]
+}

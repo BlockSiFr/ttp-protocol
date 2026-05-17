@@ -1,0 +1,45 @@
+{
+  "project": "cortextrace",
+  "mode": "oss",
+  "risk": {
+    "protectedFiles": [
+      ".env",
+      ".env.*",
+      "package.json",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "yarn.lock",
+      "src/auth/**",
+      "src/security/**",
+      "src/policy/**"
+    ],
+    "highRiskCommands": [
+      "rm -rf",
+      "sudo rm",
+      "curl | sh",
+      "npm publish",
+      "git push --force"
+    ]
+  },
+  "cost": {
+    "developerHourlyRate": 125,
+    "trackSessionDuration": true,
+    "estimateModelSpend": true
+  },
+  "compliance": {
+    "frameworks": [
+      "SOC2",
+      "ISO27001",
+      "SOX",
+      "FFIEC"
+    ]
+  },
+  "reporting": {
+    "formats": [
+      "html",
+      "json",
+      "md"
+    ],
+    "includeDiffSummary": true
+  }
+}

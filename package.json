@@ -1,0 +1,23 @@
+{
+  "name": "@blocksifrdev/ttp-protocol",
+  "version": "0.1.0",
+  "description": "Trust Transfer Protocol primitives for BlockSiFr runtime legitimacy infrastructure",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./attestation": "./src/attestation.mjs",
+    "./decay": "./src/decay.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check src/index.mjs && node --check src/attestation.mjs && node --check src/decay.mjs"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "license": "Apache-2.0"
+}
