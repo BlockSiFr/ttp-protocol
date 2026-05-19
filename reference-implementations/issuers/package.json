@@ -1,5 +1,5 @@
 {
-  "name": "@ttp/issuer-reference",
+  "name": "@blocksifrdev/ttp-issuer-reference",
   "version": "1.0.0",
   "description": "TTP Reference Issuer Implementations — API Gateway, Inference Monitor",
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
     "dev": "ts-node src/api-gateway-issuer.ts"
   },
   "dependencies": {
-    "@ttp/sdk": "^1.0.0",
+    "@blocksifrdev/ttp-sdk": "^0.1.0",
     "express": "^4.18.2"
   },
   "devDependencies": {

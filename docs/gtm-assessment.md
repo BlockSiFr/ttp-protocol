@@ -54,19 +54,19 @@ The project is technically strong and credible for developer adoption now. The m
 ## Recommended 30/60/90 plan
 
 ### 0–30 days
-- Add `docs/gtm/icp-and-personas.md` with prioritized segments and buying triggers.
-- Add `docs/gtm/value-hypotheses.md` with measurable value statements.
-- Add `docs/gtm/edition-matrix.md` for OSS vs managed positioning.
-- Add a role-based CTA section in `README.md` for faster onboarding.
+- Keep `docs/gtm/icp-and-personas.md` current as pilot feedback identifies sharper buying triggers.
+- Use `docs/gtm/value-hypotheses.md` to turn each pilot into measurable success criteria.
+- Use `docs/gtm/edition-matrix.md` for OSS vs managed positioning in buyer conversations.
+- Keep the role-based CTA section in `README.md` aligned with current adoption paths.
 
 ### 31–60 days
 - Add `docs/gtm/reference-architectures-by-vertical.md` for key industries.
-- Publish a baseline performance/testing methodology in `docs/ops/`.
-- Add `docs/gtm/partner-integration-playbook.md`.
+- Publish baseline performance results using `docs/ops/performance-methodology.md`.
+- Use `docs/gtm/partner-integration-playbook.md` for first partner integration conversations.
 
 ### 61–90 days
-- Add `docs/gtm/launch-kpis.md` with target metrics and definitions.
-- Add a case study template and one initial implementation story.
+- Report launch health against `docs/gtm/launch-kpis.md`.
+- Fill out `docs/gtm/pilot-proof-template.md` for one initial implementation story.
 - Add a launch checklist tied to release milestones.
 
 ## Suggested GTM KPIs

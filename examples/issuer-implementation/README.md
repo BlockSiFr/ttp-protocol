@@ -50,7 +50,7 @@ A healthy issuer's scores should not be uniformly 1.0. That removes all signal. 
 ### Minimal Issuer Template
 
 ```typescript
-import { TTPIssuer } from "@ttp/sdk"
+import { TTPIssuer } from "@blocksifrdev/ttp-sdk"
 
 const issuer = new TTPIssuer({
   issuerId: "issuer-my-service-01",

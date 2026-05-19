@@ -16,11 +16,11 @@ This guide walks through integrating TTP into your services and agent infrastruc
 
 ### Step 1 — Install the SDK
 
-The TypeScript SDK lives in this repository under `sdk/typescript`. The intended package name is `@ttp/sdk`, but it is not yet published to npm. Until publication, treat this section as the stable integration shape and use the local demo for a runnable first pass.
+The TypeScript SDK lives in this repository under `sdk/typescript`. The intended package name is `@blocksifrdev/ttp-sdk`. Until publication, treat this section as the stable integration shape and use the local demo for a runnable first pass.
 
 ```bash
 # Once published:
-npm install @ttp/sdk
+npm install @blocksifrdev/ttp-sdk
 ```
 
 The examples below use the intended stable import path.
@@ -28,7 +28,7 @@ The examples below use the intended stable import path.
 ### Step 2 — Initialize the Client
 
 ```typescript
-import { TTPClient } from "@ttp/sdk"
+import { TTPClient } from "@blocksifrdev/ttp-sdk"
 
 const ttp = new TTPClient({
   agentId: process.env.TTP_AGENT_ID,
@@ -98,7 +98,7 @@ Token lifecycle:
 
 ```typescript
 import express from "express"
-import { createTTPMiddleware } from "@ttp/sdk"
+import { createTTPMiddleware } from "@blocksifrdev/ttp-sdk"
 
 const app = express()
 
@@ -134,7 +134,7 @@ app.post("/api/issue-discount", async (req, res) => {
 If you prefer to verify without the middleware:
 
 ```typescript
-import { verifyTTPToken } from "@ttp/sdk"
+import { verifyTTPToken } from "@blocksifrdev/ttp-sdk"
 
 app.post("/api/action", async (req, res) => {
   const token = req.headers["x-ttp-token"]
@@ -205,7 +205,7 @@ An issuer observes agent behavior and submits signed behavioral receipts to the 
 ### Minimal Issuer (TypeScript)
 
 ```typescript
-import { TTPIssuer } from "@ttp/sdk"
+import { TTPIssuer } from "@blocksifrdev/ttp-sdk"
 import express from "express"
 
 const issuer = new TTPIssuer({

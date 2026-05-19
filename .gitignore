@@ -1,5 +1,7 @@
 node_modules/
 **/node_modules/
+dist/
+**/dist/
 .runtime-authority-receipts.json
 *.log
 .DS_Store

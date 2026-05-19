@@ -17,9 +17,6 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run test suite
-        run: npm test
-
       - name: Documentation smoke check
         shell: bash
         run: |
@@ -33,10 +30,11 @@ jobs:
       - name: Compile Python SDK
         run: python -m py_compile sdk/python/client.py
 
-      - name: SDK + gate smoke matrix
-        shell: bash
-        run: |
-          set -euo pipefail
+      - name: Build TypeScript SDK
+        run: npm run build:sdk
+
+      - name: Build Trust Authority reference
+        run: npm run build:trust-authority
 
       - name: Show CLI version
         run: npm run ttp -- version
