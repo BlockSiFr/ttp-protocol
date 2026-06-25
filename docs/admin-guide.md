@@ -19,7 +19,7 @@ Run runtime authorization as a non-bypassable control plane with:
 - Receipt persistence and integrity verification.
 
 ### Recommended environment topology
-- Per-environment FrontDesk (`dev`, `staging`, `prod`).
+- Per-environment legacy FrontDesk (`dev`, `staging`, `prod`).
 - Policy set versioning and promotion process.
 - Centralized receipt retention with immutable controls.
 

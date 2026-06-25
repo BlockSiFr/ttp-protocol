@@ -23,5 +23,5 @@
 ## Remaining production hardening recommendations
 1. Add managed DB/object-store adapter (in addition to local file mode).
 2. Add caller authentication middleware profile (OIDC/JWT validation) for production deployment.
-3. Add formal SLO dashboards and synthetic probes for production FrontDesk deployments.
+3. Add formal SLO dashboards and synthetic probes for production legacy FrontDesk deployments.
 4. Publish automated key rotation runbook/scripts for RS256 mode.

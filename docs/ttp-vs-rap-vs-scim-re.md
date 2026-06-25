@@ -1,75 +1,48 @@
 # TTP vs RAP vs SCIM-RE
 
-TTP, SCIM-RE, RAP, Execution Exchange, FrontDesk, and VerifiedTrust are separate layers. TTP should not claim the responsibilities of the other layers.
+TTP, SCIM-RE, RAP, Execution Exchange, CortexTrace, and ExecutionReceipts are separate layers. TTP should not claim the responsibilities of downstream authority, enforcement, or evidence systems.
 
 ## Layer Comparison
 
 | Layer | Primary Responsibility | Example Artifacts | TTP Boundary |
 | --- | --- | --- | --- |
-| TTP | Expresses trust claims, trust decay, trust transfer, delegation, proof requirements, and authority context. | `.ttp` files, trust claims, proofs, evaluation result JSON. | Produces trust context that runtime systems can evaluate. |
-| SCIM-RE | Defines runtime execution governance resources. | `WorkloadIdentity`, `AuthorityGrant`, `Attestation`, `ExecutionRequest`, `ExecutionReceipt`. | Can consume TTP subject, trust, and attestation fields. |
-| RAP | Defines runtime authority decision exchange before action. | Requests/responses with `PERMIT`, `STEP_UP`, `DENY`, `THROTTLE`, `ESCALATE`, `CONSTRAIN`. | Can use TTP evaluation as one input to runtime decisions. |
-| Execution Exchange | Gateway that enforces RAP decisions across routes and runtime integrations. | Enforcement routes, gateway policy, receipts. | Calls RAP before execution and may pass TTP context. |
-| FrontDesk | Business and operator control plane. | Approvals, receipts, agents, outcomes, customer impact views. | Displays evidence and approval trails informed by TTP/RAP/SCIM-RE. |
-| VerifiedTrust | Enterprise NHI posture and governance platform. | Policy, lifecycle, compliance, identity posture. | May issue, manage, or validate trust claims, but TTP remains portable. |
+| TTP | Establishes trustworthiness through trust claims, proof requirements, attestations, delegation, scope, and TrustDecay. | `.ttp` files, TrustClaim, TrustProof, trust proof outcomes. | Produces trust context and proof results for downstream systems. |
+| SCIM-RE | Structures runtime trust context. | `WorkloadIdentity`, `AuthorityGrant`, `Attestation`, `ExecutionRequest`, `ExecutionReceipt`. | Carries TTP subject, trust, and attestation context. |
+| RAP | Evaluates authority. | Requests/responses with `allow`, `step_up`, `deny`, `throttle`, and `escalate` semantics. | May use TTP TrustProof as one input to runtime authority evaluation. |
+| Execution Exchange | Enforces downstream runtime decisions in production. | Enforcement routes, gateway policy, commercial runtime authority gates, receipts. | Consumes trust and authority context; enforcement remains downstream. |
+| CortexTrace | Records evidence and receipts. | Evidence references, receipt chains, audit exports. | Records how trust proof and authority context supported downstream decisions. |
 
 ## TTP
 
-TTP expresses:
+TTP establishes trustworthiness. It expresses Subjects, TrustClaims, TrustIssuers, AuthorityGrants, Attestations, TrustDecay, Delegation, TrustProofs, RuntimeDecision context, and ExecutionReceipt references.
 
-- Trust claims.
-- Trust decay.
-- Trust transfer.
-- Delegation.
-- Proof requirements.
-- Authority context.
-
-It produces trust context and evaluation results. It does not enforce execution by itself.
+It produces trust context and trust proof results. It does not enforce execution by itself.
 
 ## SCIM-RE
 
-SCIM-RE defines runtime execution governance resources:
-
-- `WorkloadIdentity`
-- `AuthorityGrant`
-- `Attestation`
-- `ExecutionRequest`
-- `ExecutionReceipt`
-
-SCIM-RE provides the resource model that runtime systems can use to represent who acted, under which grant, with what evidence, and what receipt was produced.
+SCIM-RE structures runtime trust context with resources such as `WorkloadIdentity`, `AuthorityGrant`, `Attestation`, `ExecutionRequest`, and `ExecutionReceipt`.
 
 ## RAP
 
-RAP is the Runtime Authority Protocol. It defines the decision exchange before execution.
-
-RAP decisions include:
-
-- `PERMIT`
-- `STEP_UP`
-- `DENY`
-- `THROTTLE`
-- `ESCALATE`
-- `CONSTRAIN`
-
-RAP evaluates runtime context, policy, trust, risk, and required controls before action.
+RAP evaluates authority before downstream action. RAP can consume TTP proof results and runtime context to produce decisions such as `allow`, `step_up`, `deny`, `throttle`, and `escalate`.
 
 ## Execution Exchange
 
-Execution Exchange is the enforcement layer. It calls RAP before execution, applies the decision across routes or runtime integrations, and produces or forwards receipts.
+Execution Exchange is the commercial enforcement layer. It applies downstream runtime decisions across protected routes and production integrations.
 
-## FrontDesk
+## CortexTrace
 
-FrontDesk is the operator and business control plane. It shows approvals, receipts, agents, outcomes, customer impact, and escalation trails.
-
-## VerifiedTrust
-
-VerifiedTrust is the enterprise NHI posture and governance platform. It manages policies, identity posture, lifecycle, and compliance views.
+CortexTrace records evidence and receipts so governed decisions can be verified after the fact.
 
 ## Example Flow
 
-1. Agent wants to update a CRM record.
-2. Agent presents TTP trust context.
-3. SCIM-RE identifies the workload and grant.
-4. RAP evaluates the runtime decision.
-5. Execution Exchange enforces the decision.
-6. FrontDesk shows receipt and approval trail.
+1. An agent wants to update a protected record.
+2. TTP establishes trustworthiness and produces a TrustProof.
+3. SCIM-RE structures the workload, AuthorityGrant, Attestation, and receipt context.
+4. RAP evaluates authority.
+5. Execution Exchange enforces the downstream decision.
+6. CortexTrace records evidence and receipts.
+
+## Legacy Naming
+
+Older documents may mention legacy FrontDesk as legacy operator-control-plane naming. The primary commercial product name for production enforcement is Execution Exchange.

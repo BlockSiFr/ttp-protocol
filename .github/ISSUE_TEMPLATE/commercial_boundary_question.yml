@@ -1,0 +1,54 @@
+name: Commercial boundary question
+description: Ask whether a capability belongs in the open protocol or BlockSiFr commercial enforcement layer.
+title: "[Commercial boundary question] "
+labels: []
+body:
+- type: markdown
+  attributes:
+    value: |
+      Explain the trustworthiness boundary. TTP establishes trustworthiness before downstream authority and execution decisions.
+- type: textarea
+  id: actor
+  attributes:
+    label: What actor or system is being evaluated?
+    description: Identify the AI agent, copilot, workflow, pipeline, API client, service account, MSP/MSSP operator, or other non-human identity.
+  validations:
+    required: true
+- type: textarea
+  id: trustworthiness-question
+  attributes:
+    label: Trustworthiness question
+    description: What question must TTP answer before downstream authority or execution?
+  validations:
+    required: true
+- type: textarea
+  id: evidence
+  attributes:
+    label: Evidence and attestation
+    description: What trust evidence exists, what attestation is required, and what can decay?
+  validations:
+    required: true
+- type: textarea
+  id: proof
+  attributes:
+    label: Proof result
+    description: What TrustProof, RuntimeDecision context, or ExecutionReceipt evidence should result?
+  validations:
+    required: true
+- type: textarea
+  id: downstream
+  attributes:
+    label: Downstream reliance
+    description: What authority system, gateway, CI gate, Runtime Authority Gate, RAP service, or Execution Exchange path may consume the proof?
+  validations:
+    required: true
+- type: dropdown
+  id: commercial-touch
+  attributes:
+    label: Does this touch commercial BlockSiFr capabilities?
+    options:
+      - "No"
+      - "Yes"
+      - "Unsure"
+  validations:
+    required: true

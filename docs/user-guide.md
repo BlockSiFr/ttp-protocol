@@ -15,7 +15,7 @@ Application teams, platform engineers, CI/CD owners, and agent-runtime integrato
 1. Read the API contract:
    - `specs/scim-re-authorize-api.md`
    - `specs/openapi/runtime-authority-gate.openapi.json`
-2. Run local FrontDesk:
+2. Run local legacy FrontDesk:
    - `reference-implementations/runtime-authority-gate/server.mjs`
 3. Integrate SDK calls from `sdk/node` or `sdk/python`.
 4. Enforce decision+mode at the caller boundary.
@@ -25,7 +25,7 @@ Application teams, platform engineers, CI/CD owners, and agent-runtime integrato
 
 ## Quick start (local)
 
-### 1) Start FrontDesk
+### 1) Start legacy FrontDesk
 ```bash
 node reference-implementations/runtime-authority-gate/server.mjs
 ```

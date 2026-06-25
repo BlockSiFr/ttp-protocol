@@ -1,0 +1,16 @@
+{
+  "receipt_id": "receipt_01_reference",
+  "subject": "agent:invoice_reviewer",
+  "action": "invoice.recommend",
+  "resource": "invoice:example",
+  "decision": "allow",
+  "trust_proof_ref": "proof:invoice_review_threshold",
+  "authority_grant_ref": "grant:invoice_review",
+  "attestation_refs": [
+    "attestation:runtime:recent"
+  ],
+  "trust_state": "trust_valid",
+  "timestamp": "2026-06-25T12:30:00Z",
+  "signature": "cleartext-dev-not-for-production",
+  "chain_hash": "sha256:reference-chain-hash"
+}

@@ -1,47 +1,40 @@
 # Governance
 
-## Project Purpose
+TTP is open protocol infrastructure.
 
-TTP exists to define a portable trust grammar for autonomous execution: trust claims, authority context, delegation, proof requirements, and decay. It should remain interoperable and independent from any single commercial control plane.
+Changes to grammar, primitives, schemas, proof modes, trust proof outcomes, receipt semantics, or downstream runtime decision semantics must follow the RFC process.
 
-## Maintainer Model
+Process:
 
-Maintainers are responsible for protocol clarity, implementation quality, security review, release integrity, and contributor onboarding.
+1. Open an issue.
+2. Explain the trustworthiness problem.
+3. Identify the actor or system being evaluated.
+4. Describe the evidence, attestation, or trust condition involved.
+5. Describe the affected primitive.
+6. Submit an RFC.
+7. Provide examples.
+8. Add schema or evaluator tests.
+9. Receive maintainer review.
+10. Merge after consensus.
 
-Security-sensitive areas require maintainer review:
+The goal is interoperability, not vendor lock-in.
 
-- Parser and evaluator behavior.
-- Trust scoring and decay.
-- Proof modes.
-- Delegation semantics.
-- Runtime integration contracts.
-- Cryptographic verification.
+TTP should remain narrow:
 
-## RFC Process
+* define trustworthiness semantics
+* define trust primitives
+* define proof requirements
+* define decay semantics
+* define attestation semantics
+* define receipt semantics
+* support downstream runtime authority systems
 
-Protocol changes should use an RFC when they alter grammar, object model, evaluation semantics, proof modes, or compatibility.
+TTP should not become:
 
-An RFC should include:
-
-- Problem statement.
-- Proposed change.
-- Syntax or data model impact.
-- Security considerations.
-- Compatibility and migration notes.
-- Alternatives considered.
-
-## Versioning
-
-Implementation packages use semantic versioning. Protocol grammar uses explicit protocol versions. Backward-incompatible grammar changes require migration notes and conformance fixture updates.
-
-## Compatibility Policy
-
-Draft versions may change. Once a stable version is declared, conforming evaluators should continue accepting compatible prior documents or provide clear migration errors.
-
-## Security Review Process
-
-Changes touching trust semantics should include tests for invalid input, expired trust, insufficient score, unsupported proof modes, and unsafe references. Cryptographic changes require dedicated review before release.
-
-## Contribution Review Expectations
-
-PRs should be focused, documented, and testable. Maintainers may ask for smaller changes when a PR mixes protocol semantics, implementation changes, and documentation updates.
+* a full IAM system
+* a SIEM
+* a GRC platform
+* an AI monitoring tool
+* a security dashboard
+* a full commercial control plane
+* the production enforcement product

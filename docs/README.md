@@ -2,37 +2,44 @@
 
 Use this directory by objective, not by file name.
 
-## 1) I need to integrate runtime authorization
+## 1) I need to establish trustworthiness
 
 Start here in order:
-1. [`docs/user-guide.md`](./user-guide.md)
-2. [`docs/api/runtime-authority-gate.md`](./api/runtime-authority-gate.md)
-3. [`specs/scim-re-authorize-api.md`](../specs/scim-re-authorize-api.md)
+
+1. [`docs/concepts/trustworthiness-establishment.md`](./concepts/trustworthiness-establishment.md)
+2. [`docs/concepts/trust-decay.md`](./concepts/trust-decay.md)
+3. [`docs/concepts/trust-proofs.md`](./concepts/trust-proofs.md)
 4. [`examples/README.md`](../examples/README.md)
 
-## 2) I need to deploy/operate FrontDesk
+## 2) I need to integrate a downstream runtime system
 
 Start here in order:
-1. [`docs/deployment-guide.md`](./deployment-guide.md)
-2. [`docs/admin-guide.md`](./admin-guide.md)
-3. [`docs/repo-completeness-assessment.md`](./repo-completeness-assessment.md)
-4. [`docs/security.md`](./security.md)
 
-## 3) I need protocol and contract source-of-truth
+1. [`docs/integrations/api-gateway.md`](./integrations/api-gateway.md)
+2. [`docs/integrations/github-actions.md`](./integrations/github-actions.md)
+3. [`docs/integrations/mcp.md`](./integrations/mcp.md)
+4. [`specs/scim-re-authorize-api.md`](../specs/scim-re-authorize-api.md)
+
+## 3) I need enterprise boundary context
+
+Start here in order:
+
+1. [`COMMERCIAL_BOUNDARY.md`](../COMMERCIAL_BOUNDARY.md)
+2. [`docs/enterprise/security-model.md`](./enterprise/security-model.md)
+3. [`docs/enterprise/threat-model.md`](./enterprise/threat-model.md)
+4. [`docs/enterprise/deployment-patterns.md`](./enterprise/deployment-patterns.md)
+
+## 4) I need protocol and contract source-of-truth
 
 - [`specs/README.md`](../specs/README.md)
 - OpenAPI: [`specs/openapi/runtime-authority-gate.openapi.json`](../specs/openapi/runtime-authority-gate.openapi.json)
 - Schemas: [`specs/schemas/`](../specs/schemas)
+- RFCs: [`rfcs/`](../rfcs/)
 
-## 4) I need governance/boundary context
+## Documentation Principles
 
-- Open-source vs paid boundary: [`docs/open-source-boundary.md`](./open-source-boundary.md)
-- Governance posture: [`docs/governance.md`](./governance.md)
-
-
-## Documentation principles for this repo
-
-- Trust is evaluated **before** execution.
-- No governed action bypasses `POST /re/authorize`.
-- Every decision emits an `ExecutionReceipt`.
-- TTP is trust-expression; SCIM-RE/RAP are runtime governance/enforcement.
+- TTP establishes trustworthiness before downstream authority and execution.
+- SCIM-RE structures runtime trust context.
+- RAP evaluates authority.
+- Execution Exchange enforces downstream runtime decisions in production.
+- CortexTrace records evidence and receipts.

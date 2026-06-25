@@ -1,4 +1,4 @@
-# FrontDesk Deployment Guide (Runtime Authority Gate)
+# legacy FrontDesk Deployment Guide (Runtime Authority Gate)
 
 This guide explains how to deploy the Runtime Authority Gate from local development to production.
 

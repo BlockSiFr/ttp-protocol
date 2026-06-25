@@ -1,0 +1,47 @@
+// Actor: operator:mssp_remediation_bot
+// Trustworthiness question: Is operator:mssp_remediation_bot trustworthy enough for endpoint.remediate.request?
+// Evidence: issuer claim plus recent runtime attestation reference
+// Decay: linear decay without fresh attestation
+// Proof produced: mssp_threshold
+// Downstream consumer: RAP, Execution Exchange, API gateway, or CI gate
+
+subject "operator:mssp_remediation_bot" {
+  type = "service_operator"
+  issuer = "blocksifr.local"
+  domain = "security-operations"
+}
+
+trust "operator:mssp_remediation_bot" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.92
+  issued_at = "2026-06-25T12:00:00Z"
+  expires_at = "2026-06-25T16:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "4h"
+    minimum = 0.40
+  }
+
+  scope = [
+    "endpoint.read",
+    "endpoint.remediate.request"
+  ]
+
+  evidence = [
+    "attestation:endpoint_remediate_request:recent"
+  ]
+}
+
+proof "mssp_threshold" {
+  subject = "operator:mssp_remediation_bot"
+  required_score = 0.84
+  mode = "cleartext-dev"
+  freshness = "15m"
+}
+
+authority_context "endpoint_remediate_request" {
+  action = "endpoint.remediate.request"
+  resource = "resource:*"
+  requires = proof.mssp_threshold
+}

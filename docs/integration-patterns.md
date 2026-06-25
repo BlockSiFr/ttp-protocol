@@ -7,7 +7,7 @@ TTP is most useful when a runtime control point can evaluate trust before execut
 - **What calls TTP:** Agent runtime or tool executor.
 - **What TTP evaluates:** Subject trust, tool/action scope, proof freshness, threshold, decay.
 - **What happens next:** Runtime allows tool call, requests step-up through RAP, or blocks execution.
-- **Where other layers fit:** SCIM-RE models workload and grant; RAP returns the decision; FrontDesk displays receipts and approval trails.
+- **Where other layers fit:** SCIM-RE models workload and grant; RAP returns the decision; legacy FrontDesk displays receipts and approval trails.
 
 ## GitHub Actions
 
@@ -21,7 +21,7 @@ TTP is most useful when a runtime control point can evaluate trust before execut
 - **What calls TTP:** Pipeline task before environment deployment or service connection use.
 - **What TTP evaluates:** Pipeline identity, environment scope, recent attestation, threshold, expiration.
 - **What happens next:** Deployment continues only if current trust satisfies the authority context.
-- **Where other layers fit:** SCIM-RE models workload identity and authority grant; FrontDesk can show approval evidence.
+- **Where other layers fit:** SCIM-RE models workload identity and authority grant; legacy FrontDesk can show approval evidence.
 
 ## API Gateway
 
@@ -35,13 +35,13 @@ TTP is most useful when a runtime control point can evaluate trust before execut
 - **What calls TTP:** MCP tool gateway before tool invocation.
 - **What TTP evaluates:** Agent subject, tool scope, issuer trust, freshness, and threshold.
 - **What happens next:** Tool call is allowed, constrained, escalated, or denied.
-- **Where other layers fit:** RAP supplies decision vocabulary; FrontDesk can show operator-visible evidence.
+- **Where other layers fit:** RAP supplies decision vocabulary; legacy FrontDesk can show operator-visible evidence.
 
-## FrontDesk Runtime Authority Gate
+## legacy FrontDesk Runtime Authority Gate
 
-- **What calls TTP:** FrontDesk-integrated authority gate.
+- **What calls TTP:** legacy FrontDesk-integrated authority gate.
 - **What TTP evaluates:** Business action trust, proof freshness, delegated authority, and evidence references.
-- **What happens next:** FrontDesk presents approval, receipt, or escalation workflow.
+- **What happens next:** legacy FrontDesk presents approval, receipt, or escalation workflow.
 - **Where other layers fit:** SCIM-RE models execution receipt; RAP returns authority decision.
 
 ## NHI Governance Workflow

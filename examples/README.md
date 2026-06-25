@@ -1,27 +1,32 @@
-# Examples (Integration Patterns)
+# Examples
 
-Use these examples to wire runtime authority into real execution surfaces.
+Use these examples to model trustworthiness establishment before downstream authority and execution decisions.
 
-## Decision handling rule (applies to all examples)
-No protected action executes until `POST /re/authorize` returns a decision and receipt.
+## Decision Boundary
 
-## Choose by integration surface
+TTP establishes trustworthiness. It does not enforce execution directly. RAP, Execution Exchange, API gateways, CI gates, and integrated runtime systems enforce downstream decisions.
 
-### CI/CD
-- `governed-ci/github-actions-governed-step.md`
-- `governed-ci/azure-devops-governed-pipeline.md`
+## Core Examples
 
-### API / runtime enforcement
-- `api-gateway/api-gateway-enforcement.md`
-- `copilot-tool-gate/copilot-tool-call-gate.md`
-- `github-app-self-governance.md`
+- `01-basic-agent.ttp`
+- `02-trust-decay.ttp`
+- `03-threshold-proof.ttp`
+- `04-delegated-trust.ttp`
+- `05-agent-tool-trust-wrapper.ttp`
+- `06-cicd-pipeline-trust-proof.ttp`
+- `07-api-client-trust-proof.ttp`
+- `08-msp-mssp-trust-proof.ttp`
+- `09-execution-receipt-reference.json`
 
-## How to use examples correctly
+## Each Example Answers
 
-1. Adapt request context fields to your environment/classification model.
-2. Keep decision enforcement logic thin in callers.
-3. Keep governance logic centralized in FrontDesk.
-4. Persist receipt IDs and integrity fields with execution logs.
+- What actor is being evaluated?
+- What trustworthiness question is being answered?
+- What evidence exists?
+- What can decay?
+- What proof is produced?
+- What downstream system would consume the result?
 
-## Production note
-Examples are patterns, not production defaults. Apply your org’s auth, retention, and approval controls before rollout.
+## Production Note
+
+Examples are non-production protocol patterns. Production enforcement requires signed claims, trusted issuer registry, replay protection, clock integrity, tenant isolation, fail-closed downstream enforcement, receipt signing, and commercial enforcement infrastructure such as Execution Exchange.

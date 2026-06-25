@@ -1,0 +1,47 @@
+// Actor: pipeline:terraform_plan
+// Trustworthiness question: Is pipeline:terraform_plan trustworthy enough for infra.apply.request?
+// Evidence: issuer claim plus recent runtime attestation reference
+// Decay: linear decay without fresh attestation
+// Proof produced: cicd_threshold
+// Downstream consumer: RAP, Execution Exchange, API gateway, or CI gate
+
+subject "pipeline:terraform_plan" {
+  type = "automation_pipeline"
+  issuer = "blocksifr.local"
+  domain = "platform"
+}
+
+trust "pipeline:terraform_plan" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.91
+  issued_at = "2026-06-25T12:00:00Z"
+  expires_at = "2026-06-25T16:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "4h"
+    minimum = 0.40
+  }
+
+  scope = [
+    "infra.plan",
+    "infra.apply.request"
+  ]
+
+  evidence = [
+    "attestation:infra_apply_request:recent"
+  ]
+}
+
+proof "cicd_threshold" {
+  subject = "pipeline:terraform_plan"
+  required_score = 0.82
+  mode = "cleartext-dev"
+  freshness = "20m"
+}
+
+authority_context "infra_apply_request" {
+  action = "infra.apply.request"
+  resource = "resource:*"
+  requires = proof.cicd_threshold
+}

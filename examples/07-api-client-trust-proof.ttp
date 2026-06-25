@@ -1,0 +1,47 @@
+// Actor: api_client:billing_exporter
+// Trustworthiness question: Is api_client:billing_exporter trustworthy enough for billing.export?
+// Evidence: issuer claim plus recent runtime attestation reference
+// Decay: linear decay without fresh attestation
+// Proof produced: api_client_threshold
+// Downstream consumer: RAP, Execution Exchange, API gateway, or CI gate
+
+subject "api_client:billing_exporter" {
+  type = "api_client"
+  issuer = "blocksifr.local"
+  domain = "finance"
+}
+
+trust "api_client:billing_exporter" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.89
+  issued_at = "2026-06-25T12:00:00Z"
+  expires_at = "2026-06-25T16:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "4h"
+    minimum = 0.40
+  }
+
+  scope = [
+    "billing.read",
+    "billing.export"
+  ]
+
+  evidence = [
+    "attestation:billing_export:recent"
+  ]
+}
+
+proof "api_client_threshold" {
+  subject = "api_client:billing_exporter"
+  required_score = 0.8
+  mode = "cleartext-dev"
+  freshness = "30m"
+}
+
+authority_context "billing_export" {
+  action = "billing.export"
+  resource = "resource:*"
+  requires = proof.api_client_threshold
+}

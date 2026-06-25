@@ -1,0 +1,57 @@
+name: RFC proposal
+description: Propose a protocol change through the TTP RFC process.
+title: "[RFC] "
+labels: ["rfc"]
+body:
+- type: textarea
+  id: actor
+  attributes:
+    label: What actor is being evaluated?
+  validations:
+    required: true
+- type: textarea
+  id: question
+  attributes:
+    label: What trustworthiness question is being answered?
+  validations:
+    required: true
+- type: textarea
+  id: evidence
+  attributes:
+    label: What evidence is available?
+  validations:
+    required: true
+- type: textarea
+  id: attestation
+  attributes:
+    label: What attestation is required?
+  validations:
+    required: true
+- type: textarea
+  id: decay
+  attributes:
+    label: What trust condition decays?
+  validations:
+    required: true
+- type: textarea
+  id: proof
+  attributes:
+    label: What proof should result?
+  validations:
+    required: true
+- type: textarea
+  id: downstream
+  attributes:
+    label: What downstream authority or enforcement system may consume the result?
+  validations:
+    required: true
+- type: dropdown
+  id: commercial
+  attributes:
+    label: Does this proposal touch commercial BlockSiFr capabilities?
+    options:
+      - "No"
+      - "Yes"
+      - "Unsure"
+  validations:
+    required: true

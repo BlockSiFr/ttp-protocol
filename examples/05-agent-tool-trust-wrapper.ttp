@@ -1,0 +1,47 @@
+// Actor: agent:refund_copilot
+// Trustworthiness question: Is agent:refund_copilot trustworthy enough for support.refund.recommend?
+// Evidence: issuer claim plus recent runtime attestation reference
+// Decay: linear decay without fresh attestation
+// Proof produced: agent_tool_threshold
+// Downstream consumer: RAP, Execution Exchange, API gateway, or CI gate
+
+subject "agent:refund_copilot" {
+  type = "ai_agent"
+  issuer = "blocksifr.local"
+  domain = "support"
+}
+
+trust "agent:refund_copilot" {
+  issuer = "verifiedtrust:tenant_123"
+  score = 0.87
+  issued_at = "2026-06-25T12:00:00Z"
+  expires_at = "2026-06-25T16:00:00Z"
+
+  decay {
+    model = "linear"
+    half_life = "4h"
+    minimum = 0.40
+  }
+
+  scope = [
+    "support.refund.read",
+    "support.refund.recommend"
+  ]
+
+  evidence = [
+    "attestation:support_refund_recommend:recent"
+  ]
+}
+
+proof "agent_tool_threshold" {
+  subject = "agent:refund_copilot"
+  required_score = 0.78
+  mode = "cleartext-dev"
+  freshness = "45m"
+}
+
+authority_context "support_refund_recommend" {
+  action = "support.refund.recommend"
+  resource = "resource:*"
+  requires = proof.agent_tool_threshold
+}

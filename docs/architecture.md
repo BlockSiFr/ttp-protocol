@@ -1,6 +1,6 @@
 # TTP Architecture
 
-TTP is the protocol layer for trust expression before autonomous execution. It is intentionally narrower than the runtime systems that enforce authority decisions.
+TTP is the protocol layer for trustworthiness establishment before downstream authority and execution decisions. It is intentionally narrower than the runtime systems that evaluate authority, enforce decisions, and record evidence.
 
 ## MVP Pipeline
 
@@ -17,22 +17,25 @@ TTP is the protocol layer for trust expression before autonomous execution. It i
    |
  proof evaluator
    |
- evaluation result JSON
+ TrustProof result JSON
    |
- RAP / SCIM-RE / FrontDesk integration
+ SCIM-RE / RAP / Execution Exchange / API gateway / CI gate
 ```
 
 ## Protocol Layer
 
 The protocol layer defines the grammar and object model:
 
-- Subjects.
-- Trust claims.
-- Proof requirements.
-- Trust decay.
+- Subject.
+- TrustClaim.
+- TrustIssuer.
+- AuthorityGrant.
+- Attestation.
+- TrustDecay.
 - Delegation.
-- Authority context.
-- Evaluation result shape.
+- TrustProof.
+- RuntimeDecision context.
+- ExecutionReceipt reference semantics.
 
 This layer should remain portable and implementation-neutral.
 
@@ -42,29 +45,11 @@ The parser reads `.ttp` files and produces a structured object model. The MVP pa
 
 Future parser work should add formal grammar tests, better diagnostics, formatting, and conformance fixtures.
 
-## AST
-
-The AST represents:
-
-- Subject definitions.
-- Trust claims indexed by subject.
-- Proof definitions indexed by proof name.
-- Authority contexts referencing proofs.
-- Delegations with bounded scope and expiration.
-
 ## Evaluator
 
-The evaluator applies:
+The evaluator applies subject lookup, trust claim selection, expiration checks, freshness checks, decay calculation, threshold comparison, and result construction.
 
-- Subject lookup.
-- Trust claim selection.
-- Expiration checks.
-- Freshness checks.
-- Decay calculation.
-- Threshold comparison.
-- Result construction.
-
-The evaluator does not decide runtime enforcement actions such as `PERMIT` or `DENY`. Those are RAP concerns.
+The evaluator does not decide runtime enforcement actions such as `allow` or `deny`. Those are downstream RAP and enforcement concerns.
 
 ## Decay Engine
 
@@ -74,9 +59,9 @@ Future engines may support exponential decay, event-driven decay, issuer-weighte
 
 ## Proof Engine
 
-The MVP proof engine supports `cleartext-dev` mode. This mode is useful for examples, local development, and protocol review.
+The MVP proof engine supports `cleartext-dev` mode. This mode is useful for examples, local development, and protocol review. Do not use it in production.
 
-Future proof engines may support signed claims, issuer registries, replay protection, receipt hash binding, and ZKP-compatible verification.
+Future proof engines may support signed claims, issuer registries, replay protection, and receipt hash binding. ZKP-compatible verification is a future research direction, not an implemented backend in this repository.
 
 ## Output Result
 
@@ -94,14 +79,6 @@ The output is JSON designed to be consumed by runtime authority systems:
 }
 ```
 
-## Integration With RAP and SCIM-RE
+## Integration With SCIM-RE, RAP, and Execution Exchange
 
-SCIM-RE provides runtime execution resource models such as `WorkloadIdentity`, `AuthorityGrant`, `Attestation`, `ExecutionRequest`, and `ExecutionReceipt`.
-
-RAP evaluates runtime authority decisions such as `PERMIT`, `STEP_UP`, `DENY`, `THROTTLE`, `ESCALATE`, and `CONSTRAIN`.
-
-TTP provides the trust context that can feed those systems.
-
-## Future ZKP Backend
-
-ZKP support is a future proof backend. It should allow selective disclosure of trust satisfaction without exposing raw trust scores or evidence. It is not required for the MVP.
+TTP establishes trustworthiness. SCIM-RE structures runtime trust context. RAP evaluates authority. Execution Exchange enforces downstream runtime decisions in production. CortexTrace records evidence and receipts.

@@ -3,7 +3,7 @@
 A governed tool-call pattern for agent assistants:
 
 1. Agent intends a tool call (e.g., `delete_production_secret`).
-2. Tool broker sends runtime authorization request to FrontDesk.
+2. Tool broker sends runtime authorization request to legacy FrontDesk.
 3. Tool broker executes only if decision is `PERMIT`.
 4. Tool broker logs `ExecutionReceipt` with prompt and tool transcript references.
 

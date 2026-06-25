@@ -1,0 +1,19 @@
+name: Schema Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  json-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Parse JSON schemas and examples
+        run: |
+          node -e "const fs=require('fs'); const files=['specs/schemas/execution-receipt.schema.json','specs/schemas/re-authorize-request.schema.json','specs/schemas/re-authorize-response.schema.json','receipts/schemas/execution-receipt.v1.json','examples/09-execution-receipt-reference.json']; for (const f of files) JSON.parse(fs.readFileSync(f,'utf8')); console.log('json ok', files.length);"
