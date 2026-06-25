@@ -1,0 +1,1 @@
+{"input":{"chainId":"isnad-002","rootAuthority":"root:cfo","terminalSubject":"agent:invoice-bot"},"output":{"valid":false,"continuous":false},"expectedResult":"isnad chain broken","explanation":"A gap between narrators breaks continuity (munqati'); the chain is not sound."}
