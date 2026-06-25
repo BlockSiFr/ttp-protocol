@@ -19,7 +19,7 @@
  */
 
 import express, { Request, Response, NextFunction } from "express"
-import { TTPIssuer } from "@blocksifrdev/ttp-sdk"
+import { TTPIssuer } from "@blocksifr/ttp-sdk"
 
 interface ApiGatewayIssuerOptions {
   issuerId: string

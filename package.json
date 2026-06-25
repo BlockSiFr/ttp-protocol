@@ -1,5 +1,5 @@
 {
-  "name": "@blocksifrdev/ttp-protocol",
+  "name": "@blocksifr/ttp-protocol",
   "version": "0.1.0",
   "description": "Trust Transfer Protocol — open trustworthiness primitives for autonomous systems, non-human identities, and runtime authority.",
   "private": false,

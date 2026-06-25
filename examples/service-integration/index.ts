@@ -6,7 +6,7 @@
  *
  * To run:
  *   1. Start Trust Authority: cd reference-implementations/trust-authority && npm run dev
- *   2. npm install express @blocksifrdev/ttp-sdk
+ *   2. npm install express @blocksifr/ttp-sdk
  *   3. ts-node examples/service-integration/index.ts
  *
  * Test with curl:
@@ -23,7 +23,7 @@
  */
 
 import express from "express"
-import { createTTPMiddleware, fetchTTPAuthorityKey } from "@blocksifrdev/ttp-sdk"
+import { createTTPMiddleware, fetchTTPAuthorityKey } from "@blocksifr/ttp-sdk"
 
 const PORT = parseInt(process.env.PORT ?? "4000")
 const AUTHORITY_URL = process.env.TTP_AUTHORITY_URL ?? "http://localhost:3000"

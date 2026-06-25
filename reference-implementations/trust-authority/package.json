@@ -1,5 +1,5 @@
 {
-  "name": "@blocksifrdev/ttp-trust-authority",
+  "name": "@blocksifr/ttp-trust-authority",
   "version": "0.1.0",
   "description": "TTP Reference Trust Authority — aggregates behavioral receipts and issues trust tokens",
   "main": "dist/index.js",

@@ -1,9 +1,9 @@
 /**
- * @blocksifrdev/ttp-sdk — Official TypeScript SDK for the Trust Transfer Protocol
+ * @blocksifr/ttp-sdk — Official TypeScript SDK for the Trust Transfer Protocol
  *
  * @example Agent usage:
  * ```typescript
- * import { TTPClient } from "@blocksifrdev/ttp-sdk"
+ * import { TTPClient } from "@blocksifr/ttp-sdk"
  *
  * const client = new TTPClient({
  *   agentId: "my-agent",
@@ -16,7 +16,7 @@
  *
  * @example Service verification:
  * ```typescript
- * import { createTTPMiddleware } from "@blocksifrdev/ttp-sdk"
+ * import { createTTPMiddleware } from "@blocksifr/ttp-sdk"
  *
  * app.use("/api/action", createTTPMiddleware({
  *   domain: "retention",

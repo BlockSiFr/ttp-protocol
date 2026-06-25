@@ -9,7 +9,7 @@
  *   3. Run: ts-node examples/basic-agent/index.ts
  */
 
-import { TTPClient, TTPUnavailableError } from "@blocksifrdev/ttp-sdk"
+import { TTPClient, TTPUnavailableError } from "@blocksifr/ttp-sdk"
 
 // Configuration
 

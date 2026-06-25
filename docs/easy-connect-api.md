@@ -15,7 +15,7 @@ This endpoint returns a ready-to-use integration profile with:
 {
   "integrationName": "my-first-integration",
   "subject": "wi://ttp/github/security-review-agent",
-  "repo": "blocksifrdev/ttp-protocol"
+  "repo": "BlockSiFr/ttp-protocol"
 }
 ```
 

@@ -10,7 +10,7 @@ function executionRequest(overrides = {}) {
   const base = {
     subject: 'agent://retention-worker',
     action: 'deploy.production',
-    resource: 'github:blocksifrdev/ttp-protocol/actions/deploy',
+    resource: 'github:BlockSiFr/ttp-protocol/actions/deploy',
     context: {
       environment: 'production'
     },
@@ -62,7 +62,7 @@ const scenarios = [
     name: 'PERMIT trusted build action',
     request: executionRequest({
       action: 'build.run',
-      resource: 'github:blocksifrdev/ttp-protocol/actions/build'
+      resource: 'github:BlockSiFr/ttp-protocol/actions/build'
     }),
     candidates: [
       routeCandidate({

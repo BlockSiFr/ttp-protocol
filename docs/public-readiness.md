@@ -63,8 +63,8 @@ The root npm package is scoped to protocol runtime primitives, schemas, and rele
 
 Pre-release package names are aligned under the BlockSiFr npm scope:
 
-- `@blocksifrdev/ttp-protocol`
-- `@blocksifrdev/ttp-sdk`
-- `@blocksifrdev/ttp-trust-authority`
+- `@blocksifr/ttp-protocol`
+- `@blocksifr/ttp-sdk`
+- `@blocksifr/ttp-trust-authority`
 
 If those are done, the repo is in strong shape for a broader public launch.

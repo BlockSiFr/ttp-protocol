@@ -1,5 +1,5 @@
 {
-  "name": "@blocksifrdev/ttp-sdk",
+  "name": "@blocksifr/ttp-sdk",
   "version": "0.1.0",
   "description": "Official TypeScript SDK for the Trust Transfer Protocol",
   "main": "dist/index.js",
