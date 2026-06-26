@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="img" aria-label="TTP trust ring">
+  <defs>
+    <radialGradient id="tr-fade" cx="50%" cy="50%" r="50%">
+      <stop offset="60%" stop-color="#00D4FF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.04"/>
+    </radialGradient>
+  </defs>
+  <g fill="none" stroke="#1E2430" stroke-width="1">
+    <circle cx="120" cy="120" r="112"/>
+    <circle cx="120" cy="120" r="86"/>
+    <circle cx="120" cy="120" r="60"/>
+  </g>
+  <circle cx="120" cy="120" r="112" fill="url(#tr-fade)"/>
+  <g stroke="#2A313D" stroke-width="1">
+    <line x1="120" y1="8" x2="120" y2="20"/>
+    <line x1="120" y1="220" x2="120" y2="232"/>
+    <line x1="8" y1="120" x2="20" y2="120"/>
+    <line x1="220" y1="120" x2="232" y2="120"/>
+  </g>
+  <g stroke="#00D4FF" stroke-width="1.25" fill="none" opacity="0.9">
+    <path d="M120 8 A112 112 0 0 1 232 120" stroke-linecap="round"/>
+  </g>
+  <circle cx="120" cy="8" r="3.5" fill="#00D4FF"/>
+  <circle cx="120" cy="120" r="6" fill="#0A0A0F" stroke="#00D4FF" stroke-width="1.25"/>
+  <circle cx="120" cy="120" r="2" fill="#00D4FF"/>
+</svg>

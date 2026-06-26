@@ -1,0 +1,110 @@
+/* TTP docs theme — dark, precise, cryptographic. Maps the brand token system
+   onto VitePress. Brand fonts load as webfonts (allowed on the docs site). */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --vp-font-family-base: "Inter", system-ui, sans-serif;
+  --vp-font-family-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --ttp-black: #0a0a0f;
+  --ttp-panel: #12141c;
+  --ttp-card: #101521;
+  --ttp-border: #1e2430;
+  --ttp-cyan: #00d4ff;
+  --ttp-azure: #0066cc;
+  --ttp-white: #f0f2f5;
+  --ttp-steel: #8892a0;
+  --ttp-green: #00e676;
+  --ttp-teal: #00b8a9;
+  --ttp-amber: #ffb300;
+  --ttp-red: #ff3d00;
+
+  /* brand accent */
+  --vp-c-brand-1: var(--ttp-cyan);
+  --vp-c-brand-2: #5fe3ff;
+  --vp-c-brand-3: var(--ttp-azure);
+  --vp-c-brand-soft: rgba(0, 212, 255, 0.12);
+}
+
+.dark {
+  --vp-c-bg: var(--ttp-black);
+  --vp-c-bg-alt: #0b0d13;
+  --vp-c-bg-soft: var(--ttp-card);
+  --vp-c-bg-elv: var(--ttp-panel);
+  --vp-c-border: var(--ttp-border);
+  --vp-c-divider: var(--ttp-border);
+  --vp-c-text-1: var(--ttp-white);
+  --vp-c-text-2: #c2cad6;
+  --vp-c-text-3: var(--ttp-steel);
+
+  --vp-code-block-bg: #0a0a0f;
+  --vp-code-bg: rgba(0, 212, 255, 0.07);
+  --vp-code-color: #c2cad6;
+}
+
+/* Display type */
+h1, h2, h3, .VPHero .name, .VPHero .text {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+h2 {
+  border-top: 1px solid var(--ttp-border);
+  padding-top: 1.5rem;
+}
+
+/* Hero */
+.VPHero .name { color: var(--ttp-white); }
+.VPHero .text { color: var(--ttp-cyan); }
+.VPHero .tagline { color: var(--ttp-steel); }
+.VPHero .image-bg { display: none; }
+
+/* Feature / path cards */
+.VPFeature {
+  background: var(--ttp-card);
+  border: 1px solid var(--ttp-border);
+  transition: border-color 0.15s ease;
+}
+.VPFeature:hover { border-color: rgba(0, 212, 255, 0.4); }
+.VPFeature .icon {
+  background: transparent !important;
+  font-size: 22px;
+}
+
+/* Code blocks — thin border, mono */
+div[class*="language-"] {
+  border: 1px solid var(--ttp-border);
+  border-radius: 10px;
+  background: #0a0a0f;
+}
+div[class*="language-"] code { font-size: 13px; }
+
+/* Custom protocol callouts */
+.ttp-callout {
+  margin: 18px 0;
+  padding: 14px 18px 14px 16px;
+  border: 1px solid var(--ttp-border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--ttp-card);
+}
+.ttp-callout-title {
+  margin: 0 0 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 500;
+}
+.ttp-callout :last-child { margin-bottom: 0; }
+
+.ttp-authority   { border-left-color: var(--ttp-azure); }
+.ttp-authority   .ttp-callout-title { color: var(--ttp-azure); }
+.ttp-attestation { border-left-color: var(--ttp-teal); }
+.ttp-attestation .ttp-callout-title { color: var(--ttp-teal); }
+.ttp-decay       { border-left-color: var(--ttp-cyan); }
+.ttp-decay       .ttp-callout-title { color: var(--ttp-cyan); }
+.ttp-receipt     { border-left-color: var(--ttp-green); }
+.ttp-receipt     .ttp-callout-title { color: var(--ttp-green); }
+.ttp-step-up     { border-left-color: var(--ttp-amber); }
+.ttp-step-up     .ttp-callout-title { color: var(--ttp-amber); }
+.ttp-deny        { border-left-color: var(--ttp-red); }
+.ttp-deny        .ttp-callout-title { color: var(--ttp-red); }

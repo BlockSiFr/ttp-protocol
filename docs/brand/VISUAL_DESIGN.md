@@ -126,7 +126,10 @@ gh repo edit --description "Trust-Before-Execution protocol for AI agents and no
 - [x] Label system + sync workflow
 - [x] PR template, discussion templates, FUNDING
 - [x] Reproducible font-embed / render build
+- [x] Docs site — VitePress under `website/` (dark-first, brand tokens, custom
+      protocol callouts, "choose your path" cards); builds clean
+- [x] Screenshots — `assets/screenshots/cli-demo.png`, `receipt-preview.png`
 - [ ] Set repo description + topics (run §8)
 - [ ] Upload `assets/social-preview.png` in repo Settings → Social preview
-- [ ] Docs site (Starlight/VitePress) — future phase
-- [ ] CLI / docs screenshots — future phase
+- [ ] `docs-home.png` screenshot — needs a headless browser to capture the
+      rendered docs site (`cd website && npm run docs:dev`)
