@@ -1,0 +1,24 @@
+title: "[Idea] "
+labels: ["type: docs"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Idea / Integration
+        Share an integration surface, use case, or improvement. Not every idea
+        needs an RFC — start the conversation here.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What's the idea?
+    validations:
+      required: true
+  - type: input
+    id: surface
+    attributes:
+      label: Enforcement surface (if applicable)
+      placeholder: "e.g. agent tool call, CI/CD stage, API gateway, service account"
+  - type: textarea
+    id: value
+    attributes:
+      label: Who benefits and why?

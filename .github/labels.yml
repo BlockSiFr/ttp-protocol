@@ -1,0 +1,43 @@
+# Trust Transfer Protocol — canonical label system.
+# Synced to the repo by .github/workflows/labels.yml (EndBug/label-sync).
+# Colors follow the TTP brand token palette.
+
+- name: "type: protocol"
+  color: "00D4FF"
+  description: "Protocol grammar, semantics, or schema"
+- name: "type: runtime"
+  color: "0066CC"
+  description: "Runtime authority gate and enforcement"
+- name: "type: docs"
+  color: "8892A0"
+  description: "Documentation and concepts"
+- name: "type: examples"
+  color: "00B8A9"
+  description: "Example .ttp files and integrations"
+- name: "type: security"
+  color: "FF3D00"
+  description: "Security-relevant change or concern"
+
+- name: "status: good first issue"
+  color: "00E676"
+  description: "Approachable, well-scoped first contribution"
+- name: "status: needs-rfc"
+  color: "FFB300"
+  description: "Requires a protocol RFC before implementation"
+
+- name: "priority: critical"
+  color: "FF3D00"
+  description: "Blocks correctness, security, or release"
+
+- name: "area: trust-decay"
+  color: "00D4FF"
+  description: "Trust scoring and decay model"
+- name: "area: execution-receipts"
+  color: "00B8A9"
+  description: "Execution receipts and evidence chain"
+- name: "area: zkp"
+  color: "0066CC"
+  description: "Zero-knowledge proofs"
+- name: "area: compiler"
+  color: "8892A0"
+  description: ".ttp parser, evaluator, and CLI"

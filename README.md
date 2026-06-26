@@ -1,319 +1,175 @@
-<h1 align="center">Trust Transfer Protocol</h1>
-
 <p align="center">
-  <strong>Trustworthiness establishment for autonomous systems.</strong>
+  <img src="assets/ttp-hero.svg" alt="Trust Transfer Protocol — Trust-Before-Execution for AI agents and non-human identities" width="100%">
 </p>
 
 <p align="center">
-  TTP is the open protocol for proving whether an AI agent, copilot, workflow, pipeline, API, service account, or non-human identity is trustworthy enough to be relied on before downstream authority and execution decisions occur.
+  <img alt="spec" src="https://img.shields.io/badge/spec-v1.0-00D4FF?style=flat-square&labelColor=0A0A0F">
+  <img alt="protocol" src="https://img.shields.io/badge/protocol-TTP-00B8A9?style=flat-square&labelColor=0A0A0F">
+  <img alt="runtime" src="https://img.shields.io/badge/runtime-in__progress-FFB300?style=flat-square&labelColor=0A0A0F">
+  <img alt="reference" src="https://img.shields.io/badge/reference-Node.js-00E676?style=flat-square&labelColor=0A0A0F">
+  <br>
+  <img alt="trust model" src="https://img.shields.io/badge/trust__model-decay__enabled-00D4FF?style=flat-square&labelColor=0A0A0F">
+  <img alt="receipts" src="https://img.shields.io/badge/receipts-cryptographic-00B8A9?style=flat-square&labelColor=0A0A0F">
+  <img alt="category" src="https://img.shields.io/badge/category-agent__trust__infrastructure-8892A0?style=flat-square&labelColor=0A0A0F">
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-0066CC?style=flat-square&labelColor=0A0A0F"></a>
 </p>
 
 <p align="center">
-  <strong>No implicit trust. No stale delegation. No blind reliance on autonomous actors.</strong>
+  <strong>The protocol layer for agent trust.</strong><br>
+  Every action must earn authority before execution. Every decision must be provable after.
 </p>
 
 <p align="center">
-  <a href="SPECIFICATION.md"><img alt="Protocol" src="https://img.shields.io/badge/protocol-draft-2f6fed"></a>
-  <img alt="Category" src="https://img.shields.io/badge/category-trustworthiness_establishment-00D4FF">
-  <img alt="Runtime" src="https://img.shields.io/badge/runtime-reference_evaluator-00E676">
-  <a href="SECURITY.md"><img alt="Production" src="https://img.shields.io/badge/production-not_recommended_alone-FF3D00"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache_2.0-blue"></a>
-  <a href="SECURITY.md"><img alt="Security policy" src="https://img.shields.io/badge/security-policy_documented-7c3aed"></a>
+  <a href="SPECIFICATION.md"><b>Read the Spec</b></a> &nbsp;·&nbsp;
+  <a href="#-quickstart"><b>Quickstart</b></a> &nbsp;·&nbsp;
+  <a href="examples/"><b>Examples</b></a> &nbsp;·&nbsp;
+  <a href="CONTRIBUTING.md"><b>Contribute</b></a>
 </p>
 
-Identity proves who is acting. Authorization says what was assigned. TTP establishes whether the actor is trustworthy enough for this context, right now.
+---
 
-TTP is a platform-agnostic trust protocol for evidence-backed trustworthiness establishment across autonomous systems.
+Identity proves *who* is acting. Authorization defines *what* was assigned. **TTP establishes whether the actor is trustworthy enough for this action, right now** — before any downstream authority or execution decision is made.
 
-OAuth standardized delegated access.
-SCIM standardized identity provisioning.
-TTP standardizes trustworthiness establishment before autonomous execution.
+OAuth standardized delegated access. SCIM standardized identity provisioning. **TTP standardizes trust-before-execution for autonomous systems.** It is a platform-agnostic trust protocol — bring any agent, IdP, gateway, or workflow.
 
-## Status
+<p align="center">
+  <img src="assets/diagrams/protocol-loop.svg" alt="Identity, Attestation, Trust Evaluation, Runtime Authority Gate, Decision, Execution Receipt" width="100%">
+</p>
 
-* Protocol draft.
-* Reference evaluator active.
-* MVP parser and trust decay evaluator available.
-* Not recommended for production enforcement by itself.
-* TTP establishes trustworthiness context; it does not enforce execution alone.
+## Why TTP Exists
 
-## First Principles
+Software is moving from advising to acting. Agents call tools, copilots trigger workflows, pipelines modify production, service accounts move data. The old model — `authenticate → authorize → execute → log` — never asks the question that matters at runtime:
 
-Software is moving from advising to acting.
+> **Should this specific action execute right now, given how trustworthy the actor is at this moment?**
 
-When software acts, it must be trustworthy.
-When trust is stale, reliance becomes risk.
-When trust decays, trustworthiness must be re-established.
-When trustworthiness is evaluated, evidence must be produced.
-When downstream authority systems act on that evaluation, a receipt should exist.
+<p align="center">
+  <img src="assets/diagrams/trust-gap.svg" alt="Identity asks who, Authorization asks what may be accessed, TTP asks whether this action should execute now" width="100%">
+</p>
 
-The old model is incomplete:
+## How TTP Works
 
-```text
-authenticate -> authorize -> execute -> log
+Trust is established from evidence, scored against a threshold, and checked at a runtime authority gate **before** the action runs. The gate consumes a trust proof, an authority grant, and the current decay state — then emits a decision and a signed receipt.
+
+<p align="center">
+  <img src="assets/diagrams/runtime-authority-flow.svg" alt="A request is evaluated by the runtime authority gate against trust, authority and decay, producing a decision and a receipt" width="100%">
+</p>
+
+### Runtime Decisions
+
+A trust proof resolves into one of five outcomes. TTP establishes the trust context; downstream runtime authority systems enforce the decision.
+
+<p align="center">
+  <img src="assets/diagrams/decision-matrix.svg" alt="Decision outcomes: allow, throttle, step-up, escalate, deny" width="100%">
+</p>
+
+## First Example
+
+Declare a subject, attach evidence, and require a trust threshold before the action is allowed:
+
+```ttp
+trust "invoice_agent" {
+  subject     = agent:invoice-bot
+  issuer      = trust-issuer:finance-control
+  score       = 0.91
+  decay       = exponential(halflife = 6h)   # trust weakens without fresh evidence
+  scope       = [invoice.read, invoice.write]
+  evidence    = [attestation:att-7b3c, receipt:rcpt-01J9F4]
+}
+
+policy "write_invoices" {
+  action            = invoice.write
+  require_trust     = 0.80                     # threshold the proof must clear
+  on_below          = step-up                  # otherwise demand fresh attestation
+  execution_policy  = gate                     # decide before execution, fail closed
+  emit              = execution_receipt        # cryptographic proof of the decision
+}
 ```
 
-Autonomous systems require a new model:
+Trust does not stay still. Without fresh attestation it **decays** through `active → degraded → warning → critical`; a new attestation **recharges** it.
 
-```text
-identity -> trustworthiness -> authority -> execution -> receipt
-```
+<p align="center">
+  <img src="assets/diagrams/trust-decay-curve.svg" alt="Trust decays over time across active, degraded, warning and critical bands and is recharged by attestation" width="100%">
+</p>
 
-TTP defines the protocol layer for establishing trustworthiness before downstream authority and execution decisions.
+## Execution Receipts
 
-## The Category
+Every decision produces a signed, hash-chained `ExecutionReceipt` — evidence, not a log line. It records what was decided, the trust state behind it, and the cryptographic basis to verify it later.
 
-Autonomous systems have crossed from recommendation into execution.
+<p align="center">
+  <img src="assets/diagrams/execution-receipt.svg" alt="Execution receipt with subject, action, resource, decision, trust score, references, signature and chain hash" width="660">
+</p>
 
-AI agents call tools.
-Copilots trigger workflows.
-CI/CD pipelines modify production.
-Service accounts move data.
-APIs execute financial and operational decisions.
-MSPs and MSSPs act across customer environments.
+## Architecture
 
-Existing systems authenticate actors, assign permissions, and log activity. They do not define a portable protocol for establishing whether an autonomous actor is trustworthy enough to be relied on in a specific context.
+TTP is the foundation layer. Runtime governance, the authority gate, and the enterprise control plane build on it; agent frameworks, CI/CD, APIs, and copilots consume it.
 
-TTP defines that missing layer.
+<p align="center">
+  <img src="assets/diagrams/architecture-stack.svg" alt="TTP architecture stack: protocol, SCIM-RE governance, runtime authority gate, execution exchange, consumers" width="860">
+</p>
 
-OAuth standardized delegated access.
-SCIM standardized identity provisioning.
-TTP standardizes trustworthiness establishment before autonomous execution.
+> TTP establishes trustworthiness. **SCIM-RE** structures runtime context, **RAP** evaluates authority, **Execution Exchange** enforces decisions, and **CortexTrace** records evidence. TTP does not enforce execution by itself — see [COMMERCIAL_BOUNDARY.md](COMMERCIAL_BOUNDARY.md).
 
-## Stack Alignment
+## Integrations
 
-TTP establishes trustworthiness.
-SCIM-RE structures runtime trust context.
-RAP evaluates authority.
-Execution Exchange enforces downstream decisions.
-CortexTrace records evidence and receipts.
+Bring your existing agents — no rewrite, no IdP replacement. TTP wraps the boundary where an action happens.
 
-```text
-TTP -> SCIM-RE -> RAP -> Execution Exchange -> Protected Systems
- |
- v
-CortexTrace
- |
- v
-ExecutionReceipts
-```
+<p align="center">
+  <img src="assets/diagrams/integrations.svg" alt="Integration surfaces: GitHub Actions, CI/CD, API gateways, service accounts, Microsoft Copilot, Azure DevOps, LangChain, CrewAI" width="100%">
+</p>
 
-TTP does not govern execution directly.
-TTP establishes trustworthiness.
-Downstream runtime authority systems decide and enforce what happens next.
+## Roadmap
 
-## Add Trustworthiness to Your Agents
+<p align="center">
+  <img src="assets/diagrams/roadmap.svg" alt="Roadmap phases from spec and reference through production hardening" width="100%">
+</p>
 
-Your agents already know how to act.
-TTP helps prove whether they are trustworthy enough to be relied on.
-
-Bring your existing agents.
-No agent rewrite required.
-No IdP replacement required.
-No workflow migration required.
-
-Add an evidence-backed trustworthiness layer around your agents, tools, APIs, workflows, and non-human identities.
-
-```text
-Agent identity -> trust evidence -> TTP trust proof -> authority evaluation -> downstream decision -> receipt
-```
-
-| Step | What you do | What TTP provides |
-| --- | --- | --- |
-| 1. Register the actor | Define the agent, service account, API client, pipeline, or workflow as a Subject | Establishes who or what is being evaluated |
-| 2. Attach evidence | Add trust claims, attestations, issuer context, freshness rules, and decay behavior | Establishes whether trust is current and evidence-backed |
-| 3. Generate a trust proof | Evaluate the trust context before downstream authority decisions | Produces proof that RAP, Execution Exchange, API gateways, or CI gates can use |
-
-Register the subject.
-Attach evidence.
-Evaluate trust.
-Produce proof.
-
-Keep your agents, copilots, APIs, IdPs, and workflows.
-Add an evidence-backed trustworthiness layer before downstream authority and enforcement.
-
-## Developer Quickstart
+## Quickstart
 
 ```bash
 git clone https://github.com/BlockSiFr/ttp-protocol.git
 cd ttp-protocol
 npm install
 npm test
+
+# evaluate the reference examples
 npm run ttp -- check examples/01-basic-agent.ttp
-npm run ttp -- eval examples/02-trust-decay.ttp --subject agent:invoice_reviewer --at now
-```
-
-Expected check output:
-
-```json
-{
-  "ok": true,
-  "file": "examples/01-basic-agent.ttp",
-  "subjects": 1,
-  "trust_claims": 1,
-  "proofs": 1,
-  "authority_contexts": 1,
-  "delegations": 0
-}
-```
-
-Expected eval output shape:
-
-```json
-{
-  "subject": "agent:invoice_reviewer",
-  "effective_score": 0,
-  "required_score": 0.7,
-  "result": "TRUST_PROOF_EXPIRED",
-  "reason": "trust claim expired before evaluation",
-  "proof_mode": "cleartext-dev",
-  "evaluated_at": "2026-06-25T18:27:15.881Z",
-  "expires_at": "2026-05-11T20:00:00.000Z",
-  "receipt_hash_optional": null
-}
-```
-
-First trust proof path:
-
-```bash
+npm run ttp -- eval  examples/02-trust-decay.ttp --subject agent:invoice_reviewer --at now
 npm run demo
 ```
 
-The demo prints reference decisions, trust scores, and ExecutionReceipt identifiers for local non-production scenarios.
+`check` validates a `.ttp` file; `eval` evaluates a subject's trust at a point in time; `demo` prints reference decisions, trust scores, and `ExecutionReceipt` identifiers for local, non-production scenarios.
 
 ## Protocol Primitives
 
 | Primitive | Meaning |
 | --- | --- |
-| Subject | The human, agent, service account, pipeline, API client, workload, or workflow whose trustworthiness is being evaluated. |
-| TrustClaim | A scoped statement that a Subject has a trust score or trust state issued by a specific trust issuer. |
-| TrustIssuer | The entity responsible for issuing or attesting to a TrustClaim. |
-| AuthorityGrant | A bounded right or delegated authority context that may only be relied on when trust, freshness, scope, and constraints are satisfied. |
-| Attestation | Fresh evidence that the subject, credential, workload, code, runtime, or operating context remains valid. |
-| TrustDecay | The time-based weakening of trust when fresh evidence or attestations are absent. |
-| Delegation | The bounded transfer of trust or authority context from one subject, issuer, or workflow to another. |
-| TrustProof | A structured proof that trust conditions were evaluated and satisfied or not satisfied. |
-| RuntimeDecision | A downstream enforceable decision derived from trustworthiness, authority, evidence, and context. |
-| ExecutionReceipt | A signed proof object recording the evaluated subject, action, resource, decision, trust state, authority basis, evidence references, timestamp, and receipt chain context. |
-
-## What TTP Establishes
-
-| Actor | Trustworthiness question | TTP role |
-| --- | --- | --- |
-| AI agent | Is this agent trustworthy enough for this tool, data, or workflow context? | Evaluates trust claims, attestations, scope, and decay |
-| Copilot | Is this delegated action backed by current trust evidence? | Binds trust proof to the requested action context |
-| CI/CD pipeline | Is this workload trustworthy enough to promote, deploy, or alter infrastructure? | Evaluates trust before downstream CI/CD gates act |
-| API client | Is this client trustworthy enough for this sensitive endpoint? | Supplies trust context to gateway or service decisioning |
-| Service account | Is this non-human identity still trustworthy for its assigned task? | Detects stale, decayed, or unverified trust |
-| MSP/MSSP operator | Is this customer-impacting action backed by current trust and evidence? | Produces trust proof for delegated operational action |
-
-## Trust Proof Outcomes
-
-TTP produces trust context and trust proof results.
-
-| Trust proof outcome | Meaning |
-| --- | --- |
-| trust_valid | Current trust evidence satisfies the proof requirement |
-| trust_insufficient | Effective trust is below the required threshold |
-| trust_expired | Trust claim or proof freshness has expired |
-| trust_invalid | Syntax, issuer, evidence, reference, or proof validation failed |
-| trust_unknown | Trustworthiness cannot be established from available evidence |
-
-## Downstream Runtime Decisions
-
-Runtime authority systems may convert trust proof results into enforceable decisions.
-
-| Runtime decision | Meaning |
-| --- | --- |
-| allow | Execution may proceed |
-| throttle | Execution may proceed under rate, volume, or scope limits |
-| step_up | Fresh attestation or additional approval is required |
-| escalate | Human or higher-authority review is required |
-| deny | Execution is blocked |
-
-TTP itself establishes trustworthiness.
-RAP, Execution Exchange, API gateways, CI gates, and integrated runtime systems enforce downstream decisions.
-
-## Integration Paths
-
-| Integration path | Best for | How it works |
-| --- | --- | --- |
-| Agent trust wrapper | LangChain, CrewAI, MCP tools, custom agents, OpenAI tools, Claude tools | Wrap the agent or tool boundary with a trust proof |
-| API trust check | Sensitive APIs, SaaS actions, service-to-service calls | Supply trust context before the gateway or service relies on the actor |
-| CI/CD trust proof | GitHub Actions, Azure DevOps, GitLab, Terraform, deployment workflows | Establish trustworthiness before merge, deploy, promote, or infrastructure change |
-| MSP/MSSP trust proof | ServiceNow, Jira, ConnectWise, Sentinel, Defender, remediation, decommissioning | Prove customer-impacting work is backed by current trust evidence |
-
-First trust proof in minutes.
-Production enforcement with Execution Exchange when ready.
-
-## Why It Matters
-
-| Buyer | Value |
-| --- | --- |
-| CISO | Establish whether autonomous actors are trustworthy before downstream authority systems rely on them |
-| CTO | Deploy agents and automation without losing confidence in who or what can be trusted |
-| Compliance | Convert trust evaluations and downstream decisions into evidence |
-| Platform engineering | Add trust proof checks to APIs, CI/CD, agent tools, and workflows |
-| MSP/MSSP | Prove customer-impacting actions were backed by current trust evidence |
-| Identity team | Extend identity context into dynamic trustworthiness |
-| Security engineering | Detect stale, decayed, or unverified trust before sensitive reliance |
+| **Subject** | The agent, service account, pipeline, API client, workload, or workflow being evaluated. |
+| **TrustClaim** | A scoped statement that a Subject holds a trust score or state, issued by a trust issuer. |
+| **AuthorityGrant** | A bounded right relied on only when trust, freshness, scope, and constraints are satisfied. |
+| **Attestation** | Fresh evidence that the subject, credential, workload, or runtime context remains valid. |
+| **TrustDecay** | The time-based weakening of trust when fresh evidence is absent. |
+| **Delegation** | Bounded transfer of trust or authority from one subject to another. |
+| **IsnadChain** | A verifiable chain of trust transmission from a rooted authority to the acting subject. |
+| **TrustProof** | A structured proof that trust conditions were evaluated and satisfied — or not. |
+| **RuntimeDecision** | A downstream enforceable decision: `allow`, `throttle`, `step-up`, `escalate`, `deny`. |
+| **ExecutionReceipt** | A signed proof object recording the decision, trust state, authority basis, and receipt chain. |
 
 ## Open Protocol, Commercial Enforcement
 
-Open source TTP includes protocol grammar, trustworthiness semantics, the trust proof model, public schemas, example `.ttp` files, SDK primitives, a reference evaluator, non-production demo gates, public ExecutionReceipt schemas, public AuthorityGrant schemas, public Attestation schemas, the TrustDecay model, documentation, RFCs, and example integrations.
+Open-source TTP includes the protocol grammar, trustworthiness semantics, the trust-proof model, public schemas, example `.ttp` files, SDK primitives, a reference evaluator, and the TrustDecay model. Production enforcement — managed Runtime Authority Gate, the Execution Exchange control plane, HSM-backed signing, and the CortexTrace evidence engine — is commercial BlockSiFr infrastructure. The boundary is explicit in [COMMERCIAL_BOUNDARY.md](COMMERCIAL_BOUNDARY.md).
 
-Commercial BlockSiFr capabilities include Execution Exchange runtime enforcement, managed Runtime Authority Gate, production RAP service, tenant governance infrastructure, HSM-backed signing, production ExecutionReceipt ledger, CortexTrace enterprise evidence engine, CAIF / IFC optimization engine, enterprise adapters, compliance evidence packs, customer policy templates, behavioral scoring weights, risk-cost-compliance scoring model, managed service control plane, enterprise trust graph, enterprise evidence exports, production policy orchestration, and customer-specific baselines.
+## Security
 
-TTP establishes trustworthiness.
-Execution Exchange enforces downstream runtime decisions in production.
-CortexTrace records and verifies execution evidence and receipts.
+TTP is a protocol draft and reference implementation. **Do not use `cleartext-dev` proof mode in production.** Production trust establishment and enforcement require a trusted issuer registry, signed claims, replay protection, clock integrity, key rotation, tenant isolation, fail-closed enforcement, receipt signing, and audit retention. See [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).
 
-See [COMMERCIAL_BOUNDARY.md](COMMERCIAL_BOUNDARY.md) for the explicit boundary.
+## Contributing
 
-## Security Posture
+From a first issue to owning a protocol surface — the path is open and intentional. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and [GOVERNANCE.md](GOVERNANCE.md).
 
-TTP is currently a protocol draft and reference implementation.
+<p align="center">
+  <img src="assets/diagrams/contributor-path.svg" alt="Contributor path: start here, good first issue, protocol RFC, runtime implementation, docs and examples, maintainer path" width="100%">
+</p>
 
-Do not use cleartext-dev proof mode in production.
+## License
 
-Production trustworthiness establishment and downstream enforcement require:
-
-* trusted issuer registry
-* signed claims
-* replay protection
-* clock integrity
-* key rotation
-* tenant isolation
-* fail-closed downstream enforcement
-* receipt signing
-* audit retention
-* policy review
-* evidence integrity
-* attestation freshness
-* secure key management
-* protected commercial control plane
-
-BlockSiFr Execution Exchange provides commercial production enforcement capabilities.
-
-## Repository Map
-
-| Path | Purpose |
-| --- | --- |
-| [examples/](examples/) | `.ttp` examples and non-production trust proof demos |
-| [src/](src/) | MVP parser, evaluator, and CLI |
-| [spec/](spec/) and [specs/](specs/) | Protocol notes, schemas, and reference contracts |
-| [docs/concepts/](docs/concepts/) | Concept documentation for trustworthiness establishment |
-| [docs/integrations/](docs/integrations/) | Integration notes for agents, CI/CD, gateways, and MSP/MSSP workflows |
-| [docs/enterprise/](docs/enterprise/) | Enterprise security model, threat model, deployment, and commercial boundary notes |
-| [rfcs/](rfcs/) | Protocol RFC structure |
-
-## Build the Trustworthiness Layer
-
-TTP is open protocol infrastructure.
-
-Use it to model trust.
-Use it to evaluate evidence.
-Use it to establish trustworthiness.
-Use it to produce proof.
-
-Use Execution Exchange when trust proof must drive production runtime enforcement.
+[Apache-2.0](LICENSE) · A [BlockSiFr](https://blocksifr.com) open protocol · Trust-Before-Execution for autonomous systems.
