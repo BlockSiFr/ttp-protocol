@@ -11,7 +11,9 @@ export const red = c('31'); export const green = c('32'); export const yellow = 
 const SEV_COLOR = { CRITICAL: red, HIGH: yellow, MEDIUM: cyan, LOW: dim };
 export const sev = (s) => (SEV_COLOR[s] ?? dim)(s);
 export const heading = (text) => `\n${bold(text.toUpperCase())}\n`;
-export const field = (label, value, width = 22) => `${label.padEnd(width)}${value}`;
+// A label longer than its column still needs a gap before the value.
+export const field = (label, value, width = 22) =>
+  `${label.length >= width ? `${label}  ` : label.padEnd(width)}${value}`;
 export const chain = (ids) => ids.join(`\n${dim('  |')}\n${dim('  v')}\n`);
 
 export function renderScan(graph) {
@@ -159,6 +161,54 @@ export function renderLearn(result) {
   if (!result.proposal.empty) {
     const n = result.proposal.addActions.length + result.proposal.updateActions.length + result.proposal.updateAgents.length;
     out.push(dim(`${n} change(s) can be written to pctr.json with: pctr learn --apply`));
+  }
+  return out.join('\n');
+}
+
+export function renderAttestation(m, proof, severity) {
+  const out = [heading(`measured trust: ${m.agentId}`)];
+  if (!m.proven) {
+    out.push(red('UNPROVEN'), '', 'No admissible evidence. This agent\'s trust has never been measured,');
+    out.push(`so it is treated as 0 — not as the ${m.declaredTrust ?? 'declared'} in pctr.json.`);
+    if (m.errors.length) out.push('', ...m.errors.map((e) => yellow(`  attestor failed: ${e.source} — ${e.error}`)));
+    return out.join('\n');
+  }
+  out.push(field('Measured trust', `${m.trust} (${m.label})`));
+  out.push(field('Declared in manifest', m.declaredTrust == null ? '—' : String(m.declaredTrust)));
+  if (m.drift != null) {
+    out.push(field('Drift', m.drift < -0.05 ? red(`${m.drift} — overstated`) : m.drift > 0.05 ? green(`+${m.drift}`) : dim(String(m.drift))));
+  }
+  out.push(field('Evidence', `${m.contributingReceipts} receipt(s) from ${m.contributingIssuers} issuer(s)`));
+  out.push(field('Oldest evidence', `${m.oldestEvidenceAgeSeconds}s`));
+  if (m.issuers.length) {
+    out.push('', bold('Issuers'), '');
+    for (const i of m.issuers) out.push(`  ${i.issuer_id.padEnd(28)} score ${i.issuer_score}  weight ${i.weight}${i.capped ? yellow(' (capped)') : ''}`);
+  }
+  if (proof) {
+    out.push('', field(`Clears ${severity} bar (${proof.requiredThreshold})`, proof.satisfied ? green('YES') : red('NO')));
+    out.push(field('Threshold proof', dim(proof.proofHash)));
+  }
+  return out.join('\n');
+}
+
+export function renderAttestGraph(result, severity) {
+  const out = [heading('measured trust')];
+  out.push(field('Agents measured', String(result.proven)));
+  out.push(field('Unproven', result.unproven.length ? red(String(result.unproven.length)) : green('0')));
+  out.push('');
+  for (const m of result.measurements) {
+    const line = m.proven
+      ? `${green('ok')}  ${m.agentId.padEnd(26)} ${String(m.trust).padEnd(8)} ${dim(m.label)}${m.drift != null && m.drift < -0.1 ? red(`  declared ${m.declaredTrust}`) : ''}`
+      : `${red('??')}  ${m.agentId.padEnd(26)} ${red('unproven')} ${dim('no admissible evidence')}`;
+    out.push(line);
+  }
+  if (result.overstated.length) {
+    out.push('', bold('Overstated in the manifest'), '');
+    for (const o of result.overstated) out.push(`  ${o.agentId}: declares ${o.declared}, evidence supports ${o.measured}`);
+  }
+  if (result.unproven.length) {
+    out.push('', dim(`Unmeasured trust is treated as 0 for ${severity} consequences, so those agents cannot route.`));
+    out.push(dim('Configure attestors in pctr.json, or run some protected actions to build behavioural evidence.'));
   }
   return out.join('\n');
 }

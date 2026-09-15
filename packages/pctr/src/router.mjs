@@ -22,7 +22,10 @@ export function resolveRoute(graph, actionId, options = {}) {
   const candidates = pathsToAction(graph, actionId).map((path) => {
     const agents = path.filter((id) => graph.nodes.get(id)?.type === 'agent').map((id) => graph.nodes.get(id));
     const rejections = [];
-    const trustStates = agents.map((a) => agentTrustNow(a, { severity, at, decayConstant: policy.decayConstant }));
+    const trustStates = agents.map((a) => agentTrustNow(a, {
+      severity, at, decayConstant: policy.decayConstant,
+      measured: options.measurements?.[a.id] ?? null
+    }));
 
     // 1. remove unauthorized routes
     for (const a of agents) {
@@ -33,7 +36,10 @@ export function resolveRoute(graph, actionId, options = {}) {
     }
     // 2. remove untrustworthy routes (including stale evidence)
     for (const t of trustStates) {
-      if (t.evidenceStale) {
+      if (t.provenance === 'unproven') {
+        rejections.push({ code: 'TRUST_UNPROVEN', agent: t.agentId,
+          message: `${t.agentId}'s trust has never been measured; a ${severity} consequence must not route through unmeasured trust` });
+      } else if (t.evidenceStale) {
         rejections.push({ code: 'STALE_EVIDENCE', agent: t.agentId,
           message: `${t.agentId} evidence is ${t.evidenceAgeSeconds}s old; ${severity} actions require evidence under ${t.maxEvidenceAgeSeconds}s` });
       }
