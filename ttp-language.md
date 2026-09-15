@@ -135,4 +135,3 @@ Those can be explored as future ecosystem extensions, but are not v1 protocol re
 - Aggregation algorithm: `protocol/aggregation-spec.md`
 - Integration details: `docs/integration-guide.md`
 - Security model: `docs/security.md`
-- Public launch checklist: `docs/public-readiness.md`
