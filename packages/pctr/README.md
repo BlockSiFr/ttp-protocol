@@ -342,6 +342,11 @@ ran.
 
 Worked end to end: `npm run demo:pctr-agt`.
 
+**Python.** AGT is Python-first, so the bridge exists there too — `sdk/python/agt.py`,
+same functions, same behaviour. `scripts/check-agt-parity.mjs` runs both implementations
+over one corpus in CI and fails the build on any divergence, so the bindings cannot drift
+apart.
+
 ## Relationship to TTP
 
 PCTR answers *which path through multiple agents is trustworthy enough to reach this

@@ -404,18 +404,47 @@ Benefits:
 - Immediate compatibility with SPIFFE-based workload identity.
 - TTP augments SPIFFE identity with behavioral trust.
 
-### 6.4 Canonical Score Adapter: TTP -> AGT
+### 6.4 Trust Score Mapping: TTP -> AGT
 
-When downstream AGT components expect a 0-1000 trust scale, use the canonical mapping:
+**AGT scores trust on 0-1, not 0-1000.** Upstream
+[`microsoft/agent-governance-toolkit`](https://github.com/microsoft/agent-governance-toolkit)
+defines `TrustScore` as `{ overall, dimensions, tier }` with `overall` in `[0.0, 1.0]`,
+banded into tiers (`agent-governance-typescript/src/trust.ts`):
+
+| Tier | Threshold |
+| --- | --- |
+| `Untrusted` | 0.0 |
+| `Provisional` | 0.30 |
+| `Trusted` | 0.60 |
+| `Verified` | 0.85 |
+
+A TTP score is already `[0.0, 1.0]`, so it maps across **unscaled**:
 
 ```text
-agt_trust_score = round(ttp_score * 1000)
+trust_score = { overall: ttp_score, dimensions: {...}, tier: tier_for(ttp_score) }
 ```
 
 Reference adapter behavior:
 - Input: `ttp_score` in `[0.0, 1.0]`.
-- Output: integer `agt_trust_score` in `[0, 1000]`.
-- Preserve original `ttp_score` in logs/telemetry for auditability.
+- Output: an AGT `TrustScore` whose `overall` is the same number and whose `tier` comes
+  from the thresholds above.
+- Preserve the original `ttp_score` and the issuing evidence in logs/telemetry for
+  auditability.
+
+> **Earlier versions of this guide specified `agt_trust_score = round(ttp_score * 1000)`.
+> That is wrong against upstream AGT** — sending `918` where AGT expects `0.918` puts
+> every agent off the top of the scale and reads as `Verified`. The 0-1000 integer scale
+> applies only to downstream components that explicitly ask for it; it is not the
+> AGT-native path. Implementations: `toAgtTrustScore()` / `toAgtScore()` in
+> `packages/pctr/src/agt.mjs`, `to_agt_trust_score()` / `to_agt_score()` in
+> `sdk/python/agt.py`.
+
+### 6.4.1 Execution Rings
+
+AGT's `ExecutionRing` (Ring0 most privileged through Ring3) is the privilege construct to
+map into rather than duplicate. PCTR proposes a required ring from the consequence an
+action can cause — `CRITICAL -> Ring0`, `HIGH -> Ring1`, `MEDIUM -> Ring2`, `LOW -> Ring3`
+— and AGT's own `actionRings` configuration stays authoritative.
 
 ### 6.5 AgentMesh / Peer Trust Attestation Bridge
 
