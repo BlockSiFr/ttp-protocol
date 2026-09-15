@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-09-15
+
+### Changed — normative
+
+- **Trust score aggregation corrected to v1.1** (`protocol/aggregation-spec.md`). Step 5
+  capped a dominant issuer's contribution and then re-normalized across *all* issuers,
+  which returned the capped excess to that issuer whenever the others were light: with 50
+  receipts from one issuer and one each from two others, the "capped" issuer held 87% of
+  the weight and the aggregate was 0.90. The cap only bound when the field was already
+  balanced — the case where a cap is unnecessary.
+
+  v1.1 redistributes a capped issuer's excess to the **uncapped** issuers, and applies
+  `effective_cap = max(max_issuer_weight, 1 / issuer_count)` since a cap below `1/n`
+  cannot be satisfied. The same input now yields 0.40 for the dominant issuer and an
+  aggregate of 0.52.
+
+  **This changes conformance.** v1.0 implementations produce different scores wherever one
+  issuer exceeds the cap while others are light. Re-run the test vectors.
+
+- **Aggregation test vectors repaired and extended.** `agg-003` contradicted itself — its
+  `_explanation` worked the arithmetic and concluded 0.5 while `expected` said 0.4 — and
+  was superseded by its own corrected variant, which now carries the `agg-003` id.
+  `agg-008` was recomputed from unrounded weights (0.917 → 0.918). `agg-006` is unchanged
+  and now passes, having asserted an intent v1.0 could not deliver. Added `agg-009`
+  (redistribution), `agg-010` (the `1/n` floor) and `agg-011` (single issuer).
+
+### Added
+
+- First implementation of the normative aggregation algorithm, in
+  `packages/pctr/src/aggregate.mjs`, with all eleven vectors running in CI.
+- `pctr attest`: trust measured from execution receipts and configured attestors rather
+  than read from `pctr.json`, emitting a TTP `TrustThresholdProof`. An agent with no
+  admissible evidence is `UNPROVEN` and cannot route to a protected consequence.
+
+
 ## 2026-04-25
 
 ### Added
