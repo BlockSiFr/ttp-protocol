@@ -350,25 +350,31 @@ Aggregation is the normative algorithm in
 negative-signal amplification, per-issuer weight capping — and `pctr attest` emits a TTP
 `TrustThresholdProof` naming the evidence it rests on.
 
-### Known divergences in the aggregation vectors
+### The aggregation algorithm was corrected to v1.1
 
-The spec ships nine test vectors; all nine run in `tests/aggregation.test.mjs`. Three do
-not match the algorithm the document itself defines, and are asserted as **known
-divergences** rather than skipped:
+Implementing `protocol/aggregation-spec.md` surfaced a real defect in it, now fixed.
 
-| Vector | Expects | The written formula yields | Why |
-| --- | --- | --- | --- |
-| `agg-003` | 0.4 | **0.5** | Superseded by `agg-003-corrected` (identical receipts, expects 0.5). Its own `_explanation` field works the arithmetic, catches itself mid-sentence — *"wait let me recalculate"* — and concludes 0.5, while `expected` still says 0.4. |
-| `agg-006` | 0.5 | **0.5799** | Expecting 0.5 requires *both* issuers capped at 0.40. B's uncapped fraction is 0.29, and step 5 says `min(fraction, max_issuer_weight)` — a cap, not a floor. |
-| `agg-008` | 0.917 | **0.918** | Off by 0.0010, a hair outside the vectors' own ±0.001 tolerance; consistent with the expected value being computed from rounded intermediate weights. |
+v1.0's step 5 capped a dominant issuer at `max_issuer_weight` (0.40) and then
+**re-normalized across all issuers** — which handed the capped issuer its excess straight
+back whenever the others were light. With 50 receipts from one issuer and one each from
+two others, the "capped" issuer still held **87%** of the weight and the score came out at
+0.90. The cap only bit when the rest of the field was already comparable, which is exactly
+the case where a cap isn't needed.
 
-There is also a substantive point behind `agg-006`. Step 5 caps a dominant issuer at 0.40
-and then **re-normalizes**, so when the other issuers carry little weight the capped
-issuer still ends up with most of the vote — 50 perfect receipts from one issuer against
-two bad ones from two others still yields ~0.90, with the "capped" issuer holding 87% of
-the weight. The cap only bites when the rest of the field is comparable. That is pinned
-by a test so it cannot be mistaken for an implementation bug, but the spec is what needs
-the decision.
+v1.1 redistributes a capped issuer's excess to the **uncapped** issuers instead, and
+applies `effective_cap = max(max_issuer_weight, 1 / issuer_count)` because a cap below
+`1/n` is infeasible. That same input now gives the dominant issuer exactly 0.40 and a
+score of **0.52**.
+
+Vector `agg-006` was written to assert precisely this intent — *"4 good receipts from A
+cannot dominate 1 bad receipt from B"* — and did not pass under v1.0. It passes under
+v1.1 unchanged. Two other vectors were repaired: `agg-003` contradicted itself and was
+superseded by its own corrected variant, and `agg-008` was off by 0.0010 from rounded
+intermediate weights. Three vectors were added covering redistribution, the `1/n` floor,
+and the single-issuer case. All eleven pass.
+
+**This changes conformance.** A v1.0 implementation produces different scores wherever one
+issuer exceeds the cap while the others are light.
 
 ## Execution authority
 

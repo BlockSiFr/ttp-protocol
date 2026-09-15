@@ -1,8 +1,8 @@
 {
-  "_comment": "Aggregation algorithm test vectors. All implementations MUST produce scores within ±0.001 of expected_score.",
+  "_comment": "Aggregation algorithm test vectors for v1.1. All implementations MUST produce scores within \u00b10.001 of expected_score. Changed in v1.1: step 5 redistributes capped weight to uncapped issuers rather than re-normalizing across all of them; agg-003 was superseded by its own corrected variant and removed; agg-008 was recomputed from unrounded weights.",
   "params": {
     "receipt_window_s": 300,
-    "max_issuer_weight": 0.40,
+    "max_issuer_weight": 0.4,
     "negative_weight_multiplier": 1.5,
     "decay_half_life_s": 120
   },
@@ -12,7 +12,12 @@
       "description": "Single issuer, single perfect receipt, age 0",
       "current_time_ms": 1700000000000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        }
       ],
       "expected": {
         "score": 1.0,
@@ -25,7 +30,12 @@
       "description": "Single issuer, single zero receipt, age 0",
       "current_time_ms": 1700000000000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 0.0, "timestamp": 1700000000000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 0.0,
+          "timestamp": 1700000000000
+        }
       ],
       "expected": {
         "score": 0.0,
@@ -35,26 +45,21 @@
     },
     {
       "id": "agg-003",
-      "description": "Two issuers, equal fresh receipts, divergent scores. Negative amplification shifts result toward safety.",
+      "description": "Two issuers, equal fresh receipts, divergent scores. B is negative (amplified). Final score 0.5.",
       "current_time_ms": 1700000000000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 },
-        { "receipt_id": "r2", "issuer_id": "B", "score": 0.0, "timestamp": 1700000000000 }
-      ],
-      "expected": {
-        "score": 0.4,
-        "contributing_receipts": 2,
-        "contributing_issuers": 2,
-        "_explanation": "A: weight=1.0, score=1.0. B: score=0.0<0.5 → weight=1.5. After issuer cap (both under 40%): A_raw=1.0, B_raw=1.5, total=2.5. A_capped=0.4, B_capped=0.4, norm_factor=0.8. A_norm=0.5, B_norm=0.5. Final=1.0*0.5+0.0*0.5=0.5... wait let me recalculate. A_fraction=1.0/2.5=0.4, B_fraction=1.5/2.5=0.6. B capped at 0.4. norm_factor=0.4+0.4=0.8. A_norm=0.4/0.8=0.5, B_norm=0.4/0.8=0.5. score=1.0*0.5+0.0*0.5=0.5"
-      }
-    },
-    {
-      "id": "agg-003-corrected",
-      "description": "Two issuers, divergent scores. B is negative (amplified). Final score ~0.5.",
-      "current_time_ms": 1700000000000,
-      "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 },
-        { "receipt_id": "r2", "issuer_id": "B", "score": 0.0, "timestamp": 1700000000000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "r2",
+          "issuer_id": "B",
+          "score": 0.0,
+          "timestamp": 1700000000000
+        }
       ],
       "expected": {
         "score": 0.5,
@@ -67,14 +72,24 @@
       "description": "Decay: two receipts from same issuer. Recent=1.0, old (1 half-life)=0.0. Old receipt is negative, amplified.",
       "current_time_ms": 1700000120000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000120000 },
-        { "receipt_id": "r2", "issuer_id": "A", "score": 0.0, "timestamp": 1700000000000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000120000
+        },
+        {
+          "receipt_id": "r2",
+          "issuer_id": "A",
+          "score": 0.0,
+          "timestamp": 1700000000000
+        }
       ],
       "expected": {
         "score": 0.571,
         "contributing_receipts": 2,
         "contributing_issuers": 1,
-        "_explanation": "recent: decay=1.0, weight=1.0 (positive). old (age=120s=1 half-life): decay=0.5, score=0.0<0.5 → weight=0.5*1.5=0.75. issuer_score(A)=(1.0*1.0+0.0*0.75)/(1.0+0.75)=1.0/1.75=0.5714"
+        "_explanation": "recent: decay=1.0, weight=1.0 (positive). old (age=120s=1 half-life): decay=0.5, score=0.0<0.5 \u2192 weight=0.5*1.5=0.75. issuer_score(A)=(1.0*1.0+0.0*0.75)/(1.0+0.75)=1.0/1.75=0.5714"
       }
     },
     {
@@ -82,8 +97,18 @@
       "description": "Receipts outside window are excluded",
       "current_time_ms": 1700000400000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000400000 },
-        { "receipt_id": "r2", "issuer_id": "B", "score": 0.0, "timestamp": 1699999900000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000400000
+        },
+        {
+          "receipt_id": "r2",
+          "issuer_id": "B",
+          "score": 0.0,
+          "timestamp": 1699999900000
+        }
       ],
       "expected": {
         "score": 1.0,
@@ -97,25 +122,55 @@
       "description": "Single issuer with many receipts cannot exceed max_issuer_weight when other issuers are present",
       "current_time_ms": 1700000000000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 1.0, "timestamp": 1700000000000 },
-        { "receipt_id": "r2", "issuer_id": "A", "score": 1.0, "timestamp": 1699999990000 },
-        { "receipt_id": "r3", "issuer_id": "A", "score": 1.0, "timestamp": 1699999980000 },
-        { "receipt_id": "r4", "issuer_id": "A", "score": 1.0, "timestamp": 1699999970000 },
-        { "receipt_id": "r5", "issuer_id": "B", "score": 0.0, "timestamp": 1700000000000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "r2",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1699999990000
+        },
+        {
+          "receipt_id": "r3",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1699999980000
+        },
+        {
+          "receipt_id": "r4",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1699999970000
+        },
+        {
+          "receipt_id": "r5",
+          "issuer_id": "B",
+          "score": 0.0,
+          "timestamp": 1700000000000
+        }
       ],
       "expected": {
         "score": 0.5,
         "contributing_receipts": 5,
         "contributing_issuers": 2,
-        "_explanation": "A has 4 receipts, B has 1. A's raw weight >> B's raw weight. After capping A at 40% and B at 40% (B's negative amplifies to approach cap), normalized weights are 50/50. score = 1.0*0.5 + 0.0*0.5 = 0.5. This demonstrates that 4 good receipts from A cannot dominate 1 bad receipt from B."
+        "_explanation": "Under v1.1 the cap redistributes to uncapped issuers, and with two issuers the effective cap is max(0.40, 1/2) = 0.50, so the weights are 50/50 and the score is 0.5. This vector asserts the intent v1.0 could not deliver: 4 good receipts from A cannot dominate 1 bad receipt from B."
       }
     },
     {
       "id": "agg-007",
-      "description": "No receipts in window — must return INSUFFICIENT_TRUST_DATA",
+      "description": "No receipts in window \u2014 must return INSUFFICIENT_TRUST_DATA",
       "current_time_ms": 1700001000000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 0.9, "timestamp": 1699999900000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 0.9,
+          "timestamp": 1699999900000
+        }
       ],
       "expected": {
         "error": "INSUFFICIENT_TRUST_DATA",
@@ -124,17 +179,414 @@
     },
     {
       "id": "agg-008",
-      "description": "Three issuers, all excellent — high composite score",
+      "description": "Three issuers, all excellent \u2014 high composite score",
       "current_time_ms": 1700000000000,
       "receipts": [
-        { "receipt_id": "r1", "issuer_id": "A", "score": 0.95, "timestamp": 1700000000000 },
-        { "receipt_id": "r2", "issuer_id": "B", "score": 0.92, "timestamp": 1699999990000 },
-        { "receipt_id": "r3", "issuer_id": "C", "score": 0.88, "timestamp": 1699999980000 }
+        {
+          "receipt_id": "r1",
+          "issuer_id": "A",
+          "score": 0.95,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "r2",
+          "issuer_id": "B",
+          "score": 0.92,
+          "timestamp": 1699999990000
+        },
+        {
+          "receipt_id": "r3",
+          "issuer_id": "C",
+          "score": 0.88,
+          "timestamp": 1699999980000
+        }
       ],
       "expected": {
-        "score": 0.917,
+        "score": 0.918,
         "contributing_receipts": 3,
-        "contributing_issuers": 3
+        "contributing_issuers": 3,
+        "_note": "Corrected in v1.1: recomputed from unrounded weights. Was 0.917."
+      }
+    },
+    {
+      "id": "agg-009",
+      "description": "v1.1 capping: one issuer with 50 receipts cannot outvote two issuers with one bad receipt each",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        {
+          "receipt_id": "loud0",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud2",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud3",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud4",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud5",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud6",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud7",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud8",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud9",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud10",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud11",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud12",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud13",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud14",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud15",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud16",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud17",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud18",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud19",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud20",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud21",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud22",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud23",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud24",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud25",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud26",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud27",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud28",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud29",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud30",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud31",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud32",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud33",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud34",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud35",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud36",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud37",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud38",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud39",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud40",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud41",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud42",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud43",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud44",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud45",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud46",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud47",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud48",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "loud49",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "b1",
+          "issuer_id": "B",
+          "score": 0.2,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "c1",
+          "issuer_id": "C",
+          "score": 0.2,
+          "timestamp": 1700000000000
+        }
+      ],
+      "expected": {
+        "score": 0.52,
+        "contributing_receipts": 52,
+        "contributing_issuers": 3,
+        "_explanation": "A is capped at max(0.40, 1/3) = 0.40 and its excess goes to B and C, which hold 0.30 each. score = 1.0*0.40 + 0.2*0.30 + 0.2*0.30 = 0.52. Under v1.0 re-normalization returned the excess to A, which kept 87% of the weight and produced 0.90."
+      }
+    },
+    {
+      "id": "agg-010",
+      "description": "A cap below 1/issuer_count is infeasible: with two issuers the effective cap is 0.5",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        {
+          "receipt_id": "a1",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "a2",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "a3",
+          "issuer_id": "A",
+          "score": 1.0,
+          "timestamp": 1700000000000
+        },
+        {
+          "receipt_id": "b1",
+          "issuer_id": "B",
+          "score": 0.8,
+          "timestamp": 1700000000000
+        }
+      ],
+      "expected": {
+        "score": 0.9,
+        "contributing_receipts": 4,
+        "contributing_issuers": 2,
+        "_explanation": "effective_cap = max(0.40, 1/2) = 0.50. A is capped to 0.50 and B takes the excess, so both hold 0.50. score = 1.0*0.5 + 0.8*0.5 = 0.9."
+      }
+    },
+    {
+      "id": "agg-011",
+      "description": "A single issuer keeps full weight: there is nobody to redistribute to",
+      "current_time_ms": 1700000000000,
+      "receipts": [
+        {
+          "receipt_id": "a1",
+          "issuer_id": "A",
+          "score": 0.8,
+          "timestamp": 1700000000000
+        }
+      ],
+      "expected": {
+        "score": 0.8,
+        "contributing_receipts": 1,
+        "contributing_issuers": 1,
+        "_explanation": "effective_cap = max(0.40, 1/1) = 1.0."
       }
     }
   ]

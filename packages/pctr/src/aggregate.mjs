@@ -1,6 +1,6 @@
 // TTP TRUST SCORE AGGREGATION — the normative algorithm.
 //
-// Implements protocol/aggregation-spec.md v1.0 step for step. That document is marked
+// Implements protocol/aggregation-spec.md v1.1 step for step. That document is marked
 // normative and carries test vectors; tests/aggregation.test.mjs runs every one of them,
 // so this file is not free to drift from the spec.
 //
@@ -8,7 +8,9 @@
 //   - Negative signals weigh more (default 1.5x). An agent behaving well most of the time
 //     must not be able to average away a few dangerous actions.
 //   - No single issuer may contribute more than a fraction of the score (default 0.40),
-//     so one chatty or captured issuer cannot decide an agent's trust alone.
+//     so one chatty or captured issuer cannot decide an agent's trust alone. v1.1 fixed
+//     this: v1.0 capped and then re-normalized across everyone, which handed the capped
+//     issuer its excess straight back whenever the other issuers were light.
 
 export const DEFAULT_PARAMS = {
   receipt_window_s: 300,
@@ -63,29 +65,38 @@ export function aggregateTrust(receipts = [], current_time_ms = Date.now(), para
     issuer_raw_weight: e.totalWeight
   }));
 
-  // Step 5 — cap each issuer's fraction, then re-normalize.
+  // Step 5 — cap, then water-fill the excess onto the uncapped issuers. A cap below
+  // 1/n is infeasible, so that is the floor on the cap actually applied.
   const totalRawWeight = issuers.reduce((sum, i) => sum + i.issuer_raw_weight, 0);
-  const capped = issuers.map((i) => ({
-    ...i,
-    capped_fraction: Math.min(i.issuer_raw_weight / totalRawWeight, max_issuer_weight)
-  }));
-  const normalizationFactor = capped.reduce((sum, i) => sum + i.capped_fraction, 0);
+  const effectiveCap = Math.max(max_issuer_weight, 1 / issuers.length);
+  const weights = issuers.map((i) => ({ ...i, weight: i.issuer_raw_weight / totalRawWeight, capped: false }));
+
+  for (let pass = 0; pass <= weights.length; pass++) {
+    const over = weights.filter((i) => !i.capped && i.weight > effectiveCap + 1e-12);
+    if (!over.length) break;
+
+    let excess = 0;
+    for (const i of over) { excess += i.weight - effectiveCap; i.weight = effectiveCap; i.capped = true; }
+
+    const free = weights.filter((i) => !i.capped);
+    const freeTotal = free.reduce((sum, i) => sum + i.weight, 0);
+    if (!free.length || freeTotal === 0) break;
+    for (const i of free) i.weight += excess * (i.weight / freeTotal);
+  }
 
   // Step 6 — combine, and clamp for floating point.
-  const rawScore = capped.reduce(
-    (sum, i) => sum + i.issuer_score * (i.capped_fraction / normalizationFactor), 0
-  );
+  const rawScore = weights.reduce((sum, i) => sum + i.issuer_score * i.weight, 0);
 
   return {
     score: Math.max(0, Math.min(1, rawScore)),
     contributing_receipts: windowReceipts.length,
     contributing_issuers: issuers.length,
     oldest_receipt_age_s: Math.round(Math.max(...weighted.map((r) => r.age_s))),
-    issuers: capped.map((i) => ({
+    issuers: weights.map((i) => ({
       issuer_id: i.issuer_id,
       issuer_score: Number(i.issuer_score.toFixed(6)),
-      weight: Number((i.capped_fraction / normalizationFactor).toFixed(6)),
-      capped: i.issuer_raw_weight / totalRawWeight > max_issuer_weight
+      weight: Number(i.weight.toFixed(6)),
+      capped: i.capped
     }))
   };
 }

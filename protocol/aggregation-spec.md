@@ -1,7 +1,8 @@
-# TTP Trust Score Aggregation Algorithm — v1.0
+# TTP Trust Score Aggregation Algorithm — v1.1
 
 **Status:** Normative  
-**Part of:** Trust Transfer Protocol Specification v1.0
+**Part of:** Trust Transfer Protocol Specification v1.0  
+**Algorithm version:** v1.1 (step 5 corrected — see the note in that section)
 
 ---
 
@@ -90,21 +91,62 @@ issuer_raw_weight(i) = issuer_total_weight(i)
 
 ### Step 5 — Issuer Weight Capping
 
-To prevent any single issuer from dominating the aggregate score, cap each issuer's contribution:
+To prevent any single issuer from dominating the aggregate score, cap each issuer's
+contribution and redistribute the excess to the issuers that are **not** capped.
+
+A cap below `1 / issuer_count` is infeasible — with two issuers, both cannot sit under
+0.40 — so the cap that is actually applied is:
 
 ```
-total_raw_weight = sum(issuer_raw_weight(i) for all issuers i)
-
-for each issuer i:
-    uncapped_fraction(i) = issuer_raw_weight(i) / total_raw_weight
-    capped_fraction(i) = min(uncapped_fraction(i), max_issuer_weight)
-
-# Re-normalize capped fractions to sum to 1.0
-normalization_factor = sum(capped_fraction(i) for all issuers i)
-
-for each issuer i:
-    normalized_weight(i) = capped_fraction(i) / normalization_factor
+effective_cap = max(max_issuer_weight, 1 / issuer_count)
 ```
+
+Then water-fill: cap whichever issuers exceed it, share their excess among the uncapped
+issuers in proportion to the weight they already hold, and repeat until no issuer exceeds
+the cap.
+
+```
+weight(i) = issuer_raw_weight(i) / total_raw_weight        # initial fractions, sum to 1
+
+repeat (at most issuer_count times):
+    over = { i : not capped(i) and weight(i) > effective_cap }
+    if over is empty: stop
+
+    excess = 0
+    for each i in over:
+        excess += weight(i) - effective_cap
+        weight(i) = effective_cap
+        capped(i) = true
+
+    free = { i : not capped(i) }
+    if free is empty: stop
+    free_total = sum(weight(i) for i in free)
+
+    for each i in free:
+        weight(i) += excess * (weight(i) / free_total)
+
+normalized_weight(i) = weight(i)
+```
+
+The weights still sum to 1.0, and a capped issuer now genuinely holds `effective_cap` —
+no more.
+
+> **Changed in v1.1.** v1.0 specified `capped_fraction(i) = min(uncapped_fraction(i),
+> max_issuer_weight)` followed by re-normalizing *all* issuers back to 1.0. That
+> re-normalization handed the capped issuer most of its excess straight back whenever the
+> other issuers were light: with 50 receipts from one issuer and one each from two
+> others, the "capped" issuer still held **87%** of the weight and the aggregate came out
+> at 0.90. The cap only bit when the rest of the field was already comparable — which is
+> precisely the case where a cap is not needed.
+>
+> Under v1.1 that same input gives the dominant issuer exactly 0.40 and an aggregate of
+> 0.52. Vector `agg-006` was written to assert this intent ("4 good receipts from A cannot
+> dominate 1 bad receipt from B") and did not pass under v1.0; it passes under v1.1
+> unchanged.
+>
+> **This changes conformance.** Implementations of v1.0 will produce different scores for
+> any input where one issuer exceeds the cap while the others are light. Re-run the test
+> vectors.
 
 ### Step 6 — Final Score
 
