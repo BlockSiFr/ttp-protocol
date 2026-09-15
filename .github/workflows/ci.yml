@@ -28,7 +28,7 @@ jobs:
           test -f docs/ops/persistent-storage.md
 
       - name: Compile Python SDK
-        run: python -m py_compile sdk/python/client.py sdk/python/agt.py
+        run: python -m py_compile sdk/python/client.py sdk/python/agt.py sdk/python/aggregate.py
 
       - name: Test Python SDK
         run: python -m unittest discover -s sdk/python -p 'test_*.py' -v

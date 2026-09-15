@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// The PCTR <-> AGT bridge exists twice: packages/pctr/src/agt.mjs for JavaScript and
-// sdk/python/agt.py for Python, because AGT is Python-first. Two implementations agree
-// only as long as something checks, so this runs both over the same inputs and fails on
-// any divergence. Run: node scripts/check-agt-parity.mjs
+// PCTR exists twice: JavaScript in packages/pctr/src, Python in sdk/python, because AGT
+// is Python-first and the aggregation algorithm is normative for both. Two
+// implementations agree only as long as something checks, so this runs both over the same
+// inputs — AGT bridge and trust aggregation — and fails on any divergence.
+// Run: node scripts/check-agt-parity.mjs
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { classifyAction } from '../packages/pctr/src/consequences.mjs';
+import { aggregateTrust } from '../packages/pctr/src/aggregate.mjs';
 import { trustTier, toAgtScore, ringForSeverity, domainFor, normalizeAgtEvent } from '../packages/pctr/src/agt.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,6 +23,29 @@ const ACTIONS = [
 const SCORES = [0, 0.1, 0.29, 0.3, 0.6, 0.849, 0.85, 0.9178, 1];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', '?'];
 const CONSEQUENCES = ['MONEY_MOVED', 'DATA_DELETED', 'SECRET_EXPOSED', 'SOMETHING_NEW'];
+// Aggregation is implemented in both languages against the same normative spec, so the
+// two must agree on scores, not merely each pass the vectors alone.
+const NOW = 1_700_000_000_000;
+const AGGREGATION = {
+  'single-perfect': [{ receipt_id: 'a', issuer_id: 'A', score: 1.0, timestamp: NOW }],
+  'single-zero': [{ receipt_id: 'a', issuer_id: 'A', score: 0.0, timestamp: NOW }],
+  'two-issuers-divergent': [
+    { receipt_id: 'a', issuer_id: 'A', score: 1.0, timestamp: NOW },
+    { receipt_id: 'b', issuer_id: 'B', score: 0.0, timestamp: NOW }],
+  'dominant-issuer-capped': [
+    ...Array.from({ length: 50 }, (_, i) => ({ receipt_id: `l${i}`, issuer_id: 'LOUD', score: 1.0, timestamp: NOW })),
+    { receipt_id: 'b', issuer_id: 'B', score: 0.2, timestamp: NOW },
+    { receipt_id: 'c', issuer_id: 'C', score: 0.2, timestamp: NOW }],
+  'decayed': [
+    { receipt_id: 'fresh', issuer_id: 'A', score: 1.0, timestamp: NOW },
+    { receipt_id: 'old', issuer_id: 'A', score: 0.0, timestamp: NOW - 120_000 }],
+  'outside-window': [{ receipt_id: 'a', issuer_id: 'A', score: 1.0, timestamp: NOW - 400_000 }],
+  'three-issuers': [
+    { receipt_id: 'a', issuer_id: 'A', score: 0.95, timestamp: NOW },
+    { receipt_id: 'b', issuer_id: 'B', score: 0.92, timestamp: NOW - 10_000 },
+    { receipt_id: 'c', issuer_id: 'C', score: 0.88, timestamp: NOW - 20_000 }]
+};
+
 const EVENTS = [
   ['policy-allow', { allowed: true, action: 'allow', agentId: 'f', operation: 'reports.read', approvers: [], rateLimited: false }],
   ['policy-warn', { allowed: true, action: 'warn', agentId: 'f', operation: 'reports.read', approvers: [], rateLimited: false }],
@@ -42,7 +67,7 @@ const EVENTS = [
 const key = (score) => (Number.isInteger(score) ? String(score) : String(score));
 
 function javascript() {
-  const out = { classify: {}, tiers: {}, scores: {}, rings: {}, domains: {}, events: {} };
+  const out = { classify: {}, tiers: {}, scores: {}, rings: {}, domains: {}, events: {}, aggregation: {} };
   for (const [action, params] of ACTIONS) {
     const c = classifyAction(action, params);
     out.classify[`${action}|${JSON.stringify(params)}`] = [c.consequence, c.severity, c.reversible];
@@ -54,6 +79,10 @@ function javascript() {
     const r = normalizeAgtEvent(event);
     out.events[name] = r ? [r.event, r.subject ?? null] : null;
   }
+  for (const [name, receipts] of Object.entries(AGGREGATION)) {
+    const r = aggregateTrust(receipts, NOW);
+    out.aggregation[name] = r.error ? [r.error] : [Number(r.score.toFixed(6)), r.contributing_issuers];
+  }
   return out;
 }
 
@@ -61,14 +90,17 @@ const PY = `
 import json, sys
 sys.path.insert(0, ${JSON.stringify(path.join(root, 'sdk', 'python'))})
 from agt import classify_action, trust_tier, to_agt_score, ring_for_severity, domain_for, normalize_agt_event
+from aggregate import aggregate_trust
 
 actions = json.loads(${JSON.stringify(JSON.stringify(ACTIONS))})
 scores = json.loads(${JSON.stringify(JSON.stringify(SCORES))})
 severities = json.loads(${JSON.stringify(JSON.stringify(SEVERITIES))})
 consequences = json.loads(${JSON.stringify(JSON.stringify(CONSEQUENCES))})
 events = json.loads(${JSON.stringify(JSON.stringify(EVENTS))})
+aggregation = json.loads(${JSON.stringify(JSON.stringify(AGGREGATION))})
+now = ${NOW}
 
-out = {'classify': {}, 'tiers': {}, 'scores': {}, 'rings': {}, 'domains': {}, 'events': {}}
+out = {'classify': {}, 'tiers': {}, 'scores': {}, 'rings': {}, 'domains': {}, 'events': {}, 'aggregation': {}}
 for action, params in actions:
     c = classify_action(action, params)
     out['classify'][action + '|' + json.dumps(params, separators=(',', ':'))] = [c['consequence'], c['severity'], c['reversible']]
@@ -83,6 +115,9 @@ for consequence in consequences:
 for name, event in events:
     r = normalize_agt_event(event)
     out['events'][name] = [r['event'], r.get('subject')] if r else None
+for name, receipts in aggregation.items():
+    r = aggregate_trust(receipts, now)
+    out['aggregation'][name] = [r['error']] if r.get('error') else [round(r['score'], 6), r['contributing_issuers']]
 print(json.dumps(out))
 `;
 
@@ -107,9 +142,9 @@ for (const section of Object.keys(js)) {
 }
 
 if (differences.length) {
-  console.error(`PCTR/AGT bridge parity FAILED — ${differences.length} of ${checks} checks differ:\n`);
+  console.error(`PCTR parity FAILED — ${differences.length} of ${checks} checks differ:\n`);
   console.error(differences.join('\n'));
-  console.error('\npackages/pctr/src/agt.mjs and sdk/python/agt.py must agree. Fix both.');
+  console.error('\nThe JavaScript and Python implementations must agree. Fix both.');
   process.exit(1);
 }
-console.log(`PCTR/AGT bridge parity OK — JavaScript and Python agree across ${checks} checks.`);
+console.log(`PCTR parity OK — JavaScript and Python agree across ${checks} checks (AGT bridge + trust aggregation).`);

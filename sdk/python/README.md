@@ -63,7 +63,25 @@ verified 0.85 — `to_agt_trust_score()` returns AGT's `TrustScore {overall, dim
 tier}`. The 0-1000 integer scale (`to_agt_score()`) is only for downstream consumers that
 ask for it.
 
+## Trust aggregation (`aggregate.py`)
+
+The normative algorithm from
+[`protocol/aggregation-spec.md`](../../protocol/aggregation-spec.md) **v1.1** — time
+decay, negative-signal amplification, and issuer weight capping that redistributes to the
+uncapped issuers. The same eleven test vectors run against both bindings.
+
+```python
+from aggregate import aggregate_trust, score_label
+
+result = aggregate_trust(receipts, current_time_ms)
+print(result["score"], score_label(result["score"]))
+```
+
+An empty receipt window returns `INSUFFICIENT_TRUST_DATA` with `score: None` — absent
+evidence is never a score.
+
 The two implementations are held in step by `scripts/check-agt-parity.mjs`, which runs
-both over the same corpus in CI and fails on any divergence.
+both over the same corpus in CI — AGT bridge and trust aggregation, 59 checks — and fails
+on any divergence.
 
 Tests: `python3 -m unittest discover -s sdk/python -p 'test_*.py'`
