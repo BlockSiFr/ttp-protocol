@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="tests" src="https://img.shields.io/badge/tests-123%20passing-00E676?style=flat-square&labelColor=0A0A0F">
+  <img alt="tests" src="https://img.shields.io/badge/tests-195%20passing-00E676?style=flat-square&labelColor=0A0A0F">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-0066CC?style=flat-square&labelColor=0A0A0F"></a>
   <a href="https://www.npmjs.com/package/@blocksifr/pctr"><img alt="npm" src="https://img.shields.io/npm/v/@blocksifr/pctr?style=flat-square&labelColor=0A0A0F&color=00D4FF"></a>
   <img alt="dependencies" src="https://img.shields.io/badge/dependencies-none-00B8A9?style=flat-square&labelColor=0A0A0F">
@@ -45,6 +45,9 @@ Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->
 npx @blocksifr/pctr init   # discover agents and tools, write pctr.json
 npx @blocksifr/pctr scan   # what consequences can they reach?
 ```
+
+No agents in the project? `init` says so rather than inventing any; `--example` writes a
+worked example that every view labels as made-up.
 
 <p align="center">
   <img src="assets/pctr-scan.svg" alt="pctr scan finds five agents, three tools and four potential actions, and reports one critical protected consequence" width="100%">
