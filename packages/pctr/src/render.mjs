@@ -16,6 +16,10 @@ export const field = (label, value, width = 22) =>
   `${label.length >= width ? `${label}  ` : label.padEnd(width)}${value}`;
 export const chain = (ids) => ids.join(`\n${dim('  |')}\n${dim('  v')}\n`);
 
+// Example data must never be mistaken for findings about the reader's own project.
+export const exampleBanner = () =>
+  `\n${yellow('EXAMPLE DATA')} ${dim('— these agents are made up. They are not in this project.')}\n${dim('Run `pctr init` against a project with real agents to scan it.')}`;
+
 export function renderScan(graph) {
   const s = summarize(graph);
   const out = [heading('PCTR'), 'Scanning your agents...', ''];

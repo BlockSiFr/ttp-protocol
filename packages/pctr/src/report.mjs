@@ -25,6 +25,10 @@ export function renderReport(graph, { title = 'PCTR consequence scan', includeBa
   const out = [];
 
   out.push(`## ${summary.bySeverity.CRITICAL ? '🛑' : '🔍'} ${title}`, '');
+  if (graph.manifest?.example) {
+    out.push('> **Example data.** These agents are made up and are not part of this project. ' +
+      'This report is showing how a scan reads, not findings about real software.', '');
+  }
   if (includeBadge) out.push(`![PCTR](${badgeUrl(graph)})`, '');
   if (!summary.agents) {
     out.push(`PCTR found no agents to scan here. Declare them in \`pctr.json\` — see the [manifest format](${HOMEPAGE}#pctrjson).`, '');

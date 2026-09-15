@@ -1,6 +1,6 @@
 {
   "name": "@blocksifr/pctr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "See what your AI agents can cause, route them safely, and prove what happened. Consequence preview, trust routing and signed execution receipts for AI agents.",
   "type": "module",
   "license": "Apache-2.0",

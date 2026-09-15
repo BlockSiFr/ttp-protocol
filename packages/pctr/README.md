@@ -17,6 +17,11 @@ npx @blocksifr/pctr init    # discover agents and tools, write pctr.json
 npx @blocksifr/pctr scan    # what consequences can they reach?
 ```
 
+If the project has no agents, `init` says so rather than inventing any. To see how a
+scan reads, `npx @blocksifr/pctr init --example` writes a worked example — and every
+view of it is labelled as made-up data, so it can never be mistaken for findings about
+your code.
+
 Or install it: `npm i -g @blocksifr/pctr`, then just `pctr init` and `pctr scan`.
 
 No account. No network. Everything stays in `./pctr.json` and `./.pctr`.
