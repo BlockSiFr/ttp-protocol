@@ -1,0 +1,1 @@
+{"input":{"chainId":"isnad-001","rootAuthority":"root:cfo","terminalSubject":"agent:invoice-bot"},"output":{"valid":true,"continuous":true,"effectiveTrust":0.4},"expectedResult":"isnad chain sound","explanation":"Continuous chain rooted at the CFO; trust attenuates to 0.4 at the terminal agent."}

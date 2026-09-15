@@ -1,0 +1,41 @@
+title: "[RFC] "
+labels: ["type: protocol", "status: needs-rfc"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Protocol RFC Discussion
+        Use this to socialize a protocol change before opening a formal RFC in `rfcs/`.
+        Keep it focused on the **trust-before-execution** boundary.
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What trust, authority, decay, proof, or receipt gap does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The concrete change to grammar, semantics, schema, or the trust model.
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Protocol layer
+      options:
+        - Language / grammar
+        - Trust scoring & decay
+        - Delegation & isnad chains
+        - Authority grants
+        - Proofs
+        - Execution receipts
+    validations:
+      required: true
+  - type: textarea
+    id: compat
+    attributes:
+      label: Compatibility & security impact
+      description: Backward compatibility, failure modes, and any fail-closed considerations.

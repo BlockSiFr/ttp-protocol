@@ -1,0 +1,16 @@
+Trust Transfer Protocol (TTP) and PCTR
+Copyright 2026 BlockSiFr
+
+This product includes software developed at BlockSiFr (https://blocksifr.com).
+
+Licensed under the Apache License, Version 2.0. The full, unmodified license text
+is in LICENSE.
+
+BlockSiFr's commercial offerings — managed enforcement, hosted control plane,
+KMS/HSM signing, enterprise integrations and support — are separate products built
+on this protocol. They are not covered by, and place no additional conditions on,
+the Apache 2.0 grant above. See docs/COMMERCIAL_BOUNDARY.md.
+
+"BlockSiFr", "TTP" and "PCTR" are trademarks of BlockSiFr. Trademark use is
+governed by docs/TRADEMARKS.md and, per section 6 of the License, no trademark
+rights are granted by the License itself.

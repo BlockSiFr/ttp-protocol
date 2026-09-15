@@ -3,5 +3,10 @@ node_modules/
 dist/
 **/dist/
 .runtime-authority-receipts.json
+.cortextrace/
+__pycache__/
+*.pyc
+.venv/
 *.log
 .DS_Store
+.pctr/
