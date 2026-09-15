@@ -15,11 +15,12 @@
 </p>
 
 <p align="center">
-  <strong>The protocol layer for agent trust.</strong><br>
-  Every action must earn authority before execution. Every decision must be provable after.
+  <strong>See what your agents can cause. Route them safely. Prove what happened.</strong><br>
+  Open-source trust and execution infrastructure for AI agents.
 </p>
 
 <p align="center">
+  <a href="packages/pctr/"><b>Start with PCTR</b></a> &nbsp;·&nbsp;
   <a href="SPECIFICATION.md"><b>Read the Spec</b></a> &nbsp;·&nbsp;
   <a href="#-quickstart"><b>Quickstart</b></a> &nbsp;·&nbsp;
   <a href="examples/"><b>Examples</b></a> &nbsp;·&nbsp;
@@ -35,6 +36,55 @@ OAuth standardized delegated access. SCIM standardized identity provisioning. **
 <p align="center">
   <img src="assets/diagrams/protocol-loop.svg" alt="Identity, Attestation, Trust Evaluation, Runtime Authority Gate, Decision, Execution Receipt" width="100%">
 </p>
+
+Your agent can have valid credentials and still be about to do the wrong thing.
+
+```
+Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->  Protected Action  ->  Receipt
+```
+
+## Start Here: PCTR
+
+**[PCTR](packages/pctr/)** — Protected Consequence Trust Routing — is the developer entry point. It answers three questions, in this order:
+
+| | Question | Command |
+| --- | --- | --- |
+| **1. Consequence** | What can this action cause? | `pctr preview <action>` |
+| **2. Route** | Which trustworthy agent path may get there? | `pctr route <action>` |
+| **3. Authority** | Is this exact execution allowed right now? | `pctr protect <action>` |
+
+```bash
+npm run pctr -- init     # discover agents and tools, write pctr.json
+npm run pctr -- scan     # what consequences can they reach?
+```
+
+```
+Agents found          5
+Tools found           3
+Potential actions     4
+
+Protected consequences
+
+CRITICAL              1
+HIGH                  1
+MEDIUM                1
+
+Highest priority:
+
+customers.delete
+
+Problem:
+
+The final action can cause "data deleted" irreversibly without independent execution authority.
+
+Recommended:
+
+Add TTP authority verification before customers.delete.
+```
+
+No account, no network: everything stays in `./pctr.json` and `./.pctr`. PCTR is not published to npm yet — run it from a clone, or `npm link ./packages/pctr` for the bare `pctr` command. Three flagship capabilities sit on top of that graph — the **Consequence Twin** (`pctr preview`), **TrustRoute Autopilot** (`pctr route`), and the **Agent Time Machine** (`pctr replay`, `pctr explain`) — with Ed25519-signed receipts, read-only probes that measure a consequence instead of declaring it, adapters for the common agent frameworks, and an effect boundary (`pctr serve`) that verifies authority in its own process. See the [PCTR README](packages/pctr/README.md), `npm run demo:pctr` and `npm run demo:pctr-fabric`.
+
+PCTR routes to the consequence. TTP binds the authority for the exact execution that reaches it.
 
 ## Why TTP Exists
 

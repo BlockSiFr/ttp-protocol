@@ -1,0 +1,12 @@
+{
+  "name": "@blocksifr/pctr",
+  "version": "0.1.0",
+  "description": "PCTR — Protected Consequence Trust Routing. See what your agents can cause. Route them safely. Prove what happened.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": { "pctr": "./bin/pctr.mjs" },
+  "exports": { ".": "./src/index.mjs" },
+  "engines": { "node": ">=18" },
+  "files": ["src/", "bin/", "README.md"],
+  "scripts": { "test": "node --test tests/*.test.mjs" }
+}
