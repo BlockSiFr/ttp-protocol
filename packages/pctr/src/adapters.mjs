@@ -1,4 +1,5 @@
 import { classifyAction } from './consequences.mjs';
+import { normalizeAgtEvent } from './agt.mjs';
 
 // UNIVERSAL AGENT ENVELOPE.
 // Agents are participants, not platforms. An adapter normalizes security *meaning* —
@@ -119,6 +120,11 @@ export const adapters = {
       default: return null;
     }
   },
+
+  // Microsoft AGT (Agent Governance Toolkit). AGT enforces policy before execution;
+  // PCTR records what it decided and what the action could cause. See src/agt.mjs.
+  agt: normalizeAgtEvent,
+  'microsoft-agt': normalizeAgtEvent,
 
   // Anything can speak the envelope directly.
   generic: (e) => {
