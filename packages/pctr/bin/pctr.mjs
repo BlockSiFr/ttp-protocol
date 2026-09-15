@@ -15,6 +15,8 @@ import * as store from '../src/store.mjs';
 import { renderReport, badgeUrl } from '../src/report.mjs';
 import { learn, applyProposal } from '../src/learn.mjs';
 import { respondToChange } from '../src/decisions.mjs';
+import { summarizeHistory, whatIf } from '../src/history.mjs';
+import { renderGraphSvg } from '../src/graph_svg.mjs';
 import * as r from '../src/render.mjs';
 
 const VERSION = '0.1.0';
@@ -23,7 +25,8 @@ const argv = process.argv.slice(2);
 const command = argv[0];
 // Flags that take a value, so their value is never mistaken for a positional argument.
 const VALUE_FLAGS = new Set(['amount', 'records', 'recordsAffected', 'batch', 'params', 'approve',
-  'target', 'agent', 'objective', 'compare', 'fork', 'key', 'export', 'run', 'probe', 'boundary', 'port', 'share']);
+  'target', 'agent', 'objective', 'compare', 'fork', 'key', 'export', 'run', 'probe', 'boundary', 'port', 'share',
+  'svg', 'policy', 'limit']);
 const positional = (() => {
   const out = [];
   for (let i = 1; i < argv.length; i++) {
@@ -66,6 +69,9 @@ function verifyOptions() {
     trustedKeyIds: manifest?.trustedSigners
   };
 }
+
+// What already happened, for the parts that decide what happens next.
+const loadHistory = () => summarizeHistory(store.listReceipts());
 
 function loadGraph() {
   const manifest = store.readManifest();
@@ -122,6 +128,16 @@ async function main() {
 
     case 'graph': {
       const graph = loadGraph();
+      if (flag('svg')) {
+        const file = flag('svg') !== true ? String(flag('svg')) : 'pctr-graph.svg';
+        const svg = renderGraphSvg(graph, { action: positional[0] ?? null });
+        fs.writeFileSync(file, svg);
+        return out([r.heading('graph written'), r.field('File', file),
+          r.field('Size', `${(svg.length / 1024).toFixed(1)} KB`),
+          positional[0] ? r.field('Route shown', positional[0]) : '',
+          '', r.dim('Open it in a browser, or drop it straight into a README.')].filter(Boolean).join('\n'),
+          { file, bytes: svg.length });
+      }
       return out(r.renderGraph(graph), {
         principal: graph.principal,
         nodes: [...graph.nodes.values()],
@@ -144,7 +160,7 @@ async function main() {
       if (!action) return fail('Pass an action: pctr route <action>');
       // Material parameters can change the consequence, and the consequence sets the bar.
       const severity = previewConsequence(graph, action, params()).severity;
-      const result = resolveRoute(graph, action, { target: flag('target'), severity });
+      const result = resolveRoute(graph, action, { target: flag('target'), severity, history: loadHistory() });
       return out(r.renderRoute(result), result);
     }
 
@@ -306,6 +322,33 @@ async function main() {
       return decision.proceeds ? 0 : 1;
     }
 
+    case 'whatif': {
+      const graph = loadGraph();
+      const raw = flag('policy');
+      if (!raw || raw === true) return fail(`Pass a policy change: pctr whatif --policy '{"approvalThresholds":{"amount":25000}}'`);
+      let policy;
+      try { policy = JSON.parse(String(raw)); } catch { return fail('--policy must be valid JSON'); }
+
+      const receipts = store.listReceipts();
+      if (!receipts.length) return fail('No history yet. Run pctr protect a few times first.');
+      const result = whatIf(graph, receipts, { policy, limit: Number(flag('limit')) || 100 });
+
+      if (asJson) return out(null, result);
+      const lines = [r.heading('what if this policy had been in force'),
+        r.field('Executions replayed', String(result.considered)),
+        r.field('Decided the same', String(result.unchanged)),
+        r.field('Would tighten', result.tightens ? r.yellow(String(result.tightens)) : '0'),
+        r.field('Would loosen', result.loosens ? r.red(String(result.loosens)) : '0'),
+        '', result.loosens ? r.red(result.verdict) : r.dim(result.verdict), ''];
+      for (const change of result.changes.slice(0, 12)) {
+        const arrow = change.direction === 'LOOSENS' ? r.red('→ would now proceed') : r.yellow('→ would now be stopped');
+        lines.push(`  ${change.action} ${JSON.stringify(change.params)} ${arrow}`);
+        lines.push(`     ${r.dim(`${change.response}: ${change.reason}`)}`);
+      }
+      out(lines.join('\n'), result);
+      return result.loosens ? 1 : 0;
+    }
+
     case 'doctor': {
       const manifest = store.readManifest();
       const checks = [];
@@ -413,6 +456,7 @@ Usage
   pctr serve                Run the effect boundary as its own process
   pctr decide <action>      How should a trust change be answered right now?
   pctr learn                What the accumulated evidence says to change
+  pctr whatif --policy <j>  Replay real history against a policy change
   pctr doctor               Check your setup
 
 Options
@@ -427,6 +471,8 @@ Options
   --boundary <url>          protect: verify authority at a remote effect boundary
   --port <n>                serve: port for the effect boundary (default 8787)
   --apply                   learn: write the proposed changes into pctr.json
+  --svg [file]              graph: write the graph as SVG (add an action to show its route)
+  --policy <json>           whatif: the policy change to test against history
   --probe <file|command>    preview: measure the real consequence with this probe
   --key <public-key.pem>    verify: check signatures against this public key
   --export <file>           keys: write the public key to a file

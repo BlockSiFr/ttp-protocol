@@ -15,6 +15,8 @@ export * from './boundary.mjs';
 export * from './report.mjs';
 export * from './decisions.mjs';
 export * from './learn.mjs';
+export * from './history.mjs';
+export * from './graph_svg.mjs';
 export * from './keys.mjs';
 export * from './protect.mjs';
 export { EVENTS, isCanonicalEvent } from './events.mjs';
