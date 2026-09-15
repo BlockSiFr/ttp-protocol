@@ -14,7 +14,8 @@ Use TTP as the behavioral evidence layer in a closed loop:
 Key patterns:
 - OPA/Rego bridge (`input.ttp` claims)
 - SPIFFE/SVID identity compatibility
-- Canonical score adapter: `agt_trust_score = round(ttp_score * 1000)`
+- Trust score mapping: AGT's `TrustScore` is **0-1 with tiers** (untrusted 0.0 / provisional 0.30 / trusted 0.60 / verified 0.85), so a TTP score maps across unscaled. The 0-1000 integer scale is only for downstream components that ask for it.
+- Execution rings: map consequence severity onto AGT's `ExecutionRing` rather than building a parallel privilege model
 - AgentMesh trust attestation bridge
 
 See full details in [integration-guide.md#part-6-agt-native-integration-recommended-priority](integration-guide.md#part-6-agt-native-integration-recommended-priority).

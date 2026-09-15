@@ -1,3 +1,17 @@
+from .agt import (
+    AGT_TIER_THRESHOLDS,
+    TrustScore,
+    agt_claims,
+    classify_action,
+    domain_for,
+    normalize_agt_event,
+    parse_spiffe_id,
+    ring_for_severity,
+    to_agt_trust_score,
+    to_mesh_attestation,
+    to_trust_evidence,
+    trust_tier,
+)
 from .client import (
     AuthorityGrant,
     AuthorizeRequest,
@@ -11,6 +25,7 @@ from .client import (
 )
 
 __all__ = [
+    "AGT_TIER_THRESHOLDS",
     "AuthorityGrant",
     "AuthorizeRequest",
     "AuthorizeResponse",
@@ -19,5 +34,16 @@ __all__ = [
     "Principal",
     "Receipt",
     "Resource",
+    "TrustScore",
+    "agt_claims",
     "authorize",
+    "classify_action",
+    "domain_for",
+    "normalize_agt_event",
+    "parse_spiffe_id",
+    "ring_for_severity",
+    "to_agt_trust_score",
+    "to_mesh_attestation",
+    "to_trust_evidence",
+    "trust_tier",
 ]
