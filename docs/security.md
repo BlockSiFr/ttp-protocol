@@ -33,7 +33,7 @@ When correctly deployed with conformant implementations:
 
 8. **Stateless verifiability** — Verifiers can validate tokens without contacting the Trust Authority, eliminating dependency on TA availability at verification time.
 
-9. **Single-issuer resistance** — The aggregation algorithm's issuer weight cap prevents any single issuer from dominating a trust score.
+9. **Single-issuer resistance** — The aggregation algorithm's issuer weight cap prevents any single issuer from dominating a trust score. *(Holds as of aggregation algorithm **v1.1**. See the correction note in §3.)*
 
 ### 1.2 What TTP Does NOT Guarantee
 
@@ -116,6 +116,11 @@ Compromise at a higher level in this hierarchy has broader impact.
 
 **Residual risk:** If an issuer's private key is compromised, the attacker can generate receipts up to the issuer weight cap (40%). Multi-issuer requirements for sensitive domains mitigate this.
 
+> Under aggregation algorithm **v1.0 this bound did not hold**: capped weight was
+> re-normalized back across all issuers, so a compromised high-volume issuer could reach
+> roughly 87% of the aggregate weight while the others stayed light. Fixed in v1.1 — see
+> the correction note below.
+
 ---
 
 ### T4: Receipt Replay
@@ -135,11 +140,21 @@ Compromise at a higher level in this hierarchy has broader impact.
 **Description:** An attacker controls or compromises a single high-volume issuer and uses it to inflate an agent's trust score.
 
 **Mitigations:**
-- The aggregation algorithm caps any single issuer's contribution at `max_issuer_weight` (default: 40%).
-- Even if one issuer submits 1000 receipts, it cannot exceed 40% of the aggregate weight.
+- The aggregation algorithm caps any single issuer's contribution at `effective_cap = max(max_issuer_weight, 1 / issuer_count)` (default `max_issuer_weight`: 40%), and redistributes the excess to the **uncapped** issuers.
+- Even if one issuer submits 1000 receipts, it cannot exceed that cap of the aggregate weight.
 - Multi-issuer requirements (`min_issuer_count ≥ 2`) prevent single-issuer tokens entirely for sensitive domains.
 
-**Residual risk:** If only one issuer is deployed, that issuer's compromise fully controls agent trust. Deploy at least 2 independent issuers per domain.
+**Residual risk:** If only one issuer is deployed, that issuer's compromise fully controls agent trust — the cap cannot bind when there is nobody to redistribute to (`effective_cap = 1/1`). Deploy at least 2 independent issuers per domain.
+
+> **Correction — aggregation v1.1 (2026-09-15).** The second mitigation above was not true
+> of v1.0. That version capped a dominant issuer's *fraction* and then re-normalized
+> across all issuers, which returned most of the capped weight to it whenever the others
+> were light: 50 receipts from one issuer against one each from two others left the
+> "capped" issuer holding **87%** of the weight, and the aggregate at 0.90 rather than
+> 0.52. The guarantee stated in §1.1 item 9 and in this section holds from v1.1 onward.
+> Anyone who deployed against v1.0 and relied on the 40% bound should re-evaluate;
+> `protocol/test-vectors/aggregation-vectors.json` case `agg-009` pins the corrected
+> behaviour.
 
 ---
 
