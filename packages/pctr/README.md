@@ -296,6 +296,80 @@ non-zero when a change would **loosen** anything, so it works as a CI gate on po
 edits. Note that raising an approval threshold cannot unlock a CRITICAL consequence — the
 severity comes from what the action can cause, not from the rule that reads it.
 
+## Measured trust, not declared trust: `pctr attest`
+
+Everything downstream of a trust score is rigorous about it — thresholds, decay, route
+admissibility, execution authority. None of that means much while the score itself is a
+number somebody typed into `pctr.json`.
+
+```bash
+pctr attest            # measure every agent from evidence
+pctr attest planner    # one agent, in detail
+```
+
+```
+MEASURED TRUST: PLANNER
+
+Measured trust        0.8251 (Good)
+Declared in manifest  0.98
+Drift                 -0.1549 — overstated
+Evidence              8 receipt(s) from 1 issuer(s)
+Oldest evidence       937s
+
+Issuers
+
+  pctr.effect-boundary         score 0.825115  weight 1 (capped)
+
+Clears MEDIUM bar (0.6)  YES
+Threshold proof       sha256:8568aa97ed1e48b2b8feafd…
+```
+
+**The rule that governs all of it: absent evidence is not trust.** An agent with no
+attestations does not inherit its declared score — it comes back `UNPROVEN`, counts as
+zero, and a protected consequence will not route through it (`TRUST_UNPROVEN`). The
+failure mode this exists to prevent is a typed-in `0.99` silently authorising a payment.
+
+Evidence comes from two places:
+
+- **PCTR's own execution receipts**, scored on the scale in
+  [`protocol/scoring-semantics.md`](../../protocol/scoring-semantics.md) §3.2: a clean
+  execution is 0.95, reaching for authority it lacks is 0.15, replaying an authority is
+  0.20, waiting on a human approval is 0.75 — that last one matters, because an agent
+  blocked on a human is not an agent misbehaving.
+- **Attestors you configure**, a module or command per agent, returning TTP attestations
+  or behavioural receipts. Each attestation is verified with TTP's own
+  `verify_attestation`, so a stale one, or one about a different subject, contributes
+  nothing. A failing attestor yields *no* evidence — never favourable evidence.
+
+```json
+{ "attestors": { "planner": ["./attestors/workload-identity.mjs"], "*": [{ "command": "./attest.sh" }] } }
+```
+
+Aggregation is the normative algorithm in
+[`protocol/aggregation-spec.md`](../../protocol/aggregation-spec.md) — time decay,
+negative-signal amplification, per-issuer weight capping — and `pctr attest` emits a TTP
+`TrustThresholdProof` naming the evidence it rests on.
+
+### Known divergences in the aggregation vectors
+
+The spec ships nine test vectors; all nine run in `tests/aggregation.test.mjs`. Three do
+not match the algorithm the document itself defines, and are asserted as **known
+divergences** rather than skipped:
+
+| Vector | Expects | The written formula yields | Why |
+| --- | --- | --- | --- |
+| `agg-003` | 0.4 | **0.5** | Superseded by `agg-003-corrected` (identical receipts, expects 0.5). Its own `_explanation` field works the arithmetic, catches itself mid-sentence — *"wait let me recalculate"* — and concludes 0.5, while `expected` still says 0.4. |
+| `agg-006` | 0.5 | **0.5799** | Expecting 0.5 requires *both* issuers capped at 0.40. B's uncapped fraction is 0.29, and step 5 says `min(fraction, max_issuer_weight)` — a cap, not a floor. |
+| `agg-008` | 0.917 | **0.918** | Off by 0.0010, a hair outside the vectors' own ±0.001 tolerance; consistent with the expected value being computed from rounded intermediate weights. |
+
+There is also a substantive point behind `agg-006`. Step 5 caps a dominant issuer at 0.40
+and then **re-normalizes**, so when the other issuers carry little weight the capped
+issuer still ends up with most of the vote — 50 perfect receipts from one issuer against
+two bad ones from two others still yields ~0.90, with the "capped" issuer holding 87% of
+the weight. The cap only bites when the rest of the field is comparable. That is pinned
+by a test so it cannot be mistaken for an implementation bug, but the spec is what needs
+the decision.
+
 ## Execution authority
 
 A valid identity is not enough. A valid credential is not enough. A valid route is not
@@ -369,6 +443,7 @@ pctr replay [run]         Agent Time Machine
 pctr explain <event>      Why was this allowed, denied, or rerouted?
 pctr receipt [id]         Show an execution receipt
 pctr decide <action>      How should a trust change be answered right now?
+pctr attest [agent]       Measure trust from evidence instead of the manifest
 pctr learn                What the accumulated evidence says to change
 pctr whatif --policy <j>  Replay real history against a policy change
 pctr graph --svg [file]   Draw the execution authority graph

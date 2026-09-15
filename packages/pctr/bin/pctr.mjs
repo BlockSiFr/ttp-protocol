@@ -16,6 +16,7 @@ import { renderReport, badgeUrl } from '../src/report.mjs';
 import { learn, applyProposal } from '../src/learn.mjs';
 import { respondToChange } from '../src/decisions.mjs';
 import { summarizeHistory, whatIf } from '../src/history.mjs';
+import { attestGraph, attestAgent, proveThreshold } from '../src/attest.mjs';
 import { renderGraphSvg } from '../src/graph_svg.mjs';
 import * as r from '../src/render.mjs';
 
@@ -26,7 +27,7 @@ const command = argv[0];
 // Flags that take a value, so their value is never mistaken for a positional argument.
 const VALUE_FLAGS = new Set(['amount', 'records', 'recordsAffected', 'batch', 'params', 'approve',
   'target', 'agent', 'objective', 'compare', 'fork', 'key', 'export', 'run', 'probe', 'boundary', 'port', 'share',
-  'svg', 'policy', 'limit']);
+  'svg', 'policy', 'limit', 'severity']);
 const positional = (() => {
   const out = [];
   for (let i = 1; i < argv.length; i++) {
@@ -72,6 +73,15 @@ function verifyOptions() {
 
 // What already happened, for the parts that decide what happens next.
 const loadHistory = () => summarizeHistory(store.listReceipts());
+
+// Measured trust, keyed by agent, for the router. Only agents with configured attestors
+// or observed receipts produce a measurement; the rest fall back to the manifest.
+async function loadMeasurements(graph, severity) {
+  const attestors = graph.manifest.attestors;
+  if (!attestors) return undefined;
+  const { measurements } = await attestGraph(graph, { receipts: store.listReceipts(), attestors, severity });
+  return Object.fromEntries(measurements.map((m) => [m.agentId, m]));
+}
 
 function loadGraph() {
   const manifest = store.readManifest();
@@ -160,7 +170,10 @@ async function main() {
       if (!action) return fail('Pass an action: pctr route <action>');
       // Material parameters can change the consequence, and the consequence sets the bar.
       const severity = previewConsequence(graph, action, params()).severity;
-      const result = resolveRoute(graph, action, { target: flag('target'), severity, history: loadHistory() });
+      const result = resolveRoute(graph, action, {
+        target: flag('target'), severity, history: loadHistory(),
+        measurements: await loadMeasurements(graph, severity)
+      });
       return out(r.renderRoute(result), result);
     }
 
@@ -349,6 +362,25 @@ async function main() {
       return result.loosens ? 1 : 0;
     }
 
+    case 'attest': {
+      const graph = loadGraph();
+      const receipts = store.listReceipts();
+      const attestors = graph.manifest.attestors ?? {};
+      const severity = String(flag('severity') !== true && flag('severity') || 'MEDIUM').toUpperCase();
+
+      if (positional[0]) {
+        const agent = graph.nodes.get(positional[0]);
+        if (!agent || agent.type !== 'agent') return fail(`Unknown agent: ${positional[0]}`);
+        const measurement = await attestAgent(agent, { receipts, attestors: attestors[agent.id] ?? attestors['*'] ?? [], severity });
+        const proof = proveThreshold(measurement, severity);
+        return out(r.renderAttestation(measurement, proof, severity), { measurement, proof });
+      }
+
+      const result = await attestGraph(graph, { receipts, attestors, severity });
+      out(r.renderAttestGraph(result, severity), result);
+      return result.unproven.length ? 1 : 0;
+    }
+
     case 'doctor': {
       const manifest = store.readManifest();
       const checks = [];
@@ -455,6 +487,7 @@ Usage
   pctr keys                 Show your signing key id and public key
   pctr serve                Run the effect boundary as its own process
   pctr decide <action>      How should a trust change be answered right now?
+  pctr attest [agent]       Measure trust from evidence instead of the manifest
   pctr learn                What the accumulated evidence says to change
   pctr whatif --policy <j>  Replay real history against a policy change
   pctr doctor               Check your setup
@@ -473,6 +506,7 @@ Options
   --apply                   learn: write the proposed changes into pctr.json
   --svg [file]              graph: write the graph as SVG (add an action to show its route)
   --policy <json>           whatif: the policy change to test against history
+  --severity <level>        attest: the consequence level to measure against
   --probe <file|command>    preview: measure the real consequence with this probe
   --key <public-key.pem>    verify: check signatures against this public key
   --export <file>           keys: write the public key to a file

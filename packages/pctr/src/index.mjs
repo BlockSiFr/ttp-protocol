@@ -16,6 +16,8 @@ export * from './report.mjs';
 export * from './decisions.mjs';
 export * from './learn.mjs';
 export * from './history.mjs';
+export * from './aggregate.mjs';
+export * from './attest.mjs';
 export * from './graph_svg.mjs';
 export * from './keys.mjs';
 export * from './protect.mjs';
