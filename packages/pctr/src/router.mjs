@@ -1,6 +1,7 @@
 import { pathsToAction } from './graph.mjs';
 import { agentTrustNow, meetsThreshold, TRUST_REQUIRED, requiresHumanApproval } from './trust.mjs';
 import { verify_trust_route } from './ttp.mjs';
+import { rankByHistory } from './history.mjs';
 
 // Trust Routing is not shortest-path routing. Admissibility first; optimization only
 // among routes that are already authorized, trustworthy and consequence-compatible.
@@ -81,9 +82,9 @@ export function resolveRoute(graph, actionId, options = {}) {
     };
   });
 
-  // 5. optimize only what survived
-  const admissible = candidates.filter((c) => c.admissible).sort((a, b) =>
-    b.effectiveTrust - a.effectiveTrust || a.latencyMs - b.latencyMs || a.costUnits - b.costUnits || a.hops - b.hops);
+  // 5. optimize only what survived. History reorders routes that already passed every
+  // admissibility check; it can never make an inadmissible route admissible.
+  const admissible = rankByHistory(candidates.filter((c) => c.admissible), options.history);
 
   const selected = admissible[0] ?? null;
   return {

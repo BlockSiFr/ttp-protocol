@@ -235,6 +235,67 @@ Checks run most-restrictive first, so a revoked credential is never answered wit
 reroute. `reconcile()` refuses to answer a change with a weaker response than it
 warranted — that is how authority expands by accident.
 
+## The graph as a picture
+
+```bash
+pctr graph --svg                          # the whole map
+pctr graph --svg route.svg payments.transfer   # with the selected route drawn
+```
+
+![the execution authority graph](../../assets/pctr-graph-route.svg)
+
+Columns run principal → agents → tools → actions. Agents carry their framework, current
+trust and a clock mark when their evidence is stale; actions are coloured by severity and
+marked `!` when they are a protected consequence; naming an action draws its selected
+route in green and dims everything else. The SVG is standalone — no fonts, no scripts, no
+network — so it drops straight into a README or a ticket.
+
+Every graph carries an `aria-label` describing the route in words, because a picture that
+only works for people who can see it is not documentation.
+
+## Routing learns from what actually happened
+
+`resolveRoute` accepts the history PCTR has accumulated, and prefers routes that work:
+
+```js
+import { summarizeHistory, resolveRoute } from '@blocksifr/pctr';
+const history = summarizeHistory(receipts);
+resolveRoute(graph, 'payments.transfer', { history });
+```
+
+A route with a record of failing loses to an equally trustworthy one that doesn't — but
+**history only ever reorders routes that already passed every admissibility check.** A
+flawless record buys an agent no authority it lacks; there's a test asserting exactly
+that. Optimization happens after admissibility, never instead of it.
+
+## Testing a policy against real history: `pctr whatif`
+
+Once `learn` starts proposing policy changes, the next question is what that change would
+have done to executions that already happened.
+
+```bash
+pctr whatif --policy '{"approvalThresholds":{"amount":25000}}'
+```
+
+```
+WHAT IF THIS POLICY HAD BEEN IN FORCE
+
+Executions replayed   10
+Decided the same      5
+Would tighten         3
+Would loosen          1
+
+1 execution(s) that were refused would now proceed
+
+  customers.update {"recordsAffected":4000} → would now proceed
+     CONSTRAIN: 4,000 records is above the batch limit of 25; bound it and the consequence is recoverable
+```
+
+Nothing executes; each recorded receipt is re-decided under the proposed policy. It exits
+non-zero when a change would **loosen** anything, so it works as a CI gate on policy
+edits. Note that raising an approval threshold cannot unlock a CRITICAL consequence — the
+severity comes from what the action can cause, not from the rule that reads it.
+
 ## Execution authority
 
 A valid identity is not enough. A valid credential is not enough. A valid route is not
@@ -309,6 +370,8 @@ pctr explain <event>      Why was this allowed, denied, or rerouted?
 pctr receipt [id]         Show an execution receipt
 pctr decide <action>      How should a trust change be answered right now?
 pctr learn                What the accumulated evidence says to change
+pctr whatif --policy <j>  Replay real history against a policy change
+pctr graph --svg [file]   Draw the execution authority graph
 pctr verify [id]          Verify receipt signatures and the receipt chain
 pctr keys                 Show your signing key id and public key
 pctr serve                Run the effect boundary as its own process
