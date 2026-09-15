@@ -15,5 +15,4 @@ For the current scope and grammar, see:
 
 - [`../README.md`](../README.md)
 - [`../SPECIFICATION.md`](../SPECIFICATION.md)
-- [`../docs/MVP.md`](../docs/MVP.md)
 - [`../THREAT_MODEL.md`](../THREAT_MODEL.md)
