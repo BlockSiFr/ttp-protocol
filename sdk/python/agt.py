@@ -150,7 +150,7 @@ _RULES = [
     (re.compile(r"terraform|infra|instance|bucket|dns|firewall|network|cluster", re.I), "INFRA_MODIFIED"),
     (re.compile(r"send|email|slack|sms|post_message|notify|publish|tweet", re.I), "MESSAGE_SENT"),
     (re.compile(r"write|create|update|insert|upsert|patch|put", re.I), "DATA_WRITTEN"),
-    (re.compile(r"read|get|list|search|query|select|fetch", re.I), "DATA_READ"),
+    (re.compile(r"read|get|list|search|query|select|fetch|export|download|dump|backup", re.I), "DATA_READ"),
 ]
 
 _CONSEQUENCES = {
