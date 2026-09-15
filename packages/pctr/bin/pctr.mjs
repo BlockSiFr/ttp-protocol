@@ -103,27 +103,48 @@ async function main() {
     case 'init': {
       const existing = store.readManifest();
       const { manifest, notes, discovered } = discover(process.cwd(), { declared: existing });
-      // In CI a fabricated example would produce a false report about someone's repo,
-      // so --no-example keeps an empty scan empty.
-      if (!manifest.agents.length && !argv.includes('--no-example')) {
-        manifest.agents = exampleManifest().agents;
-        manifest.tools = exampleManifest().tools;
-        manifest.actions = exampleManifest().actions;
-        notes.push('No agents detected; wrote a worked example you can edit.');
+      // Never invent agents in someone's repository. Fabricated findings presented in
+      // the same format as real ones is the fastest way to lose a reader's trust.
+      const wantsExample = argv.includes('--example');
+      if (!manifest.agents.length && wantsExample) {
+        Object.assign(manifest, {
+          example: true,
+          agents: exampleManifest().agents,
+          tools: exampleManifest().tools,
+          actions: exampleManifest().actions
+        });
+        notes.push('Wrote the bundled example. It describes made-up agents, not this project.');
       }
       const path = store.writeManifest(manifest);
       if (asJson) return out(null, { path, manifest, notes });
       console.log(r.heading('pctr initialized'));
       console.log(`Wrote ${path}`);
-      console.log(r.field('Agents', String(discovered.agents || manifest.agents.length)));
-      console.log(r.field('Tools', String(discovered.tools || manifest.tools.length)));
+      console.log(r.field('Agents found', String(discovered.agents)));
+      console.log(r.field('Tools found', String(discovered.tools)));
       for (const n of notes) console.log(r.dim(`- ${n}`));
+
+      if (!manifest.agents.length) {
+        console.log(`\n${r.yellow('No agents found in this project.')}`);
+        console.log('PCTR looks for MCP servers, and for agent and tool declarations in');
+        console.log('your source — OpenAI, Claude, LangGraph, CrewAI, AutoGen, AGT.');
+        console.log(`\nDeclare them in ${r.bold('pctr.json')}, or see how it works on a worked example:`);
+        console.log(`  ${r.bold('pctr init --example')}   ${r.dim('(made-up agents, clearly labelled)')}`);
+        return 0;
+      }
       console.log(`\nNext: ${r.bold('pctr scan')}`);
       return 0;
     }
 
     case 'scan': {
       const graph = loadGraph();
+      if (graph.manifest.example && !asJson) console.log(r.exampleBanner());
+      if (!graph.manifest.agents?.length) {
+        return out([r.heading('nothing to scan'),
+          'pctr.json declares no agents, so there is nothing that can cause a consequence.',
+          '', `Run ${r.bold('pctr init')} to discover them, or ${r.bold('pctr init --example')} to see`,
+          'how a scan reads on a worked example.'].join('\n'),
+          { summary: summarize(graph), protected: [] });
+      }
       if (flag('share')) {
         const report = renderReport(graph);
         const file = flag('share') !== true ? String(flag('share')) : 'pctr-report.md';
@@ -495,7 +516,7 @@ Usage
 Options
   --json                    Machine-readable output
   --share [file]            scan: write the findings as shareable Markdown
-  --no-example              init: don't write a worked example when nothing is found
+  --example                 init: write the bundled worked example (made-up agents)
   --amount <n>              Material parameter: amount
   --records <n>             Material parameter: records affected
   --params '<json>'         Any other material parameters

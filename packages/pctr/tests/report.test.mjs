@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildGraph } from '../src/graph.mjs';
 import { renderReport, badgeUrl } from '../src/report.mjs';
 
-const graph = (overrides = {}) => buildGraph({
+const manifestOf = (overrides = {}) => ({
   principal: 'user:test',
   agents: [{ id: 'support', trust: 0.8, evidenceAgeSeconds: 10, authority: ['customers.read'], tools: ['db'], delegatesTo: ['admin'] },
     { id: 'admin', trust: 0.95, evidenceAgeSeconds: 10, authority: ['customers.*'], tools: ['db'] }],
@@ -11,6 +11,7 @@ const graph = (overrides = {}) => buildGraph({
   actions: [{ id: 'customers.delete', recordsAffected: 1842, connectedWorkflows: 4 }],
   ...overrides
 });
+const graph = (overrides = {}) => buildGraph(manifestOf(overrides));
 
 test('the shared report leads with the consequence, not with agent counts', () => {
   const report = renderReport(graph());
@@ -50,4 +51,12 @@ test('an empty scan says so rather than inventing findings', () => {
 
 test('the badge reflects what was actually found', () => {
   assert.match(badgeUrl(graph()), /1%20critical%20consequence-critical/);
+});
+
+test('example data is never presented as findings about the reader\'s project', () => {
+  const example = buildGraph(manifestOf({ example: true }));
+  const report = renderReport(example);
+  assert.match(report, /\*\*Example data\.\*\* These agents are made up/);
+  assert.ok(report.indexOf('Example data') < report.indexOf('Highest priority'),
+    'the warning must come before anything that reads as a finding');
 });

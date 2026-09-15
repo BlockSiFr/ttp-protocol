@@ -44,7 +44,9 @@ runs:
         set -euo pipefail
         PCTR="npx --yes @blocksifr/pctr@${{ inputs.version }}"
 
-        # init is additive: an existing pctr.json is kept and only extended.
+        # init is additive: an existing pctr.json is kept and only extended. It never
+        # fabricates agents, so a repository with none produces an empty scan, not a
+        # false report.
         $PCTR init > /dev/null
         $PCTR scan --share pctr-report.md > /dev/null
         $PCTR scan --json > pctr-scan.json
