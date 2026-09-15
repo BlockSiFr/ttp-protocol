@@ -43,6 +43,13 @@ CortexTrace records evidence and receipts so governed decisions can be verified 
 5. Execution Exchange enforces the downstream decision.
 6. CortexTrace records evidence and receipts.
 
-## Legacy Naming
+## Naming
 
-Older documents may mention legacy FrontDesk as legacy operator-control-plane naming. The primary commercial product name for production enforcement is Execution Exchange.
+Naming, current as of 2026-09-15:
+
+- **BlockSiFr Control** is the commercial product for production enforcement. Public launch: January 6, 2027; early access is open now.
+- **Execution Control Infrastructure** is the category.
+- **Consequence Intelligence** is the core intelligence layer.
+- **TTP** is the open protocol-level trust mechanic beneath BlockSiFr Control, and stays open under Apache 2.0.
+- **Execution Exchange** remains the name of the enforcement component in the architecture documents, and a BlockSiFr trademark. It is a component name, not the customer-facing product name.
+- "FrontDesk" is a legacy name that appears in older documents and internal repository paths. Do not use it in customer-facing material.
