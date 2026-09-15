@@ -12,6 +12,7 @@ import { defaultKeyPair, exportPublic } from '../src/keys.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as store from '../src/store.mjs';
+import { renderReport, badgeUrl } from '../src/report.mjs';
 import * as r from '../src/render.mjs';
 
 const VERSION = '0.1.0';
@@ -20,7 +21,7 @@ const argv = process.argv.slice(2);
 const command = argv[0];
 // Flags that take a value, so their value is never mistaken for a positional argument.
 const VALUE_FLAGS = new Set(['amount', 'records', 'recordsAffected', 'batch', 'params', 'approve',
-  'target', 'agent', 'objective', 'compare', 'fork', 'key', 'export', 'run', 'probe', 'boundary', 'port']);
+  'target', 'agent', 'objective', 'compare', 'fork', 'key', 'export', 'run', 'probe', 'boundary', 'port', 'share']);
 const positional = (() => {
   const out = [];
   for (let i = 1; i < argv.length; i++) {
@@ -84,7 +85,9 @@ async function main() {
     case 'init': {
       const existing = store.readManifest();
       const { manifest, notes, discovered } = discover(process.cwd(), { declared: existing });
-      if (!manifest.agents.length) {
+      // In CI a fabricated example would produce a false report about someone's repo,
+      // so --no-example keeps an empty scan empty.
+      if (!manifest.agents.length && !argv.includes('--no-example')) {
         manifest.agents = exampleManifest().agents;
         manifest.tools = exampleManifest().tools;
         manifest.actions = exampleManifest().actions;
@@ -103,7 +106,16 @@ async function main() {
 
     case 'scan': {
       const graph = loadGraph();
-      return out(r.renderScan(graph), { summary: summarize(graph), protected: protectedActions(graph) });
+      if (flag('share')) {
+        const report = renderReport(graph);
+        const file = flag('share') !== true ? String(flag('share')) : 'pctr-report.md';
+        fs.writeFileSync(file, report);
+        if (asJson) return out(null, { file, report, badge: badgeUrl(graph) });
+        console.log(report);
+        console.log(r.dim(`Written to ${file} — paste it into a PR, an issue, or a message.`));
+        return 0;
+      }
+      return out(r.renderScan(graph), { summary: summarize(graph), protected: protectedActions(graph), badge: badgeUrl(graph) });
     }
 
     case 'graph': {
@@ -339,6 +351,7 @@ function help() {
 Usage
   pctr init                 Discover agents and tools, write pctr.json
   pctr scan                 What consequences can your agents reach?
+  pctr scan --share         Write the findings as shareable Markdown
   pctr graph                Show the trust graph
   pctr preview <action>     Consequence Twin: what will this change?
   pctr route <action>       TrustRoute Autopilot: which path may get there?
@@ -354,6 +367,8 @@ Usage
 
 Options
   --json                    Machine-readable output
+  --share [file]            scan: write the findings as shareable Markdown
+  --no-example              init: don't write a worked example when nothing is found
   --amount <n>              Material parameter: amount
   --records <n>             Material parameter: records affected
   --params '<json>'         Any other material parameters

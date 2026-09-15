@@ -48,7 +48,8 @@
     "test:pctr": "node --test packages/pctr/tests/*.test.mjs",
     "pctr": "node packages/pctr/bin/pctr.mjs",
     "demo:pctr": "node examples/pctr-consequence-change-demo.mjs",
-    "demo:pctr-fabric": "node examples/pctr-universal-fabric-demo.mjs"
+    "demo:pctr-fabric": "node examples/pctr-universal-fabric-demo.mjs",
+    "assets:pctr": "node packages/pctr/scripts/render-terminal-svg.mjs"
   },
   "devDependencies": {
     "@fontsource/inter": "^5.2.8",

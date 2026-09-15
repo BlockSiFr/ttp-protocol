@@ -1,0 +1,94 @@
+name: 'PCTR consequence scan'
+description: 'See what your AI agents can cause, before they cause it. Maps agents, tools and actions to the consequences they can reach.'
+author: 'BlockSiFr'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  working-directory:
+    description: 'Directory to scan.'
+    required: false
+    default: '.'
+  comment:
+    description: 'Post the findings as a pull request comment (updates the same comment on each run).'
+    required: false
+    default: 'true'
+  fail-on:
+    description: 'Fail the job when a consequence at this severity or above is reachable: none, critical, high, or medium.'
+    required: false
+    default: 'none'
+  version:
+    description: 'Version of @blocksifr/pctr to run.'
+    required: false
+    default: 'latest'
+
+outputs:
+  critical:
+    description: 'Number of CRITICAL consequences reachable.'
+    value: ${{ steps.scan.outputs.critical }}
+  high:
+    description: 'Number of HIGH consequences reachable.'
+    value: ${{ steps.scan.outputs.high }}
+  report:
+    description: 'Path to the Markdown report.'
+    value: ${{ steps.scan.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - id: scan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        PCTR="npx --yes @blocksifr/pctr@${{ inputs.version }}"
+
+        # init is additive: an existing pctr.json is kept and only extended.
+        $PCTR init > /dev/null
+        $PCTR scan --share pctr-report.md > /dev/null
+        $PCTR scan --json > pctr-scan.json
+
+        CRITICAL=$(node -p "require('./pctr-scan.json').summary.bySeverity.CRITICAL")
+        HIGH=$(node -p "require('./pctr-scan.json').summary.bySeverity.HIGH")
+        MEDIUM=$(node -p "require('./pctr-scan.json').summary.bySeverity.MEDIUM")
+
+        {
+          echo "critical=$CRITICAL"
+          echo "high=$HIGH"
+          echo "medium=$MEDIUM"
+          echo "report=${{ inputs.working-directory }}/pctr-report.md"
+        } >> "$GITHUB_OUTPUT"
+
+        cat pctr-report.md >> "$GITHUB_STEP_SUMMARY"
+
+        case "${{ inputs.fail-on }}" in
+          critical) THRESHOLD=$CRITICAL ;;
+          high)     THRESHOLD=$((CRITICAL + HIGH)) ;;
+          medium)   THRESHOLD=$((CRITICAL + HIGH + MEDIUM)) ;;
+          *)        THRESHOLD=0 ;;
+        esac
+        if [ "$THRESHOLD" -gt 0 ]; then
+          echo "::error::$THRESHOLD consequence(s) at or above '${{ inputs.fail-on }}' can be reached by these agents. See the job summary."
+          exit 1
+        fi
+
+    - if: ${{ always() && inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        MARKER='<!-- pctr-consequence-scan -->'
+        printf '%s\n%s' "$MARKER" "$(cat pctr-report.md)" > pctr-comment.md
+
+        # Update the existing comment rather than adding one per push.
+        EXISTING=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+          --jq "map(select(.body | contains(\"$MARKER\"))) | .[0].id // empty")
+
+        if [ -n "$EXISTING" ]; then
+          gh api --method PATCH "repos/${{ github.repository }}/issues/comments/$EXISTING" -F body=@pctr-comment.md > /dev/null
+        else
+          gh api --method POST "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" -F body=@pctr-comment.md > /dev/null
+        fi

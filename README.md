@@ -54,35 +54,19 @@ Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->
 | **3. Authority** | Is this exact execution allowed right now? | `pctr protect <action>` |
 
 ```bash
-npm run pctr -- init     # discover agents and tools, write pctr.json
-npm run pctr -- scan     # what consequences can they reach?
+npm link ./packages/pctr   # not on npm yet; link it from a clone
+pctr init                  # discover agents and tools, write pctr.json
+pctr scan                  # what consequences can they reach?
 ```
 
-```
-Agents found          5
-Tools found           3
-Potential actions     4
+<p align="center">
+  <img src="assets/pctr-scan.svg" alt="pctr scan finds five agents, three tools and four potential actions, and reports one critical protected consequence" width="100%">
+</p>
 
-Protected consequences
+`pctr scan --share` turns that into Markdown you can paste into a pull request, and
+`packages/pctr/examples/pctr-scan.yml` runs it on every PR as a comment.
 
-CRITICAL              1
-HIGH                  1
-MEDIUM                1
-
-Highest priority:
-
-customers.delete
-
-Problem:
-
-The final action can cause "data deleted" irreversibly without independent execution authority.
-
-Recommended:
-
-Add TTP authority verification before customers.delete.
-```
-
-No account, no network: everything stays in `./pctr.json` and `./.pctr`. PCTR is not published to npm yet — run it from a clone, or `npm link ./packages/pctr` for the bare `pctr` command. Three flagship capabilities sit on top of that graph — the **Consequence Twin** (`pctr preview`), **TrustRoute Autopilot** (`pctr route`), and the **Agent Time Machine** (`pctr replay`, `pctr explain`) — with Ed25519-signed receipts, read-only probes that measure a consequence instead of declaring it, adapters for the common agent frameworks, and an effect boundary (`pctr serve`) that verifies authority in its own process. See the [PCTR README](packages/pctr/README.md), `npm run demo:pctr` and `npm run demo:pctr-fabric`.
+No account, no network: everything stays in `./pctr.json` and `./.pctr`. Three flagship capabilities sit on top of that graph — the **Consequence Twin** (`pctr preview`), **TrustRoute Autopilot** (`pctr route`), and the **Agent Time Machine** (`pctr replay`, `pctr explain`) — with Ed25519-signed receipts, read-only probes that measure a consequence instead of declaring it, adapters for the common agent frameworks, and an effect boundary (`pctr serve`) that verifies authority in its own process. See the [PCTR README](packages/pctr/README.md), `npm run demo:pctr` and `npm run demo:pctr-fabric`.
 
 PCTR routes to the consequence. TTP binds the authority for the exact execution that reaches it.
 

@@ -11,6 +11,7 @@ export * from './observe.mjs';
 export * from './adapters.mjs';
 export * from './probe.mjs';
 export * from './boundary.mjs';
+export * from './report.mjs';
 export * from './keys.mjs';
 export * from './protect.mjs';
 export { EVENTS, isCanonicalEvent } from './events.mjs';

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { hashObj } from '../../../src/util.mjs';
+import { hashObj } from './ttp.mjs';
 import { defaultKeyPair, signHash, verifyHash, exportPublic, keyIdFor } from './keys.mjs';
 
 // EXECUTION AUTHORITY.

@@ -10,61 +10,44 @@ Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->
 
 ## 60 seconds
 
-Not published to npm yet. From a clone of this repo:
+<img src="../../assets/pctr-scan.svg" alt="pctr scan finds five agents, three tools and four potential actions, and reports one critical protected consequence: customers.delete can be reached through support-agent and admin-agent without independent execution authority" width="100%">
+
+Not on npm yet — from a clone of this repo:
 
 ```bash
-npm run pctr -- init      # discover agents and tools, write pctr.json
-npm run pctr -- scan      # what consequences can they reach?
-```
-
-Or link it to get the bare `pctr` command: `npm link ./packages/pctr`.
-
-```
-PCTR
-
-Scanning your agents...
-
-Agents found          5
-Tools found           3
-External systems      3
-Potential actions     4
-
-Protected consequences
-
-CRITICAL              1
-HIGH                  1
-MEDIUM                1
-
-Highest priority:
-
-customers.delete
-
-Route:
-
-user:local
-  |
-  v
-support-agent
-  |
-  v
-admin-agent
-  |
-  v
-database
-  |
-  v
-customers.delete
-
-Problem:
-
-The final action can cause "data deleted" irreversibly without independent execution authority.
-
-Recommended:
-
-Add TTP authority verification before customers.delete.
+npm link ./packages/pctr    # then the bare `pctr` command works anywhere
+pctr init                   # discover agents and tools, write pctr.json
+pctr scan                   # what consequences can they reach?
 ```
 
 No account. No network. Everything stays in `./pctr.json` and `./.pctr`.
+
+## Share what you find
+
+```bash
+pctr scan --share           # writes pctr-report.md
+```
+
+Drops straight into a pull request or an issue: a severity table, the highest-priority
+consequence with the route that reaches it, and what to do about it. Add
+`packages/pctr/examples/pctr-scan.yml` to `.github/workflows/` and every PR gets the same
+report as a comment, with `fail-on: critical` to block a merge when an agent can reach an
+irreversible consequence.
+
+```markdown
+## 🛑 PCTR consequence scan
+
+**5 agents · 3 tools · 4 actions.** 3 of them can cause a protected consequence, and 2 cannot be undone.
+
+| Severity | Consequences |
+| --- | --- |
+| 🔴 CRITICAL | 1 |
+| 🟠 HIGH | 1 |
+
+### Highest priority: `customers.delete`
+
+Causes **data deleted** · **irreversible** · 1,842 records · blast radius WIDE
+```
 
 ## The three questions
 

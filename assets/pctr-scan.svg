@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="748" viewBox="0 0 760 748" role="img" aria-label="pctr scan output: 5 agents, 3 tools, 4 potential actions, one critical protected consequence — customers.delete can delete customer records without independent execution authority">
+  <rect width="760" height="748" rx="10" fill="#0A0A0F" stroke="#1F1F2B"/>
+  <rect width="760" height="36" rx="10" fill="#12121A"/>
+  <rect y="26" width="760" height="10" fill="#12121A"/>
+  <circle cx="24" cy="18" r="5" fill="#FF5F57"/><circle cx="43" cy="18" r="5" fill="#FEBC2E"/><circle cx="62" cy="18" r="5" fill="#28C840"/>
+  <text x="84" y="22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#6E7681">pctr scan</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13.5" fill="#C9D1D9">
+    <text x="22" y="68"><tspan fill="#00D4FF" font-weight="700" xml:space="preserve">PCTR</tspan></text>
+    <text x="22" y="89"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="110"><tspan fill="#C9D1D9" xml:space="preserve">Scanning your agents...</tspan></text>
+    <text x="22" y="131"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="152"><tspan fill="#6E7681" xml:space="preserve">Agents found          </tspan><tspan fill="#00B8A9" font-weight="600" xml:space="preserve">5</tspan></text>
+    <text x="22" y="173"><tspan fill="#6E7681" xml:space="preserve">Tools found           </tspan><tspan fill="#00B8A9" font-weight="600" xml:space="preserve">3</tspan></text>
+    <text x="22" y="194"><tspan fill="#6E7681" xml:space="preserve">External systems      </tspan><tspan fill="#00B8A9" font-weight="600" xml:space="preserve">3</tspan></text>
+    <text x="22" y="215"><tspan fill="#6E7681" xml:space="preserve">Potential actions     </tspan><tspan fill="#00B8A9" font-weight="600" xml:space="preserve">4</tspan></text>
+    <text x="22" y="236"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="257"><tspan fill="#C9D1D9" font-weight="700" xml:space="preserve">Protected consequences</tspan></text>
+    <text x="22" y="278"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="299"><tspan fill="#FF5470" xml:space="preserve">CRITICAL              1</tspan></text>
+    <text x="22" y="320"><tspan fill="#FFB300" xml:space="preserve">HIGH                  1</tspan></text>
+    <text x="22" y="341"><tspan fill="#00D4FF" xml:space="preserve">MEDIUM                1</tspan></text>
+    <text x="22" y="362"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="383"><tspan fill="#C9D1D9" font-weight="700" xml:space="preserve">Highest priority:</tspan></text>
+    <text x="22" y="404"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="425"><tspan fill="#FF5470" font-weight="700" xml:space="preserve">customers.delete</tspan></text>
+    <text x="22" y="446"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="467"><tspan fill="#C9D1D9" font-weight="700" xml:space="preserve">Route:</tspan></text>
+    <text x="22" y="488"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="509"><tspan fill="#00B8A9" xml:space="preserve">user:local</tspan><tspan fill="#00B8A9" xml:space="preserve"> → planner</tspan><tspan fill="#00B8A9" xml:space="preserve"> → support-agent</tspan><tspan fill="#00B8A9" xml:space="preserve"> → admin-agent</tspan><tspan fill="#00B8A9" xml:space="preserve"> → database</tspan><tspan fill="#FF5470" font-weight="700" xml:space="preserve"> → customers.delete</tspan></text>
+    <text x="22" y="530"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="551"><tspan fill="#C9D1D9" font-weight="700" xml:space="preserve">Problem:</tspan></text>
+    <text x="22" y="572"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="593"><tspan fill="#C9D1D9" xml:space="preserve">The final action can cause "data deleted" irreversibly without independent</tspan></text>
+    <text x="22" y="614"><tspan fill="#C9D1D9" xml:space="preserve">execution authority.</tspan></text>
+    <text x="22" y="635"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="656"><tspan fill="#C9D1D9" font-weight="700" xml:space="preserve">Recommended:</tspan></text>
+    <text x="22" y="677"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+    <text x="22" y="698"><tspan fill="#00E676" xml:space="preserve">Add TTP authority verification before customers.delete.</tspan></text>
+    <text x="22" y="719"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
+  </g>
+</svg>

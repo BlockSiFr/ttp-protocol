@@ -1,0 +1,27 @@
+# See what your agents can cause, on every pull request.
+# Copy this to .github/workflows/pctr-scan.yml
+name: PCTR consequence scan
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write   # so the scan can post its findings on the PR
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: BlockSiFr/ttp-protocol/packages/pctr@main
+        with:
+          comment: 'true'
+          # Fail the build when an agent can reach an irreversible consequence.
+          # Start with 'none' to see the report, then tighten to 'critical'.
+          fail-on: 'none'

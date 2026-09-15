@@ -1,12 +1,59 @@
 {
   "name": "@blocksifr/pctr",
   "version": "0.1.0",
-  "description": "PCTR — Protected Consequence Trust Routing. See what your agents can cause. Route them safely. Prove what happened.",
+  "description": "See what your AI agents can cause, route them safely, and prove what happened. Consequence preview, trust routing and signed execution receipts for AI agents.",
   "type": "module",
   "license": "Apache-2.0",
-  "bin": { "pctr": "./bin/pctr.mjs" },
-  "exports": { ".": "./src/index.mjs" },
-  "engines": { "node": ">=18" },
-  "files": ["src/", "bin/", "README.md"],
-  "scripts": { "test": "node --test tests/*.test.mjs" }
+  "bin": {
+    "pctr": "./bin/pctr.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src/",
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "ai-agents",
+    "agent-security",
+    "ai-security",
+    "llm",
+    "mcp",
+    "model-context-protocol",
+    "langgraph",
+    "crewai",
+    "autogen",
+    "openai-agents",
+    "claude",
+    "agent-authorization",
+    "execution-authority",
+    "audit",
+    "receipts",
+    "zero-trust",
+    "ai-governance",
+    "agentic"
+  ],
+  "homepage": "https://github.com/BlockSiFr/ttp-protocol/tree/main/packages/pctr#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlockSiFr/ttp-protocol.git",
+    "directory": "packages/pctr"
+  },
+  "bugs": {
+    "url": "https://github.com/BlockSiFr/ttp-protocol/issues"
+  },
+  "author": "BlockSiFr",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {}
 }
