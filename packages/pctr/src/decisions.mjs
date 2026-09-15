@@ -27,6 +27,46 @@ export const PROCEEDS = {
   STEP_UP: false, ESCALATE: false, SUSPEND: false, DENY: false, REVOKE: false
 };
 
+// TTP grades chain trust rather than returning a boolean, and each grade implies a
+// downstream posture (SPECIFICATION.md, Trust Classification). This is the mapping a
+// RuntimeAuthority applies to turn a classification into one of the responses above.
+// TRUST_UNKNOWN is not neutral: a chain nobody evaluated is not a trustworthy chain.
+export const CLASSIFICATION_POSTURE = {
+  TRUST_ACCEPTED: ['KEEP', 'REROUTE'],
+  TRUST_ACCEPTED_WITH_CONTROLS: ['CONSTRAIN', 'THROTTLE'],
+  TRUST_REVIEW_RECOMMENDED: ['STEP_UP'],
+  TRUST_CONTRADICTED: ['ESCALATE'],
+  TRUST_DEFECTIVE: ['ESCALATE', 'DENY'],
+  TRUST_REJECTED: ['DENY'],
+  TRUST_UNKNOWN: ['DENY', 'ESCALATE']
+};
+
+export const CHAIN_CONTINUITY = [
+  'CHAIN_CONTINUOUS', 'CHAIN_MISSING_LINK', 'CHAIN_MULTI_MISSING_LINK',
+  'CHAIN_SUSPENDED', 'CHAIN_AMBIGUOUS', 'CHAIN_INFERRED', 'CHAIN_UNKNOWN'
+];
+
+export const LATENT_DEFECTS = [
+  'prompt_injection_suspected', 'approval_bypass', 'stale_authority', 'unowned_identity',
+  'unexpected_tool_use', 'context_loss', 'policy_version_mismatch', 'scope_inflation',
+  'dependency_substitution', 'token_origin_unclear', 'chain_link_unproven'
+];
+
+/** The response a classification permits, narrowed by what the situation allows. */
+export function postureFor(classification) {
+  const allowed = CLASSIFICATION_POSTURE[classification] ?? CLASSIFICATION_POSTURE.TRUST_UNKNOWN;
+  return { classification, allowed, proceeds: allowed.some((r) => PROCEEDS[r]) };
+}
+
+/**
+ * A response must sit inside the posture its classification permits. Answering
+ * TRUST_REJECTED with a reroute is how a graded protocol degrades into a boolean one
+ * that always says yes.
+ */
+export function withinPosture(response, classification) {
+  return (CLASSIFICATION_POSTURE[classification] ?? CLASSIFICATION_POSTURE.TRUST_UNKNOWN).includes(response);
+}
+
 /**
  * Decide how to respond when a route is reevaluated. Checks run most-restrictive first,
  * so a revoked credential is never answered with a reroute.

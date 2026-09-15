@@ -62,7 +62,22 @@ PCTR routes to the consequence. TTP binds the authority for the exact execution 
 
 ## Under the hood: the Trust Transfer Protocol
 
-Identity proves *who* is acting. Authorization defines *what* was assigned. **TTP establishes whether the actor is trustworthy enough for this action, right now** — before any downstream authority or execution decision is made.
+**TTP is the open protocol for machine chain trust:** proving whether the chain behind an AI agent, copilot, workflow, pipeline, API, service account, or non-human identity is trustworthy enough to be relied on, before downstream authority and execution decisions occur.
+
+Identity proves *who* is acting. Authorization defines *what* was assigned. **TTP establishes whether the chain behind this action deserves reliance, right now** — before any downstream authority or execution decision is made.
+
+An *isnad* is a chain of transmission: who received what from whom, and whether each link is sound. An autonomous action has the same shape — a model acted on a prompt, handed to a tool, through a workflow, carrying authority delegated by a person no longer in the room. TTP evaluates that chain, and grades it rather than returning a boolean. See [Chain Trust Model](SPECIFICATION.md#chain-trust-model).
+
+| Layer | Responsibility |
+| --- | --- |
+| **TTP** | Machine isnad / chain trust |
+| **SCIM-RE** | Runtime identity and authority schema |
+| **RAP** | Authority decision engine |
+| **Execution Exchange** | Downstream enforcement / control plane |
+| **CortexTrace** | Evidence and trace capture |
+| **ExecutionReceipts** | Cryptographic proof objects |
+
+TTP establishes whether a chain deserves reliance. Downstream authority systems decide whether execution may proceed.
 
 OAuth standardized delegated access. SCIM standardized identity provisioning. **TTP standardizes trust-before-execution for autonomous systems.** It is a platform-agnostic trust protocol — bring any agent, IdP, gateway, or workflow.
 
