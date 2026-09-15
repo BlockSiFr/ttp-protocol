@@ -14,3 +14,45 @@ the Apache 2.0 grant above. See docs/COMMERCIAL_BOUNDARY.md.
 "BlockSiFr", "TTP" and "PCTR" are trademarks of BlockSiFr. Trademark use is
 governed by docs/TRADEMARKS.md and, per section 6 of the License, no trademark
 rights are granted by the License itself.
+
+--------------------------------------------------------------------------------
+PATENT GRANT AND IMPLEMENTATION ASSURANCE
+--------------------------------------------------------------------------------
+
+TTP is released under the Apache License 2.0 and is intended to remain a
+permanently open protocol. BlockSiFr's commercial interests are in managed
+services and enterprise tooling built on top of the protocol -- not in
+controlling the protocol itself.
+
+The Apache 2.0 license's express patent grant covers any patents BlockSiFr
+holds that are necessarily infringed by implementing the protocol
+specification as published in this repository.
+
+In plain language: if you implement what's in the spec, you're covered.
+
+You may, royalty-free:
+
+  - Implement the TTP protocol as described in the specification.
+  - Use the reference aggregation algorithm from protocol/aggregation-spec.md
+    in any product, commercial or otherwise.
+  - Build competing Trust Authority services, SDKs, issuers, or verifiers that
+    conform to the protocol.
+  - Deploy TTP for internal enterprise use without paying BlockSiFr anything.
+  - Fork and modify the reference implementations under Apache 2.0.
+
+BlockSiFr commits that:
+
+  1. The core TTP specification will never be made patent-encumbered in a way
+     that blocks royalty-free implementation.
+
+  2. If TTP is submitted to a standards body (IETF, W3C, etc.), BlockSiFr will
+     provide the patent grants required by that body's IP policy.
+
+  3. Any protocol change that introduces a new patent-pending mechanism will be
+     clearly flagged in the RFC process, and the patent grant will be updated
+     before the change is accepted into the normative specification.
+
+None of BlockSiFr's commercial offerings gate access to the open protocol.
+Alternative Trust Authority implementations are possible and encouraged.
+
+For questions about IP or licensing: hello@blocksifr.com

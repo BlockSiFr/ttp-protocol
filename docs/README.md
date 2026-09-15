@@ -24,7 +24,7 @@ Start here in order:
 
 Start here in order:
 
-1. [`COMMERCIAL_BOUNDARY.md`](../COMMERCIAL_BOUNDARY.md)
+1. [`COMMERCIAL_BOUNDARY.md`](COMMERCIAL_BOUNDARY.md)
 2. [`docs/enterprise/security-model.md`](./enterprise/security-model.md)
 3. [`docs/enterprise/threat-model.md`](./enterprise/threat-model.md)
 4. [`docs/enterprise/deployment-patterns.md`](./enterprise/deployment-patterns.md)
