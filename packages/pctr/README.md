@@ -160,6 +160,81 @@ pctr replay <run> --fork e3
 pctr replay <run> --compare <other-run>
 ```
 
+## The loop closes: `pctr learn`
+
+Every protected execution leaves evidence. Without a learning step that evidence just
+piles up; with one, the map, the policy and the discovery gaps get better the longer the
+system runs — which is the entire claim.
+
+```bash
+pctr learn            # what the accumulated receipts and runs say to change
+pctr learn --apply    # write the proposed changes into pctr.json
+```
+
+```
+WHAT THIS RUN TAUGHT PCTR
+
+Receipts analysed     10
+Runs analysed         10
+
+HIGH   payments.transfer declares $1800 but has moved up to $18,000
+       Approval thresholds key off this, so the declared value has been under-protecting this action.
+       can be applied automatically
+
+MEDIUM planner holds authority "*" but has only ever used 1
+       Observed: payments.transfer. Narrowing authority to what it actually does shrinks the blast radius.
+
+MEDIUM payments.transfer has been denied 5× for APPROVAL_REQUIRED
+       Something keeps asking for what policy keeps refusing.
+```
+
+It finds undeclared actions that executed anyway, consequences declared smaller than they
+turned out to be, agents whose evidence is chronically stale, wildcard authority nobody
+uses, approvals that are always granted (a rubber stamp) or never granted (a wall),
+protected actions with no admissible route, and denials that keep repeating.
+
+**Findings are proposals, never silent edits.** `--apply` is a separate, explicit act, and
+each finding carries the evidence it came from so you can disagree with it. After
+applying, `pctr preview payments.transfer` with no arguments returns `CRITICAL` where it
+used to say `HIGH` — because the system now knows what that action actually moves.
+
+## Nine answers, not two: `pctr decide`
+
+A trust change is not a binary. Denying everything that wobbles is as wrong as allowing
+it — the useful answer is usually narrower than "no".
+
+```bash
+pctr decide customers.delete --records 1842
+```
+
+```
+TRUST REEVALUATION
+
+Action                customers.delete
+Response              CONSTRAIN
+Proceeds              YES
+
+1,842 records is above the batch limit of 25; bound it and the consequence is recoverable
+
+Proposed bound: {"recordsAffected":25}
+```
+
+| Response | When | Proceeds |
+| --- | --- | --- |
+| `KEEP` | nothing material changed | yes |
+| `REROUTE` | the route changed, a trustworthy path remains | yes |
+| `CONSTRAIN` | admissible once the parameters are bounded | yes |
+| `THROTTLE` | permitted, but not at this rate | yes |
+| `STEP_UP` | same principal, stronger evidence required | no |
+| `ESCALATE` | above this principal's authority entirely | no |
+| `SUSPEND` | the agent stops until something is repaired | no |
+| `DENY` | this execution does not happen | no |
+| `REVOKE` | the authority itself is withdrawn | no |
+
+Checks run most-restrictive first, so a revoked credential is never answered with a
+reroute. `reconcile()` refuses to answer a change with a weaker response than it
+warranted — that is how authority expands by accident.
+
 ## Execution authority
 
 A valid identity is not enough. A valid credential is not enough. A valid route is not
@@ -232,6 +307,8 @@ pctr simulate <action>    Same, without executing any effect
 pctr replay [run]         Agent Time Machine
 pctr explain <event>      Why was this allowed, denied, or rerouted?
 pctr receipt [id]         Show an execution receipt
+pctr decide <action>      How should a trust change be answered right now?
+pctr learn                What the accumulated evidence says to change
 pctr verify [id]          Verify receipt signatures and the receipt chain
 pctr keys                 Show your signing key id and public key
 pctr serve                Run the effect boundary as its own process

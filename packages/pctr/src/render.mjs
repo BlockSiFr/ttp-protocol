@@ -119,6 +119,50 @@ export function renderWhy(w) {
   return out.join('\n');
 }
 
+const RESPONSE_COLOR = {
+  KEEP: green, REROUTE: cyan, CONSTRAIN: cyan, THROTTLE: yellow,
+  STEP_UP: yellow, ESCALATE: yellow, SUSPEND: red, DENY: red, REVOKE: red
+};
+
+export function renderDecision(d) {
+  const paint = RESPONSE_COLOR[d.response] ?? dim;
+  const out = [heading('trust reevaluation')];
+  out.push(field('Action', d.action));
+  out.push(field('Consequence', sev(d.severity)));
+  out.push(field('Response', paint(d.response)));
+  out.push(field('Proceeds', d.proceeds ? green('YES') : red('NO')));
+  out.push('', d.reason);
+  if (d.detail?.constraint) out.push('', `${bold('Proposed bound:')} ${JSON.stringify(d.detail.constraint.max)}`);
+  if (d.refusedWeaker) out.push('', yellow(`A weaker response (${d.refusedWeaker}) was proposed and refused.`));
+  return out.join('\n');
+}
+
+const CONFIDENCE = { HIGH: red, MEDIUM: yellow, LOW: dim };
+
+export function renderLearn(result) {
+  const out = [heading('what this run taught pctr')];
+  out.push(field('Receipts analysed', String(result.observations.receipts)));
+  out.push(field('Runs analysed', String(result.observations.runs)));
+  out.push(field('Distinct actions', String(result.observations.actions)));
+  if (!result.findings.length) {
+    out.push('', 'Nothing new. The map matches what actually happened.');
+    return out.join('\n');
+  }
+  out.push('', bold(`${result.findings.length} finding(s)`), '');
+  for (const f of result.findings) {
+    const mark = (CONFIDENCE[f.confidence] ?? dim)(f.confidence.padEnd(6));
+    out.push(`${mark} ${bold(f.summary)}`);
+    out.push(`       ${dim(f.detail)}`);
+    if (f.proposal) out.push(`       ${green('can be applied automatically')}`);
+    out.push('');
+  }
+  if (!result.proposal.empty) {
+    const n = result.proposal.addActions.length + result.proposal.updateActions.length + result.proposal.updateAgents.length;
+    out.push(dim(`${n} change(s) can be written to pctr.json with: pctr learn --apply`));
+  }
+  return out.join('\n');
+}
+
 export function renderReceipt(receipt, verification) {
   const out = [heading('execution receipt')];
   out.push(field('Receipt', receipt.receiptId));

@@ -34,7 +34,7 @@ const RULES = [
   [/(terraform|infra|instance|bucket|dns|firewall|network|cluster)/i, 'INFRA_MODIFIED'],
   [/(send|email|slack|sms|post_message|notify|publish|tweet)/i, 'MESSAGE_SENT'],
   [/(write|create|update|insert|upsert|patch|put)/i, 'DATA_WRITTEN'],
-  [/(read|get|list|search|query|select|fetch)/i, 'DATA_READ']
+  [/(read|get|list|search|query|select|fetch|export|download|dump|backup)/i, 'DATA_READ']
 ];
 
 export function classifyAction(actionId, hints = {}) {

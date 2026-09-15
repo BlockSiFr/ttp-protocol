@@ -13,6 +13,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as store from '../src/store.mjs';
 import { renderReport, badgeUrl } from '../src/report.mjs';
+import { learn, applyProposal } from '../src/learn.mjs';
+import { respondToChange } from '../src/decisions.mjs';
 import * as r from '../src/render.mjs';
 
 const VERSION = '0.1.0';
@@ -268,6 +270,42 @@ async function main() {
       return bad.length ? 1 : 0;
     }
 
+    case 'learn': {
+      const graph = loadGraph();
+      const receipts = store.listReceipts();
+      const runs = store.listRuns().map((r) => store.loadRun(r.runId)).filter(Boolean);
+      const result = learn({ graph, receipts, runs });
+
+      if (flag('apply')) {
+        if (result.proposal.empty) return out('Nothing to apply.', { applied: [] });
+        const { manifest, applied } = applyProposal(graph.manifest, result.proposal);
+        store.writeManifest(manifest);
+        return out([r.heading('applied to pctr.json'), ...applied.map((a) => `  ${r.green('+')} ${a}`),
+          '', r.dim('Re-run pctr scan to see the updated map.')].join('\n'), { applied, manifest });
+      }
+      return out(r.renderLearn(result), result);
+    }
+
+    case 'decide': {
+      const graph = loadGraph();
+      const action = positional[0] ?? protectedActions(graph)[0]?.id;
+      if (!action) return fail('Pass an action: pctr decide <action>');
+      const preview = await previewMeasured(graph, action, params(), { target: flag('target') });
+      const route = resolveRoute(graph, action, { severity: preview.severity, target: flag('target') });
+      const agents = (route.selected?.agents ?? []).map((id) => graph.nodes.get(id)).filter(Boolean);
+      const receipts = store.listReceipts().filter((x) => x.requested?.action === action);
+      const decision = respondToChange({
+        action, preview, currentRoute: route.selected, agents,
+        policy: graph.manifest.policy ?? {},
+        history: {
+          inWindow: receipts.length,
+          consecutiveFailures: countTrailingFailures(receipts)
+        }
+      });
+      out(r.renderDecision(decision), decision);
+      return decision.proceeds ? 0 : 1;
+    }
+
     case 'doctor': {
       const manifest = store.readManifest();
       const checks = [];
@@ -309,6 +347,16 @@ async function main() {
 }
 
 const check = (label, ok, fix) => ({ label, ok, fix });
+
+// Trailing run of failures, newest first: how many times in a row this last failed.
+function countTrailingFailures(receipts) {
+  let n = 0;
+  for (const receipt of [...receipts].reverse()) {
+    if (receipt.verifier?.decision === 'EXECUTION_ALLOWED') break;
+    n++;
+  }
+  return n;
+}
 const fail = (message) => { console.error(message); return 2; };
 
 function renderCompare(diff, leftId, rightId) {
@@ -363,6 +411,8 @@ Usage
   pctr verify [id]          Verify receipt signatures and the receipt chain
   pctr keys                 Show your signing key id and public key
   pctr serve                Run the effect boundary as its own process
+  pctr decide <action>      How should a trust change be answered right now?
+  pctr learn                What the accumulated evidence says to change
   pctr doctor               Check your setup
 
 Options
@@ -376,6 +426,7 @@ Options
   --target <resource>       Execution target
   --boundary <url>          protect: verify authority at a remote effect boundary
   --port <n>                serve: port for the effect boundary (default 8787)
+  --apply                   learn: write the proposed changes into pctr.json
   --probe <file|command>    preview: measure the real consequence with this probe
   --key <public-key.pem>    verify: check signatures against this public key
   --export <file>           keys: write the public key to a file
