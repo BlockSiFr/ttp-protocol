@@ -1,1 +1,0 @@
-# receipt-ledger-api

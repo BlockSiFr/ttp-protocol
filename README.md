@@ -3,15 +3,10 @@
 </p>
 
 <p align="center">
-  <img alt="spec" src="https://img.shields.io/badge/spec-v1.0-00D4FF?style=flat-square&labelColor=0A0A0F">
-  <img alt="protocol" src="https://img.shields.io/badge/protocol-TTP-00B8A9?style=flat-square&labelColor=0A0A0F">
-  <img alt="runtime" src="https://img.shields.io/badge/runtime-in__progress-FFB300?style=flat-square&labelColor=0A0A0F">
-  <img alt="reference" src="https://img.shields.io/badge/reference-Node.js-00E676?style=flat-square&labelColor=0A0A0F">
-  <br>
-  <img alt="trust model" src="https://img.shields.io/badge/trust__model-decay__enabled-00D4FF?style=flat-square&labelColor=0A0A0F">
-  <img alt="receipts" src="https://img.shields.io/badge/receipts-cryptographic-00B8A9?style=flat-square&labelColor=0A0A0F">
-  <img alt="category" src="https://img.shields.io/badge/category-agent__trust__infrastructure-8892A0?style=flat-square&labelColor=0A0A0F">
+  <a href="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="tests" src="https://img.shields.io/badge/tests-123%20passing-00E676?style=flat-square&labelColor=0A0A0F">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-0066CC?style=flat-square&labelColor=0A0A0F"></a>
+  <img alt="dependencies" src="https://img.shields.io/badge/dependencies-none-00B8A9?style=flat-square&labelColor=0A0A0F">
 </p>
 
 <p align="center">
@@ -20,22 +15,14 @@
 </p>
 
 <p align="center">
-  <a href="packages/pctr/"><b>Start with PCTR</b></a> &nbsp;·&nbsp;
-  <a href="SPECIFICATION.md"><b>Read the Spec</b></a> &nbsp;·&nbsp;
-  <a href="#-quickstart"><b>Quickstart</b></a> &nbsp;·&nbsp;
+  <a href="#60-seconds"><b>Try it in 60 seconds</b></a> &nbsp;·&nbsp;
+  <a href="packages/pctr/"><b>PCTR</b></a> &nbsp;·&nbsp;
   <a href="examples/"><b>Examples</b></a> &nbsp;·&nbsp;
+  <a href="SPECIFICATION.md"><b>Protocol spec</b></a> &nbsp;·&nbsp;
   <a href="CONTRIBUTING.md"><b>Contribute</b></a>
 </p>
 
 ---
-
-Identity proves *who* is acting. Authorization defines *what* was assigned. **TTP establishes whether the actor is trustworthy enough for this action, right now** — before any downstream authority or execution decision is made.
-
-OAuth standardized delegated access. SCIM standardized identity provisioning. **TTP standardizes trust-before-execution for autonomous systems.** It is a platform-agnostic trust protocol — bring any agent, IdP, gateway, or workflow.
-
-<p align="center">
-  <img src="assets/diagrams/protocol-loop.svg" alt="Identity, Attestation, Trust Evaluation, Runtime Authority Gate, Decision, Execution Receipt" width="100%">
-</p>
 
 Your agent can have valid credentials and still be about to do the wrong thing.
 
@@ -43,9 +30,9 @@ Your agent can have valid credentials and still be about to do the wrong thing.
 Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->  Protected Action  ->  Receipt
 ```
 
-## Start Here: PCTR
+## 60 seconds
 
-**[PCTR](packages/pctr/)** — Protected Consequence Trust Routing — is the developer entry point. It answers three questions, in this order:
+**[PCTR](packages/pctr/)** — Protected Consequence Trust Routing — maps every agent, tool and action in your project to the consequences it can reach, then protects the ones that matter. It answers three questions, in this order:
 
 | | Question | Command |
 | --- | --- | --- |
@@ -69,6 +56,16 @@ pctr scan                  # what consequences can they reach?
 No account, no network: everything stays in `./pctr.json` and `./.pctr`. Three flagship capabilities sit on top of that graph — the **Consequence Twin** (`pctr preview`), **TrustRoute Autopilot** (`pctr route`), and the **Agent Time Machine** (`pctr replay`, `pctr explain`) — with Ed25519-signed receipts, read-only probes that measure a consequence instead of declaring it, adapters for the common agent frameworks, and an effect boundary (`pctr serve`) that verifies authority in its own process. See the [PCTR README](packages/pctr/README.md), `npm run demo:pctr` and `npm run demo:pctr-fabric`.
 
 PCTR routes to the consequence. TTP binds the authority for the exact execution that reaches it.
+
+## Under the hood: the Trust Transfer Protocol
+
+Identity proves *who* is acting. Authorization defines *what* was assigned. **TTP establishes whether the actor is trustworthy enough for this action, right now** — before any downstream authority or execution decision is made.
+
+OAuth standardized delegated access. SCIM standardized identity provisioning. **TTP standardizes trust-before-execution for autonomous systems.** It is a platform-agnostic trust protocol — bring any agent, IdP, gateway, or workflow.
+
+<p align="center">
+  <img src="assets/diagrams/protocol-loop.svg" alt="Identity, Attestation, Trust Evaluation, Runtime Authority Gate, Decision, Execution Receipt" width="100%">
+</p>
 
 ## Why TTP Exists
 
@@ -141,7 +138,7 @@ TTP is the foundation layer. Runtime governance, the authority gate, and the ent
   <img src="assets/diagrams/architecture-stack.svg" alt="TTP architecture stack: protocol, SCIM-RE governance, runtime authority gate, execution exchange, consumers" width="860">
 </p>
 
-> TTP establishes trustworthiness. **SCIM-RE** structures runtime context, **RAP** evaluates authority, **Execution Exchange** enforces decisions, and **CortexTrace** records evidence. TTP does not enforce execution by itself — see [COMMERCIAL_BOUNDARY.md](COMMERCIAL_BOUNDARY.md).
+> TTP establishes trustworthiness. **SCIM-RE** structures runtime context, **RAP** evaluates authority, **Execution Exchange** enforces decisions, and **CortexTrace** records evidence. TTP does not enforce execution by itself — see [docs/COMMERCIAL_BOUNDARY.md](docs/COMMERCIAL_BOUNDARY.md).
 
 ## Integrations
 
@@ -190,7 +187,7 @@ npm run demo
 
 ## Open Protocol, Commercial Enforcement
 
-Open-source TTP includes the protocol grammar, trustworthiness semantics, the trust-proof model, public schemas, example `.ttp` files, SDK primitives, a reference evaluator, and the TrustDecay model. Production enforcement — managed Runtime Authority Gate, the Execution Exchange control plane, HSM-backed signing, and the CortexTrace evidence engine — is commercial BlockSiFr infrastructure. The boundary is explicit in [COMMERCIAL_BOUNDARY.md](COMMERCIAL_BOUNDARY.md).
+Open-source TTP includes the protocol grammar, trustworthiness semantics, the trust-proof model, public schemas, example `.ttp` files, SDK primitives, a reference evaluator, and the TrustDecay model. Production enforcement — managed Runtime Authority Gate, the Execution Exchange control plane, HSM-backed signing, and the CortexTrace evidence engine — is commercial BlockSiFr infrastructure. The boundary is explicit in [docs/COMMERCIAL_BOUNDARY.md](docs/COMMERCIAL_BOUNDARY.md).
 
 ## Security
 
@@ -198,7 +195,7 @@ TTP is a protocol draft and reference implementation. **Do not use `cleartext-de
 
 ## Contributing
 
-From a first issue to owning a protocol surface — the path is open and intentional. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and [GOVERNANCE.md](GOVERNANCE.md).
+From a first issue to owning a protocol surface — the path is open and intentional. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
 
 <p align="center">
   <img src="assets/diagrams/contributor-path.svg" alt="Contributor path: start here, good first issue, protocol RFC, runtime implementation, docs and examples, maintainer path" width="100%">
