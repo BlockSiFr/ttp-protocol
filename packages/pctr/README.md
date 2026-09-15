@@ -291,8 +291,11 @@ protected execution through a remote effect boundary.
 
 ## Microsoft AGT (Agent Governance Toolkit)
 
-AGT is a first-class target, not an afterthought. The bridge implements the closed loop
-from [`docs/integration-guide.md` Part 6](../../docs/integration-guide.md):
+[microsoft/agent-governance-toolkit](https://github.com/microsoft/agent-governance-toolkit)
+is a first-class target, not an afterthought. Types here follow the toolkit's own
+`agent-governance-typescript/src/types.ts` — `PolicyAction`, `PolicyDecisionResult`,
+`AuditEntry`, `TrustScore`, `ExecutionRing`, `CascadeEvent`, `RingViolation` — and the
+loop is the one in [`docs/integration-guide.md` Part 6](../../docs/integration-guide.md):
 
 ```
 1. AGT enforces pre-execution policy
@@ -317,14 +320,21 @@ const attestation = toMeshAttestation(receipt);     // -> AgentMesh peer attesta
 | --- | --- | --- |
 | **OPA/Rego bridge** | 6.2 | `agtClaims()` returns `input.ttp` with `ttp_domain`, `ttp_score`, `issuer_count` — plus the consequence, severity, reversibility, route and receipt hash |
 | **SPIFFE/SVID identity** | 6.3 | SVID URIs work directly as agent ids; `parseSpiffeId()` exposes the trust domain, and claims surface `spiffe_ids` |
-| **Canonical score adapter** | 6.4 | `toAgtScore(ttpScore)` → `round(score * 1000)`, clamped; the 0-1 value is always carried alongside for audit |
+| **Trust score** | 6.4 | `toAgtTrustScore()` produces AGT's `TrustScore { overall, dimensions, tier }`. **AGT scores 0-1**, banded untrusted 0.0 / provisional 0.3 / trusted 0.6 / verified 0.85 — PCTR is already 0-1, so it maps across unscaled. `toAgtScore()` (×1000) remains for the downstream consumers the guide mentions, but it is *not* the AGT-native path |
+| **Execution rings** | — | `ringForSeverity()` proposes a `ExecutionRing` from what the action can cause (CRITICAL → Ring0); AGT's own `actionRings` config stays authoritative |
 | **AgentMesh bridge** | 6.5 | `toMeshAttestation()` maps a receipt to a peer attestation carrying `receiptId`, `receiptHash` and signing key |
 
-The event normalizer reads AGT policy decisions, action invocations, delegations,
-registrations and trust updates, converting AGT's 0-1000 scores back to 0-1 on the way
-in. AGT's event vocabulary isn't pinned in this repo, so the mapping is tolerant about
-field naming and **drops anything it can't read rather than inventing a security event**.
-When the schema is fixed, tighten `normalizeAgtEvent` in `src/agt.mjs` — one function.
+The event normalizer reads the toolkit's real shapes: every `PolicyAction`
+(`allow`/`log`/`warn` → allowed, `deny` → denied, `require_approval` → not executable yet,
+with the approvers carried), `AuditEntry` including its `hash`/`previousHash` chain,
+`CascadeEvent` containment actions (a quarantined or killed agent has no trust left, while
+`health_propagated` is telemetry and is dropped), `RingViolation`, kill-switch results and
+`TrustVerificationResult` with its tier. Anything it can't read returns `null` — **PCTR
+never invents a security event from a shape it doesn't recognise**, and there's a test for
+that.
+
+Worth noting: AGT hash-chains its audit log exactly as PCTR chains receipts, so the two
+evidence trails line up.
 
 A denial at a high-consequence action is the strongest behavioural signal there is, so
 `toTrustEvidence()` weights by what the action could have caused, not merely whether it

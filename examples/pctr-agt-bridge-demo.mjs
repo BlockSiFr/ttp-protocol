@@ -11,7 +11,7 @@
 // Run: node examples/pctr-agt-bridge-demo.mjs
 import {
   buildGraph, createTimeline, ingest, replay, protect, previewConsequence, resolveRoute,
-  agtClaims, toAgtScore, toTrustEvidence, toMeshAttestation, parseSpiffeId, verifyReceipt
+  agtClaims, toAgtTrustScore, toTrustEvidence, toMeshAttestation, parseSpiffeId, verifyReceipt
 } from '../packages/pctr/src/index.mjs';
 
 const line = (s = '') => console.log(s);
@@ -35,7 +35,7 @@ const timeline = createTimeline({ objective: 'Settle supplier invoice INV-4471' 
 
 // 1. AGT's own runtime events, in AGT's own shapes.
 ingest('agt', [
-  { type: 'agent.registered', agentId: FINANCE, trustScore: 970 },
+  { type: 'agent.registered', agentId: FINANCE, trustScore: { overall: 0.97, dimensions: {}, tier: 'Verified' } },
   { type: 'telemetry.heartbeat', agentId: FINANCE },
   { type: 'action.invocation', agentId: FINANCE, action: 'payments.transfer', parameters: { amount: 18000 } }
 ], timeline);
@@ -62,7 +62,10 @@ line('    input.ttp.ttp_domain == "payments"');
 line(`    input.ttp.ttp_score >= 0.92        # this run: ${claims.ttp.ttp_score}`);
 line(`    input.ttp.issuer_count >= 2        # this run: ${claims.ttp.issuer_count}`);
 line('  }');
-line(`  -> AGT trust score on its own 0-1000 scale: ${toAgtScore(claims.ttp.ttp_score)}`);
+const trustScore = toAgtTrustScore(claims.ttp.ttp_score);
+line(`  -> AGT TrustScore: overall ${trustScore.overall}, tier ${trustScore.tier}`);
+line(`     (AGT scores 0-1 and bands it: untrusted 0.0 / provisional 0.3 / trusted 0.6 / verified 0.85)`);
+line(`  -> required ExecutionRing for this consequence: Ring${claims.ttp.required_ring}`);
 
 // 3. PCTR protects the execution and signs a receipt for what actually happened.
 const request = { action: 'payments.transfer', target: 'acct:9931', params: { amount: 18000 }, agent: FINANCE };
@@ -84,7 +87,7 @@ line();
 line('AGENTMESH ATTESTATION  (peer trust, traceable to the receipt)');
 const attestation = toMeshAttestation(allowed.receipt, { peer: 'spiffe://partner.example/ns/prod/sa/mesh' });
 line(`  ${attestation.type}: ${attestation.outcome} on ${attestation.action}`);
-line(`  agtTrustScore ${attestation.agtTrustScore}/1000 (ttpScore ${attestation.ttpScore})`);
+line(`  trustScore    ${attestation.trustScore.overall} (${attestation.trustScore.tier})`);
 line(`  evidence      ${attestation.evidence.receiptId}`);
 line(`  signed by     ${attestation.evidence.signedBy}`);
 

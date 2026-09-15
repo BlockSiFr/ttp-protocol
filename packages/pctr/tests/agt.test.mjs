@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { toAgtScore, fromAgtScore, isSpiffeId, parseSpiffeId, agtClaims, domainFor, toMeshAttestation, toTrustEvidence } from '../src/agt.mjs';
+import {
+  toAgtScore, fromAgtScore, toAgtTrustScore, fromAgtTrustScore, trustTier, AGT_TIER_THRESHOLDS,
+  ringForSeverity, isSpiffeId, parseSpiffeId, agtClaims, domainFor, toMeshAttestation, toTrustEvidence
+} from '../src/agt.mjs';
 import { normalize, ingest } from '../src/adapters.mjs';
 import { createTimeline } from '../src/timeline.mjs';
 import { buildGraph } from '../src/graph.mjs';
@@ -22,8 +25,32 @@ const graph = () => buildGraph({
   policy: { requireApprovalAtOrAbove: 'CRITICAL' }
 });
 
-test('the canonical score adapter maps 0-1 onto AGT\'s 0-1000 scale', () => {
-  // integration-guide.md 6.4: agt_trust_score = round(ttp_score * 1000)
+test('trust maps onto AGT\'s own TrustScore, which is 0-1 with tiers', () => {
+  // Upstream AGT (agent-governance-typescript/src/trust.ts) scores 0-1 and bands it:
+  // untrusted 0.0, provisional 0.3, trusted 0.6, verified 0.85. PCTR is already 0-1,
+  // so it maps across with no rescaling.
+  assert.deepEqual(AGT_TIER_THRESHOLDS, { untrusted: 0.0, provisional: 0.3, trusted: 0.6, verified: 0.85 });
+  assert.deepEqual(toAgtTrustScore(0.9178), { overall: 0.9178, dimensions: {}, tier: 'Verified' });
+  assert.equal(trustTier(0.1), 'Untrusted');
+  assert.equal(trustTier(0.3), 'Provisional');
+  assert.equal(trustTier(0.6), 'Trusted');
+  assert.equal(trustTier(0.85), 'Verified');
+  assert.equal(fromAgtTrustScore({ overall: 0.42, tier: 'Provisional' }), 0.42);
+  assert.equal(fromAgtTrustScore(0.42), 0.42, 'a bare number is accepted too');
+});
+
+test('AGT execution rings are proposed from what the action can cause', () => {
+  // ExecutionRing in types.ts: Ring0 is the most privileged.
+  assert.equal(ringForSeverity('CRITICAL'), 0);
+  assert.equal(ringForSeverity('HIGH'), 1);
+  assert.equal(ringForSeverity('MEDIUM'), 2);
+  assert.equal(ringForSeverity('LOW'), 3);
+  assert.equal(ringForSeverity(undefined), 3);
+});
+
+test('the legacy 0-1000 scale stays available for downstream consumers', () => {
+  // integration-guide.md 6.4 says some downstream components expect 0-1000. Upstream
+  // AGT itself does not — keep the conversion, but it is not the AGT-native path.
   assert.equal(toAgtScore(0.9178), 918);
   assert.equal(toAgtScore(0), 0);
   assert.equal(toAgtScore(1), 1000);
@@ -53,6 +80,8 @@ test('Rego claims carry everything the documented policy example evaluates', asy
   assert.equal(typeof ttp.ttp_score, 'number');
   assert.equal(ttp.issuer_count, 2);
   assert.equal(ttp.ttp_agt_score, toAgtScore(ttp.ttp_score));
+  assert.equal(ttp.trust_score.tier, trustTier(ttp.ttp_score), 'AGT-native TrustScore travels alongside');
+  assert.equal(ttp.required_ring, ringForSeverity(ttp.severity));
   assert.equal(ttp.consequence, 'MONEY_MOVED');
   assert.ok(ttp.spiffe_ids.every(isSpiffeId));
   assert.ok(ttp.spiffe_ids.length, 'SPIFFE agent ids are surfaced for policy');
@@ -95,17 +124,64 @@ test('a receipt becomes an AgentMesh attestation that traces back to the executi
   assert.equal(attestation.evidence.receiptId, run.receipt.receiptId);
   assert.equal(attestation.evidence.receiptHash, run.receipt.receiptHash);
   assert.equal(attestation.agtTrustScore, toAgtScore(run.receipt.routeSelected.effectiveTrust));
+  assert.equal(attestation.trustScore.tier, trustTier(run.receipt.routeSelected.effectiveTrust));
   assert.equal(toMeshAttestation(null), null);
 });
 
-test('AGT policy decisions normalize onto canonical events', () => {
-  const allowed = normalize('agt', { type: 'policy.decision', decision: 'allow', agentId: 'finance', action: 'payments.transfer', policy: 'agt.authz' });
-  assert.equal(allowed.event, 'EXECUTION_ALLOWED');
-  assert.equal(allowed.detail.policy, 'agt.authz');
+test('AGT PolicyDecisionResult maps every PolicyAction onto a canonical event', () => {
+  // PolicyAction in types.ts: allow | deny | warn | require_approval | log
+  const decision = (action, allowed, extra = {}) => normalize('agt',
+    { allowed, action, agentId: 'finance', operation: 'payments.transfer', policyName: 'agt.authz', rateLimited: false, approvers: [], ...extra });
 
-  const denied = normalize('microsoft-agt', { type: 'policyEvaluation', decision: 'deny', agent_id: 'finance', action: 'customers.delete', reason: 'ring 0 requires approval' });
-  assert.equal(denied.event, 'EXECUTION_DENIED');
-  assert.equal(denied.detail.reason, 'ring 0 requires approval');
+  assert.equal(decision('allow', true).event, 'EXECUTION_ALLOWED');
+  assert.equal(decision('log', true).event, 'EXECUTION_ALLOWED');
+  assert.equal(decision('warn', true).event, 'EXECUTION_ALLOWED');
+  assert.equal(decision('deny', false).event, 'EXECUTION_DENIED');
+
+  // require_approval is not a denial forever, but it is not executable yet either.
+  const pending = decision('require_approval', true, { approvers: ['ops-oncall'] });
+  assert.equal(pending.event, 'EXECUTION_DENIED');
+  assert.equal(pending.detail.policyAction, 'require_approval');
+  assert.deepEqual(pending.detail.approvers, ['ops-oncall']);
+
+  assert.equal(decision('deny', false).detail.policy, 'agt.authz');
+});
+
+test('AGT AuditEntry maps its LegacyPolicyDecision and keeps the hash chain', () => {
+  // AuditEntry: { timestamp, agentId, action, decision, hash, previousHash }
+  const entry = normalize('microsoft-agt',
+    { timestamp: '2026-09-15T00:00:00Z', agentId: 'finance', action: 'customers.delete', decision: 'review', hash: 'h1', previousHash: 'h0' });
+  assert.equal(entry.event, 'EXECUTION_DENIED', 'review is not an execution');
+  assert.equal(entry.detail.auditHash, 'h1');
+  assert.equal(entry.detail.previousHash, 'h0', 'AGT hash-chains its audit log as PCTR chains receipts');
+  assert.equal(normalize('agt', { agentId: 'a', action: 'x', decision: 'allow', hash: 'h1', previousHash: 'h0' }).event, 'EXECUTION_ALLOWED');
+});
+
+test('AGT cascade containment and ring violations are read as what they are', () => {
+  // CascadeEvent: { eventId, timestamp, sourceAgentId, affectedAgentIds, action, reason, blastRadius }
+  const quarantined = normalize('agt',
+    { eventId: 'e1', timestamp: 't', sourceAgentId: 'finance', affectedAgentIds: ['a', 'b'], action: 'agent_quarantined', reason: 'breach detected', blastRadius: 3 });
+  assert.equal(quarantined.event, 'TRUST_CHANGED');
+  assert.equal(quarantined.detail.to, 0, 'a quarantined agent has no trust left');
+  assert.deepEqual(quarantined.detail.affected, ['a', 'b']);
+  assert.equal(quarantined.detail.blastRadius, 3);
+
+  // health_propagated is telemetry, not a trust change.
+  assert.equal(normalize('agt',
+    { eventId: 'e2', timestamp: 't', sourceAgentId: 'finance', affectedAgentIds: [], action: 'health_propagated', reason: 'ok' }), null);
+
+  // RingViolation: { action, agentRing, requiredRing, message }
+  const violation = normalize('agt', { agentId: 'finance', action: 'prod.deploy', agentRing: 2, requiredRing: 0, message: 'Ring2 cannot reach Ring0' });
+  assert.equal(violation.event, 'EXECUTION_DENIED');
+  assert.equal(violation.detail.requiredRing, 0);
+});
+
+test('AGT TrustVerificationResult arrives with its tier intact', () => {
+  const verification = normalize('agt',
+    { verified: false, agentId: 'finance', trustScore: { overall: 0.42, dimensions: {}, tier: 'Provisional' }, reason: 'stale attestation' });
+  assert.equal(verification.event, 'TRUST_CHANGED');
+  assert.equal(verification.detail.to, 0.42);
+  assert.equal(verification.detail.tier, 'Provisional');
 });
 
 test('AGT action invocations get the consequence AGT does not describe', () => {
@@ -113,13 +189,6 @@ test('AGT action invocations get the consequence AGT does not describe', () => {
   assert.equal(proposed.event, 'ACTION_PROPOSED');
   assert.equal(proposed.detail.consequence, 'MONEY_MOVED');
   assert.equal(proposed.detail.severity, 'CRITICAL');
-});
-
-test('AGT trust updates arrive on PCTR\'s 0-1 scale', () => {
-  const changed = normalize('agt', { type: 'trust.updated', agentId: 'finance', previousScore: 940, trustScore: 610 });
-  assert.equal(changed.event, 'TRUST_CHANGED');
-  assert.equal(changed.detail.from, 0.94);
-  assert.equal(changed.detail.to, 0.61);
 });
 
 test('unrecognised AGT events are dropped, never invented into security events', () => {
@@ -132,10 +201,10 @@ test('unrecognised AGT events are dropped, never invented into security events',
 test('an AGT run feeds one timeline alongside every other framework', () => {
   const timeline = createTimeline({ objective: 'Pay invoice INV-4471' });
   ingest('agt', [
-    { type: 'agent.registered', agentId: 'spiffe://blocksifr.com/ns/prod/sa/finance', trustScore: 970 },
+    { type: 'agent.registered', agentId: 'spiffe://blocksifr.com/ns/prod/sa/finance', trustScore: { overall: 0.97, dimensions: {}, tier: 'Verified' } },
     { type: 'action.invocation', agentId: 'spiffe://blocksifr.com/ns/prod/sa/finance', action: 'payments.transfer', parameters: { amount: 18000 } },
     { type: 'telemetry.heartbeat' },
-    { type: 'policy.decision', decision: 'deny', agentId: 'spiffe://blocksifr.com/ns/prod/sa/finance', action: 'payments.transfer', reason: 'above ring threshold' }
+    { allowed: false, action: 'deny', agentId: 'spiffe://blocksifr.com/ns/prod/sa/finance', operation: 'payments.transfer', reason: 'above ring threshold', approvers: [], rateLimited: false }
   ], timeline);
 
   assert.deepEqual(timeline.events.map((e) => e.event),
