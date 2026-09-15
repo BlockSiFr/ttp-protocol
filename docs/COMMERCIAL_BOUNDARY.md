@@ -45,3 +45,13 @@ Execution Exchange enforces downstream runtime decisions in production.
 CortexTrace records and verifies execution evidence and receipts.
 
 Commercial use of BlockSiFr-managed services, proprietary adapters, production enforcement infrastructure, compliance exports, production receipt ledgers, and enterprise control-plane capabilities requires a commercial agreement with BlockSiFr.
+
+## Naming
+
+- **BlockSiFr Control** — the commercial product for production enforcement. Category:
+  **Execution Control Infrastructure**. Core intelligence: **Consequence Intelligence**.
+  Public launch January 6, 2027; early access open now.
+- **TTP** and **PCTR** — the open protocol layer beneath it, Apache-2.0.
+- **Execution Exchange** — the enforcement component in the architecture documents, and a
+  BlockSiFr trademark. Not the customer-facing product name.
+- **FrontDesk** — legacy. Not for customer-facing material.
