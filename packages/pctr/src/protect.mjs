@@ -7,7 +7,7 @@ import { createTimeline } from './timeline.mjs';
 import { requiresHumanApproval } from './trust.mjs';
 import { trustDelta } from './observe.mjs';
 
-// The Category King loop, executed end to end:
+// The protected execution loop, end to end:
 // PREVIEW -> ROUTE -> AUTHORIZE -> ENFORCE -> RECEIPT, with a replayable timeline.
 
 // Async because a real effect boundary is out of process: enforcement is I/O.
