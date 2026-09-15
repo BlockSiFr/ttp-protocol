@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { respondToChange, reconcile, RESPONSES, isMoreRestrictive, PROCEEDS } from '../src/decisions.mjs';
+import {
+  respondToChange, reconcile, RESPONSES, isMoreRestrictive, PROCEEDS,
+  postureFor, withinPosture, CHAIN_CONTINUITY, LATENT_DEFECTS
+} from '../src/decisions.mjs';
 
 const preview = (over = {}) => ({ severity: 'HIGH', recordsAffected: 10, financialExposure: 100, ...over });
 const route = (over = {}) => ({ routeId: 'r1', agents: ['a'], trustStates: [{ agentId: 'a', evidenceStale: false }], ...over });
@@ -93,4 +96,42 @@ test('reconcile refuses to answer a change with a weaker response than it warran
 
   // A stronger response is allowed to win.
   assert.equal(reconcile(weak, strong).response, 'SUSPEND');
+});
+
+test('every TTP trust classification maps to a permitted downstream posture', () => {
+  // SPECIFICATION.md, Trust Classification. Chain trust is graded, not binary.
+  const expected = {
+    TRUST_ACCEPTED: true, TRUST_ACCEPTED_WITH_CONTROLS: true,
+    TRUST_REVIEW_RECOMMENDED: false, TRUST_CONTRADICTED: false,
+    TRUST_DEFECTIVE: false, TRUST_REJECTED: false, TRUST_UNKNOWN: false
+  };
+  for (const [classification, proceeds] of Object.entries(expected)) {
+    const posture = postureFor(classification);
+    assert.equal(posture.proceeds, proceeds, classification);
+    for (const response of posture.allowed) assert.ok(RESPONSES.includes(response), `${response} is a real response`);
+  }
+});
+
+test('an unevaluated chain is not a trustworthy chain', () => {
+  // TRUST_UNKNOWN must not be a neutral result, and an unrecognised classification
+  // must be treated as unknown rather than waved through.
+  assert.deepEqual(postureFor('TRUST_UNKNOWN').allowed, ['DENY', 'ESCALATE']);
+  assert.equal(postureFor('something-nobody-defined').proceeds, false);
+});
+
+test('a response may not step outside the posture its classification permits', () => {
+  assert.equal(withinPosture('KEEP', 'TRUST_ACCEPTED'), true);
+  assert.equal(withinPosture('CONSTRAIN', 'TRUST_ACCEPTED_WITH_CONTROLS'), true);
+  // Answering a rejected chain with a reroute is how a graded protocol turns into a
+  // boolean one that always says yes.
+  assert.equal(withinPosture('REROUTE', 'TRUST_REJECTED'), false);
+  assert.equal(withinPosture('KEEP', 'TRUST_UNKNOWN'), false);
+});
+
+test('the chain-continuity and latent-defect vocabularies match the specification', () => {
+  assert.equal(CHAIN_CONTINUITY.length, 7);
+  assert.ok(CHAIN_CONTINUITY.includes('CHAIN_MISSING_LINK'));
+  assert.equal(LATENT_DEFECTS.length, 11);
+  assert.ok(LATENT_DEFECTS.includes('approval_bypass'));
+  assert.ok(LATENT_DEFECTS.includes('prompt_injection_suspected'));
 });

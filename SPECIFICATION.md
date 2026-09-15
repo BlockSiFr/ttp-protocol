@@ -79,6 +79,137 @@ Blocks in the MVP:
 | `authority_context` | Defines action/resource context requiring a proof. |
 | `delegation` | Defines bounded transfer of trust or authority context. |
 
+## Chain Trust Model
+
+TTP is the open protocol for **machine chain trust**: proving whether the chain behind an
+AI agent, copilot, workflow, pipeline, API, service account, or non-human identity is
+trustworthy enough to be relied on, before downstream authority and execution decisions
+occur.
+
+The name is deliberate. An *isnad* is a chain of transmission — who received what from
+whom, and whether each link in that chain is sound. An autonomous action has the same
+shape: a model acted on a prompt, handed to a tool, invoked through a workflow, carrying
+authority delegated from a person who is no longer in the room. TTP evaluates that chain.
+
+### Layering
+
+```text
+TTP                = machine isnad / chain-trust protocol
+SCIM-RE            = runtime identity + authority schema
+RAP                = authority decision engine
+Execution Exchange = downstream enforcement / customer control plane
+CortexTrace        = evidence + trace capture
+ExecutionReceipts  = cryptographic proof objects
+```
+
+TTP establishes **chain trust**. SCIM-RE structures runtime identity, authority grants,
+attestations and receipts. RAP makes runtime authority decisions. Execution Exchange
+enforces them. CortexTrace captures execution evidence. ExecutionReceipts preserve
+cryptographic proof.
+
+### Chain Primitives
+
+| Primitive | Meaning |
+| --- | --- |
+| `TrustChain` | Verifiable chain behind an autonomous action. |
+| `ChainActor` | Human, agent, model, tool, workflow, pipeline, service account, API, or workload in the chain. |
+| `TransmissionLink` | Handoff between actors, prompts, tools, workflows, systems, or authority contexts. |
+| `ReliabilityProfile` | Historical and current reliability state for a chain actor. |
+| `EvidenceReference` | Pointer to telemetry, receipts, approvals, runtime state, token state, code state, or external evidence. |
+| `Attestation` | Verifiable proof-of-state for an actor, workflow, token, code artifact, model, tool, or environment. |
+| `TrustVerifier` | Verifies signatures, issuers, proof modes, freshness, and evidence integrity. |
+| `TrustValidator` | Applies decay, thresholds, scope, reliability, delegation, chain continuity, and constraints. |
+| `CorroborationSet` | Multiple evidence routes supporting or contradicting the chain. |
+| `LatentDefect` | Hidden defect: stale authority, concealed delegation, prompt or tool drift, policy bypass, approval bypass, missing link. |
+| `TrustClassification` | Graded trust result. Not binary trust. |
+| `TrustTransfer` | Bounded transfer of trust or authority context. |
+| `TrustReceipt` | TTP-level proof that chain trust was evaluated. |
+
+`verify_isnad_chain` in the reference implementation evaluates a `TrustChain`: continuity
+(every link's issuer is the prior link's subject), rooting at a trusted authority, per-link
+validity, and attenuation — trust MUST NOT amplify along a chain.
+
+### Trust Roles
+
+| Role | Purpose |
+| --- | --- |
+| `EvidenceObserver` | Captures raw evidence from tools, workflows, runtimes, identity systems, APIs, pipelines, or agents. |
+| `AttestationIssuer` | Converts evidence into signed, verifiable attestations. |
+| `TrustVerifier` | Verifies attestations, signatures, issuers, proof mode, evidence integrity, and freshness. |
+| `TrustValidator` | Applies trust decay, reliability history, thresholds, scope, chain continuity, delegation, and constraints. |
+| `CorroborationEngine` | Compares evidence paths and detects agreement, contradiction, missing links, or latent defects. |
+| `RuntimeAuthority` | Downstream role that converts validated trust into allow, deny, step-up, escalate, throttle, or constrain. |
+| `ReceiptNotary` | Signs and chain-links trust validation results, runtime decisions, and execution outcomes. |
+| `GovernanceReviewer` | Reviews chains, receipts, defects, and corroboration for audit, compliance, incident response, or oversight. |
+
+The separation is normative, and it is the point of the protocol:
+
+> The `TrustVerifier` MUST NOT make final execution decisions unless it is explicitly also
+> acting as a downstream `RuntimeAuthority`.
+>
+> The `TrustValidator` MUST NOT execute protected actions. It determines whether trust
+> conditions are satisfied.
+>
+> TTP establishes whether a chain deserves reliance. Downstream authority systems decide
+> whether execution may proceed.
+
+### Verification Levels
+
+A deployment states the level it operates at. Higher levels are not merely "more secure" —
+they describe how many independent parties must agree before a chain is relied upon.
+
+| Level | Name | Description |
+| --- | --- | --- |
+| `L0_LOCAL` | Local evaluator | Cleartext local parsing and evaluation, for development. |
+| `L1_SINGLE_VERIFIER` | Single verifier | One verifier validates attestation, proof, issuer and freshness. |
+| `L2_VERIFIER_VALIDATOR` | Verifier + validator | Verifier checks evidence; validator applies decay, thresholds, scope, reliability and policy constraints. |
+| `L3_CORROBORATED_CHAIN` | Corroborated chain | Evidence references, receipts, attestations or approval records are checked for agreement and contradiction. |
+| `L4_VERIFIER_SET` | Distributed verifier set | Multiple verifiers independently verify evidence and produce a quorum or weighted result. |
+| `L5_VALIDATOR_QUORUM` | Validator quorum + runtime authority | Multiple validators produce a quorum-backed classification consumed by runtime authority. |
+| `L6_PRIVACY_PRESERVING` | ZK / selective disclosure | Trust conditions proven without exposing raw scores, sensitive evidence, internal policies or customer data. |
+
+### Trust Classification
+
+Chain trust is graded, not binary. Each classification implies a downstream posture, which
+a `RuntimeAuthority` converts into an execution response.
+
+| Classification | Downstream posture |
+| --- | --- |
+| `TRUST_ACCEPTED` | allow |
+| `TRUST_ACCEPTED_WITH_CONTROLS` | constrain or throttle |
+| `TRUST_REVIEW_RECOMMENDED` | step_up |
+| `TRUST_CONTRADICTED` | escalate |
+| `TRUST_DEFECTIVE` | escalate or deny |
+| `TRUST_REJECTED` | deny |
+| `TRUST_UNKNOWN` | deny or escalate |
+
+`TRUST_UNKNOWN` is not a neutral result. A chain nobody has evaluated is not a trustworthy
+chain, and it MUST NOT be treated as one.
+
+### Chain Continuity
+
+| State | Meaning |
+| --- | --- |
+| `CHAIN_CONTINUOUS` | Every link is present and each link's issuer is the prior link's subject. |
+| `CHAIN_MISSING_LINK` | One handoff in the chain has no evidence behind it. |
+| `CHAIN_MULTI_MISSING_LINK` | More than one handoff is unevidenced. |
+| `CHAIN_SUSPENDED` | A link was valid and has been suspended or revoked. |
+| `CHAIN_AMBIGUOUS` | Evidence supports more than one reading of the chain. |
+| `CHAIN_INFERRED` | Continuity is inferred from context rather than evidenced. |
+| `CHAIN_UNKNOWN` | Continuity has not been established. |
+
+### Latent Defects
+
+A latent defect is a fault the chain does not surface on its own. Detecting one does not
+by itself deny an action; it changes the classification, and the downstream authority
+decides.
+
+`prompt_injection_suspected` · `approval_bypass` · `stale_authority` ·
+`unowned_identity` · `unexpected_tool_use` · `context_loss` ·
+`policy_version_mismatch` · `scope_inflation` · `dependency_substitution` ·
+`token_origin_unclear` · `chain_link_unproven`
+
+
 ## Trust Object Model
 
 ### Subject
