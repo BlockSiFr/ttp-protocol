@@ -159,6 +159,7 @@ const FILE_FRAMEWORKS = [
   [/langgraph/, 'langgraph'],
   [/from\s+langchain|@langchain\//, 'langchain'],
   [/semantic[_-]kernel/, 'semantic-kernel'],
+  [/agent-governance-toolkit|@microsoft\/agt|\bagt_sdk\b|\bagt\.(?:policy|client|agent)\b/, 'microsoft-agt'],
   [/@modelcontextprotocol\/|from\s+mcp/, 'mcp'],
   [/@anthropic-ai\/|claude[_-]agent/, 'claude-agents'],
   [/\bopenai\b/, 'openai-agents']

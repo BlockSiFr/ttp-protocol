@@ -270,7 +270,8 @@ runtime events onto the canonical PCTR events — not a redesign of PCTR.
 ## Universal agent fabric
 
 Adapters ship for `openai-agents`, `claude-agents`, `langgraph`, `crewai`, `autogen`,
-`semantic-kernel`, `mcp`, `a2a`, and a `generic` envelope for everything else. Each one
+`semantic-kernel`, `mcp`, `a2a`, **`microsoft-agt`** (see below), and a `generic`
+envelope for everything else. Each one
 maps a framework's own events onto the 16 canonical security events and drops the rest:
 
 ```js
@@ -287,6 +288,49 @@ framework internals are dropped rather than invented into events.
 
 See `node examples/pctr-universal-fabric-demo.mjs` for four frameworks feeding one
 protected execution through a remote effect boundary.
+
+## Microsoft AGT (Agent Governance Toolkit)
+
+AGT is a first-class target, not an afterthought. The bridge implements the closed loop
+from [`docs/integration-guide.md` Part 6](../../docs/integration-guide.md):
+
+```
+1. AGT enforces pre-execution policy
+2. PCTR observes the consequence, the route and the signed receipt
+3. Trust is recomputed from that behavioural evidence
+4. AGT consumes it and adjusts the next decision
+```
+
+**AGT stays authoritative for allow/deny.** PCTR supplies the evidence it decides on and
+never builds a parallel privilege model.
+
+```js
+import { ingest, agtClaims, toTrustEvidence, toMeshAttestation, toAgtScore } from '@blocksifr/pctr';
+
+ingest('agt', agtRuntimeEvents, timeline);          // AGT's shapes -> canonical events
+const claims = agtClaims({ route, preview, issuerCount: 2 });   // -> input.ttp for Rego
+const evidence = toTrustEvidence(receipt);          // -> behavioural evidence, back to AGT
+const attestation = toMeshAttestation(receipt);     // -> AgentMesh peer attestation
+```
+
+| Integration surface | Guide | What PCTR provides |
+| --- | --- | --- |
+| **OPA/Rego bridge** | 6.2 | `agtClaims()` returns `input.ttp` with `ttp_domain`, `ttp_score`, `issuer_count` — plus the consequence, severity, reversibility, route and receipt hash |
+| **SPIFFE/SVID identity** | 6.3 | SVID URIs work directly as agent ids; `parseSpiffeId()` exposes the trust domain, and claims surface `spiffe_ids` |
+| **Canonical score adapter** | 6.4 | `toAgtScore(ttpScore)` → `round(score * 1000)`, clamped; the 0-1 value is always carried alongside for audit |
+| **AgentMesh bridge** | 6.5 | `toMeshAttestation()` maps a receipt to a peer attestation carrying `receiptId`, `receiptHash` and signing key |
+
+The event normalizer reads AGT policy decisions, action invocations, delegations,
+registrations and trust updates, converting AGT's 0-1000 scores back to 0-1 on the way
+in. AGT's event vocabulary isn't pinned in this repo, so the mapping is tolerant about
+field naming and **drops anything it can't read rather than inventing a security event**.
+When the schema is fixed, tighten `normalizeAgtEvent` in `src/agt.mjs` — one function.
+
+A denial at a high-consequence action is the strongest behavioural signal there is, so
+`toTrustEvidence()` weights by what the action could have caused, not merely whether it
+ran.
+
+Worked end to end: `npm run demo:pctr-agt`.
 
 ## Relationship to TTP
 

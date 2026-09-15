@@ -9,6 +9,7 @@ export * from './timeline.mjs';
 export * from './discover.mjs';
 export * from './observe.mjs';
 export * from './adapters.mjs';
+export * from './agt.mjs';
 export * from './probe.mjs';
 export * from './boundary.mjs';
 export * from './report.mjs';
