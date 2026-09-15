@@ -12,13 +12,12 @@ Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->
 
 <img src="../../assets/pctr-scan.svg" alt="pctr scan finds five agents, three tools and four potential actions, and reports one critical protected consequence: customers.delete can be reached through support-agent and admin-agent without independent execution authority" width="100%">
 
-Not on npm yet — from a clone of this repo:
-
 ```bash
-npm link ./packages/pctr    # then the bare `pctr` command works anywhere
-pctr init                   # discover agents and tools, write pctr.json
-pctr scan                   # what consequences can they reach?
+npx @blocksifr/pctr init    # discover agents and tools, write pctr.json
+npx @blocksifr/pctr scan    # what consequences can they reach?
 ```
+
+Or install it: `npm i -g @blocksifr/pctr`, then just `pctr init` and `pctr scan`.
 
 No account. No network. Everything stays in `./pctr.json` and `./.pctr`.
 
