@@ -60,6 +60,22 @@ No account, no network: everything stays in `./pctr.json` and `./.pctr`. Three f
 
 PCTR routes to the consequence. TTP binds the authority for the exact execution that reaches it.
 
+## BlockSiFr Control
+
+> **Your AI has credentials. BlockSiFr gives it boundaries.**
+>
+> Same identity. Same permission. Different consequence. Different decision.
+
+**BlockSiFr Control** is the commercial product for production enforcement, in the
+**Execution Control Infrastructure** category, powered by **Consequence Intelligence**.
+TTP and PCTR are the open protocol layer beneath it, Apache-2.0, and stay that way — see
+[NOTICE](NOTICE) for the royalty-free grant.
+
+**Public launch: January 6, 2027. Early access is open now** for organizations, builders,
+design partners and strategic partners: [hello@blocksifr.com](mailto:hello@blocksifr.com).
+
+**Put an action under Control.**
+
 ## Under the hood: the Trust Transfer Protocol
 
 **TTP is the open protocol for machine chain trust:** proving whether the chain behind an AI agent, copilot, workflow, pipeline, API, service account, or non-human identity is trustworthy enough to be relied on, before downstream authority and execution decisions occur.
