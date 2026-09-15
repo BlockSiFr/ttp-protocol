@@ -21,7 +21,7 @@ inputs:
   version:
     description: 'Version of @blocksifr/pctr to run.'
     required: false
-    default: 'latest'
+    default: 'latest'   # published on npm: https://www.npmjs.com/package/@blocksifr/pctr
 
 outputs:
   critical:

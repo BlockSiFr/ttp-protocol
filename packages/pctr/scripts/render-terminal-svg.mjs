@@ -97,7 +97,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${
   <rect width="${width}" height="${TOP - 10}" rx="10" fill="${THEME.chrome}"/>
   <rect y="${TOP - 20}" width="${width}" height="10" fill="${THEME.chrome}"/>
   <circle cx="24" cy="18" r="5" fill="#FF5F57"/><circle cx="43" cy="18" r="5" fill="#FEBC2E"/><circle cx="62" cy="18" r="5" fill="#28C840"/>
-  <text x="84" y="22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="${THEME.dim}">pctr scan</text>
+  <text x="84" y="22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="${THEME.dim}">npx @blocksifr/pctr scan</text>
   <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13.5" fill="${THEME.text}">
 ${body}
   </g>

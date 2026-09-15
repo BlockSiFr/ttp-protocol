@@ -85,4 +85,4 @@ export function renderReport(graph, { title = 'PCTR consequence scan', includeBa
 }
 
 const footer = () =>
-  `---\n<sub>Scanned with [PCTR](${HOMEPAGE}) — \`pctr scan\`. Nothing left this machine.</sub>\n`;
+  `---\n<sub>Scanned with [PCTR](${HOMEPAGE}) — \`npx @blocksifr/pctr scan\`. Nothing left this machine.</sub>\n`;

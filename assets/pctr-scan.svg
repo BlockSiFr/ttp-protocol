@@ -3,7 +3,7 @@
   <rect width="760" height="36" rx="10" fill="#12121A"/>
   <rect y="26" width="760" height="10" fill="#12121A"/>
   <circle cx="24" cy="18" r="5" fill="#FF5F57"/><circle cx="43" cy="18" r="5" fill="#FEBC2E"/><circle cx="62" cy="18" r="5" fill="#28C840"/>
-  <text x="84" y="22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#6E7681">pctr scan</text>
+  <text x="84" y="22" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#6E7681">npx @blocksifr/pctr scan</text>
   <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13.5" fill="#C9D1D9">
     <text x="22" y="68"><tspan fill="#00D4FF" font-weight="700" xml:space="preserve">PCTR</tspan></text>
     <text x="22" y="89"><tspan fill="#C9D1D9" xml:space="preserve"></tspan></text>
