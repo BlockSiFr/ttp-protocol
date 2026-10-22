@@ -4,22 +4,20 @@
 
 <p align="center">
   <a href="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="tests" src="https://img.shields.io/badge/tests-195%20passing-00E676?style=flat-square&labelColor=0A0A0F">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-0066CC?style=flat-square&labelColor=0A0A0F"></a>
   <a href="https://www.npmjs.com/package/@blocksifr/pctr"><img alt="npm" src="https://img.shields.io/npm/v/@blocksifr/pctr?style=flat-square&labelColor=0A0A0F&color=00D4FF"></a>
   <img alt="dependencies" src="https://img.shields.io/badge/dependencies-none-00B8A9?style=flat-square&labelColor=0A0A0F">
 </p>
 
 <p align="center">
-  <strong>See what your agents can cause. Route them safely. Prove what happened.</strong><br>
-  Open-source trust and execution infrastructure for AI agents.
+  <strong>Transfer trust. Keep authority bounded. Verify the chain.</strong><br>
+  TTP is an open protocol for evaluating whether a chain of trust is sufficient to rely on an AI agent's actions.
 </p>
 
 <p align="center">
-  <a href="#60-seconds"><b>Try it in 60 seconds</b></a> &nbsp;·&nbsp;
-  <a href="packages/pctr/"><b>PCTR</b></a> &nbsp;·&nbsp;
-  <a href="examples/"><b>Examples</b></a> &nbsp;·&nbsp;
+  <a href="#quickstart"><b>Run the demo</b></a> &nbsp;·&nbsp;
   <a href="SPECIFICATION.md"><b>Protocol spec</b></a> &nbsp;·&nbsp;
+  <a href="docs/IMPLEMENTATION_STATUS.md"><b>Implementation status</b></a> &nbsp;·&nbsp;
   <a href="CONTRIBUTING.md"><b>Contribute</b></a>
 </p>
 
@@ -31,9 +29,20 @@ Your agent can have valid credentials and still be about to do the wrong thing.
 Objective  ->  Trust Route  ->  Consequence Preview  ->  Execution Authority  ->  Protected Action  ->  Receipt
 ```
 
-## 60 seconds
+## Start here
 
-**[PCTR](packages/pctr/)** — Protected Consequence Trust Routing — maps every agent, tool and action in your project to the consequences it can reach, then protects the ones that matter. It answers three questions, in this order:
+**TTP — Trust Transfer Protocol** is the open protocol layer for evaluating trust across agents, tools, and delegated execution chains. It does not replace identity or authorization, and TTP alone does not enforce an action at the effect boundary.
+
+The fastest way to inspect the reference implementation is to clone the repository and run its local demo. This demo is for local, non-production evaluation; read [Security](#security) before using any component to protect real actions.
+
+```bash
+git clone https://github.com/BlockSiFr/ttp-protocol.git
+cd ttp-protocol
+npm install
+npm run demo
+```
+
+**PCTR** — Protected Consequence Trust Routing — is the companion developer-facing tool. It maps agents, tools, and actions to the consequences they can reach, then evaluates which routes and controls are appropriate. It answers three questions, in this order:
 
 | | Question | Command |
 | --- | --- | --- |
@@ -68,8 +77,8 @@ PCTR routes to the consequence. TTP binds the authority for the exact execution 
 
 **BlockSiFr Control** is the commercial product for production enforcement, in the
 **Execution Control Infrastructure** category, powered by **Consequence Intelligence**.
-TTP and PCTR are the open protocol layer beneath it, Apache-2.0, and stay that way — see
-[NOTICE](NOTICE) for the royalty-free grant.
+TTP and PCTR are the open protocol and reference-tooling layers beneath it, Apache-2.0,
+and stay that way — see [NOTICE](NOTICE) for the royalty-free grant.
 
 **Public launch: January 6, 2027. Early access is open now** for organizations, builders,
 design partners and strategic partners: [hello@blocksifr.com](mailto:hello@blocksifr.com).
@@ -190,17 +199,21 @@ Bring your existing agents — no rewrite, no IdP replacement. TTP wraps the bou
 
 ## Quickstart
 
-```bash
-git clone https://github.com/BlockSiFr/ttp-protocol.git
-cd ttp-protocol
-npm install
-npm test
+Run the local demo first to see the reference implementation's behavior:
 
-# evaluate the reference examples
-npm run ttp -- check examples/01-basic-agent.ttp
-npm run ttp -- eval  examples/02-trust-decay.ttp --subject agent:invoice_reviewer --at now
+```bash
 npm run demo
 ```
+
+Then run the test suite and inspect the protocol examples:
+
+```bash
+npm test
+npm run ttp -- check examples/01-basic-agent.ttp
+npm run ttp -- eval examples/02-trust-decay.ttp --subject agent:invoice_reviewer --at now
+```
+
+The demo and examples show reference behavior, not a production deployment or independent security certification.
 
 `check` validates a `.ttp` file; `eval` evaluates a subject's trust at a point in time; `demo` prints reference decisions, trust scores, and `ExecutionReceipt` identifiers for local, non-production scenarios.
 
@@ -225,7 +238,7 @@ Open-source TTP includes the protocol grammar, trustworthiness semantics, the tr
 
 ## Security
 
-TTP is a protocol draft and reference implementation. **Do not use `cleartext-dev` proof mode in production.** Production trust establishment and enforcement require a trusted issuer registry, signed claims, replay protection, clock integrity, key rotation, tenant isolation, fail-closed enforcement, receipt signing, and audit retention. See [SECURITY.md](SECURITY.md) and [THREAT_MODEL.md](THREAT_MODEL.md).
+TTP is a protocol draft and reference implementation. **Do not use `cleartext-dev` proof mode in production.** Production trust establishment and enforcement require a trusted issuer registry, signed claims, replay protection, clock integrity, key rotation, tenant isolation, fail-closed enforcement, receipt signing, and audit retention. See [SECURITY.md](SECURITY.md), [THREAT_MODEL.md](THREAT_MODEL.md), and the [implementation-status matrix](docs/IMPLEMENTATION_STATUS.md) for the distinction between reference behavior, deployment requirements, and future hardening.
 
 ## Contributing
 
