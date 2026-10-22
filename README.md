@@ -77,8 +77,8 @@ PCTR routes to the consequence. TTP binds the authority for the exact execution 
 
 **BlockSiFr Control** is the commercial product for production enforcement, in the
 **Execution Control Infrastructure** category, powered by **Consequence Intelligence**.
-TTP and PCTR are the open protocol layer beneath it, Apache-2.0, and stay that way — see
-[NOTICE](NOTICE) for the royalty-free grant.
+TTP and PCTR are the open protocol and reference-tooling layers beneath it, Apache-2.0,
+and stay that way — see [NOTICE](NOTICE) for the royalty-free grant.
 
 **Public launch: January 6, 2027. Early access is open now** for organizations, builders,
 design partners and strategic partners: [hello@blocksifr.com](mailto:hello@blocksifr.com).
