@@ -1,203 +1,187 @@
 name: TTP / Governed Execution Proof
 
+# pull_request_target intentionally runs the base-branch version of this
+# workflow. NEVER checkout, eval, source, or execute PR-controlled content here.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   govern:
-    name: Governed Execution
+    name: Governed Execution (trusted workflow only)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
+    timeout-minutes: 10
     outputs:
       decision: ${{ steps.authorize.outputs.decision }}
-      receipt:  ${{ steps.authorize.outputs.receipt }}
-
+      receipt: ${{ steps.authorize.outputs.receipt }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changes
-        id: changes
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-
-          git diff --name-only "$BASE" "$HEAD" > changed.txt || true
-
-          echo "Changed files:"
-          cat changed.txt || true
-
-          PATHS_JSON=$(jq -Rsc 'split("\n") | map(select(length > 0))' changed.txt)
-          echo "paths=$PATHS_JSON" >> "$GITHUB_OUTPUT"
-
-          FILE_COUNT=$(wc -l < changed.txt | tr -d ' ')
-          echo "count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
-
-      - name: Authorize execution
+      - name: Enumerate PR changes and request runtime authority
         id: authorize
-        env:
-          AUTH_URL:   ${{ secrets.RUNTIME_AUTH_URL }}
-          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
         run: |
           set -euo pipefail
+          umask 077
+          fail() { echo "TTP DENY: $*" >&2; exit 1; }
 
-          if [ ! -s changed.txt ]; then
-            echo "No changes detected; emitting local deny receipt."
-            echo "decision=DENY" >> "$GITHUB_OUTPUT"
-            echo "receipt=local-noop-receipt" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          # Do not run any script, action, or binary from the PR checkout.
+          # Parse GitHub's event JSON as data, never interpolate it into shell.
+          PR_NUMBER=$(jq -er '.pull_request.number | select(type == "number" and . > 0)' "$GITHUB_EVENT_PATH")
+          HEAD_SHA=$(jq -er '.pull_request.head.sha | select(type == "string" and test("^[0-9a-fA-F]{40}$"))' "$GITHUB_EVENT_PATH")
+          PR_BRANCH=$(jq -er '.pull_request.head.ref | select(type == "string" and length > 0)' "$GITHUB_EVENT_PATH")
+          [[ "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail 'invalid repository identifier'
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]] || fail 'invalid workflow run identifier'
+          [[ -n "${GH_TOKEN:-}" ]] || fail 'GitHub API token unavailable'
+
+          WORK=$(mktemp -d)
+          trap 'rm -rf "$WORK"' EXIT
+          : > "$WORK/pages.jsonl"
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files"
+          COMPLETE=false
+          for PAGE in $(seq 1 30); do
+            curl --fail --silent --show-error --retry 2 \
+              --connect-timeout 10 --max-time 30 --proto '=https' \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              "$API?per_page=100&page=$PAGE" > "$WORK/page.json" \
+              || fail "could not enumerate PR files (page $PAGE)"
+            jq -e 'type == "array" and all(.[]; .filename | type == "string")' \
+              "$WORK/page.json" > /dev/null || fail 'invalid PR-files API response'
+            jq -c . "$WORK/page.json" >> "$WORK/pages.jsonl"
+            COUNT=$(jq length "$WORK/page.json")
+            if (( COUNT < 100 )); then COMPLETE=true; break; fi
+          done
+          [[ "$COMPLETE" == true ]] || fail 'file enumeration at API limit; refuse partial authorization'
+
+          # Include both old and new names for renamed paths; deny empty lists.
+          jq -sc '[.[][] | .filename, .previous_filename?] | map(select(type == "string")) | unique' \
+            "$WORK/pages.jsonl" > "$WORK/paths.json"
+          PATH_COUNT=$(jq length "$WORK/paths.json")
+          (( PATH_COUNT > 0 )) || fail 'no changed paths; cannot establish authorized action'
+
+          # Changed security policy/workflow files require explicit step-up,
+          # even if an authority service mistakenly returns PERMIT.
+          PROTECTED=$(jq -r '
+            any(.[]; test("^(\\.github/(workflows/|scripts/)|policy(/|$)|services/authority(/|$)|receipts/schemas(/|$)|ttp-language(\\.md)?$)"))
+          ' "$WORK/paths.json")
+
+          # Fail closed. GitHub does not provide these repo secrets to fork PRs.
+          [[ -n "${AUTH_URL:-}" && -n "${AUTH_TOKEN:-}" ]] || \
+            fail 'RUNTIME_AUTH_URL or RUNTIME_AUTH_TOKEN missing; no local authorization fallback'
+          [[ "$AUTH_URL" == https://* ]] || fail 'runtime authority must use HTTPS'
 
           jq -n \
-            --arg repo   "${{ github.repository }}" \
-            --arg actor  "${{ github.actor }}" \
-            --arg pr     "${{ github.event.pull_request.number }}" \
-            --arg sha    "${{ github.event.pull_request.head.sha }}" \
-            --arg branch "${{ github.head_ref }}" \
-            --arg run_id "${{ github.run_id }}" \
-            --argjson paths '${{ steps.changes.outputs.paths }}' \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg actor "$GITHUB_ACTOR" \
+            --arg pr "$PR_NUMBER" \
+            --arg sha "$HEAD_SHA" \
+            --arg branch "$PR_BRANCH" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --slurpfile paths "$WORK/paths.json" \
             '{
               subject: "wi://github/actions/runner",
               action: "pull_request.execute",
               resource: ("repo:" + $repo + ":pr/" + $pr),
-              repo: $repo,
-              branch: $branch,
-              commitSha: $sha,
-              workflowRunId: $run_id,
-              actor: $actor,
-              invokingActor: $actor,
-              trustScore: 0.95,
-              freshnessSeconds: 60,
-              attestationRef: "att://github/actions/local-fallback",
-              authorityGrantRef: "grant://github/pull-request-review",
-              pathsTouched: $paths,
-              context: {
-                event: "pull_request",
-                repo: $repo
-              }
-            }' > request.json
+              repo: $repo, branch: $branch, commitSha: $sha,
+              workflowRunId: $run_id, actor: $actor,
+              invokingActor: $actor, pathsTouched: $paths[0],
+              context: {event: "pull_request", repo: $repo}
+            }' > "$WORK/request.json"
 
-          echo "Authorization request:"
-          cat request.json
+          curl --fail --silent --show-error --retry 1 \
+            --connect-timeout 10 --max-time 40 --proto '=https' \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -X POST "${AUTH_URL%/}/re/authorize" \
+            --data-binary @"$WORK/request.json" \
+            -o "$WORK/response.json" \
+            || fail 'runtime authority unreachable or rejected request'
 
-          if [ -z "${AUTH_URL:-}" ] || [ -z "${AUTH_TOKEN:-}" ]; then
-            echo "Runtime authority endpoint is not configured; using local non-production receipt."
-            node .github/scripts/ttp-local-authorize.mjs request.json response.json
-          else
-            HTTP_CODE=$(curl -sS \
-              -o response.json \
-              -w "%{http_code}" \
-              -H "Authorization: Bearer $AUTH_TOKEN" \
-              -H "Content-Type: application/json" \
-              -X POST "$AUTH_URL/re/authorize" \
-              -d @request.json)
+          # Structural checks and request binding; cryptographic receipt proof
+          # remains the responsibility of the trusted runtime authority.
+          jq -e \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg sha "$HEAD_SHA" \
+            --arg run "$GITHUB_RUN_ID" \
+            --arg pr "$PR_NUMBER" \
+            --slurpfile paths "$WORK/paths.json" '
+              (.decision == "PERMIT" or .decision == "STEP_UP" or .decision == "DENY") and
+              (.receiptId | type == "string" and length > 0) and
+              (.receipt | type == "object") and
+              (.receipt.receiptId == .receiptId) and
+              (.receipt.decision == .decision) and
+              (.receipt.repo == $repo) and
+              (.receipt.commitSha == $sha) and
+              (.receipt.workflowRunId == $run) and
+              (.receipt.action == "pull_request.execute") and
+              (.receipt.resource == ("repo:" + $repo + ":pr/" + $pr)) and
+              (.receipt.pathsTouched == $paths[0])
+            ' "$WORK/response.json" > /dev/null \
+            || fail 'invalid or incorrectly bound runtime authority receipt'
 
-            echo "HTTP status: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Authority endpoint returned HTTP $HTTP_CODE; using local non-production deny receipt."
-              node .github/scripts/ttp-local-authorize.mjs request.json response.json
-            fi
+          DECISION=$(jq -r .decision "$WORK/response.json")
+          RECEIPT=$(jq -r .receiptId "$WORK/response.json")
+          [[ "$RECEIPT" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail 'invalid receipt identifier'
+          if [[ "$PROTECTED" == true && "$DECISION" == PERMIT ]]; then
+            fail 'protected authority/policy paths require STEP_UP, not direct PERMIT'
           fi
-
-          echo "Authority response:"
-          cat response.json
-
-          DECISION=$(jq -r '.decision // "DENY"' response.json)
-          RECEIPT=$(jq -r '.receiptId // .receipt.receiptId // ""' response.json)
-
-          if [ -z "$RECEIPT" ]; then
-            echo "Authority response did not include receiptId; using local missing-receipt marker."
-            RECEIPT="local-missing-receipt"
-          fi
-
-          echo "Decision: $DECISION"
-          echo "Receipt:  $RECEIPT"
-
-          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
-          echo "receipt=$RECEIPT" >> "$GITHUB_OUTPUT"
+          printf 'decision=%s\nreceipt=%s\n' "$DECISION" "$RECEIPT" >> "$GITHUB_OUTPUT"
+          echo "TTP authority response accepted: decision=$DECISION receipt=$RECEIPT"
 
   step-up:
-    name: Step-Up Approval
+    name: Protected-Execution Approval
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: govern
-    if: needs.govern.outputs.decision == 'STEP_UP'
+    if: ${{ needs.govern.result == 'success' && needs.govern.outputs.decision == 'STEP_UP' }}
     environment:
       name: protected-execution
     steps:
-      - name: Manual authorization granted
+      - name: Record protected environment approval
+        shell: bash
+        env:
+          RECEIPT_ID: ${{ needs.govern.outputs.receipt }}
         run: |
-          echo "Manual authorization granted via environment gate."
-          echo "Receipt: ${{ needs.govern.outputs.receipt }}"
+          set -euo pipefail
+          [[ -n "$RECEIPT_ID" ]] || exit 1
+          echo 'Protected environment approval completed.'
 
   enforce:
     name: Enforce Authority Decision
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [govern, step-up]
-    if: always()
+    if: ${{ always() }}
+    env:
+      GOVERN_RESULT: ${{ needs.govern.result }}
+      DECISION: ${{ needs.govern.outputs.decision }}
+      RECEIPT_ID: ${{ needs.govern.outputs.receipt }}
+      STEP_UP_RESULT: ${{ needs.step-up.result }}
     steps:
-      - name: Enforce authority decision
+      - name: Fail closed unless trusted authority permitted execution
         shell: bash
         run: |
           set -euo pipefail
-
-          DECISION="${{ needs.govern.outputs.decision }}"
-          RECEIPT="${{ needs.govern.outputs.receipt }}"
-          STEP_UP_RESULT="${{ needs.step-up.result }}"
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  TTP / Governed Execution Enforcement"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Decision : $DECISION"
-          echo "  Receipt  : ${RECEIPT:-<none>}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          if [ -z "$RECEIPT" ]; then
-            echo ""
-            echo "Missing receipt — hard deny."
-            echo "Every governed execution requires a verifiable receipt."
-            exit 1
-          fi
-
-          if [ "$RECEIPT" = "local-noop-receipt" ]; then
-            echo "No governed file changes detected; policy gate is a no-op for this PR."
-            exit 0
-          fi
-
-          if [ "$RECEIPT" = "local-missing-receipt" ]; then
-            echo "Authority response was missing a receipt; deny."
-            exit 1
-          fi
-
+          [[ "$GOVERN_RESULT" == success ]] || { echo 'TTP DENY: governance failed'; exit 1; }
+          [[ "$RECEIPT_ID" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || { echo 'TTP DENY: invalid receipt'; exit 1; }
           case "$DECISION" in
             PERMIT)
-              echo "Execution permitted."
-              exit 0
+              echo "TTP PERMIT: $RECEIPT_ID"
               ;;
             STEP_UP)
-              if [ "$STEP_UP_RESULT" = "success" ]; then
-                echo "Step-up approval granted. Execution permitted."
-                exit 0
-              fi
-              echo "Step-up approval required."
-              exit 1
-              ;;
-            DENY)
-              if [[ "$RECEIPT" == er-* ]]; then
-                echo "Local authority produced a deny receipt for review."
-              fi
-              echo "Execution denied."
-              exit 1
+              [[ "$STEP_UP_RESULT" == success ]] || { echo 'TTP DENY: step-up not approved'; exit 1; }
+              echo "TTP STEP_UP approved: $RECEIPT_ID"
               ;;
             *)
-              echo "Unknown authority decision: $DECISION"
+              echo 'TTP DENY: no affirmative authority decision'
               exit 1
               ;;
           esac
