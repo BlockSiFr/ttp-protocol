@@ -8,7 +8,7 @@ TTP is in a specification-first, implementation-seeding phase. The immediate obj
 - Publish core specification.
 - Add `.ttp` examples.
 - Add threat model and security policy.
-- Clarify TTP, SCIM-RE, RAP, Execution Exchange, FrontDesk, and VerifiedTrust boundaries.
+- Clarify TTP, SCIM-RE, RAP, Execution Exchange, BlockSiFr Control and CortexTrace boundaries.
 - Remove language that implies production readiness or complete governance coverage.
 
 ## Phase 1 - MVP Parser/Evaluator
