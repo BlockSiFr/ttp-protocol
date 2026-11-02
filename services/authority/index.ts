@@ -1,9 +1,33 @@
 import http from "node:http"
-import { randomUUID } from "node:crypto"
+import { randomUUID, timingSafeEqual } from "node:crypto"
 import { AuthorizeRequest, Decision, DecisionContext, ExecutionReceipt } from "./schemas"
 import { finalizeReceipt } from "./receiptSigner"
 import { isProtectedPath, loadProtectedPolicy } from "./policyLoader"
 
+const runtimeToken = process.env.RUNTIME_AUTH_TOKEN
+if (!runtimeToken || Buffer.byteLength(runtimeToken) < 32) {
+  throw new Error("RUNTIME_AUTH_TOKEN must be configured with at least 32 bytes")
+}
+if (!process.env.RECEIPT_HMAC_SECRET || Buffer.byteLength(process.env.RECEIPT_HMAC_SECRET) < 32) {
+  throw new Error("RECEIPT_HMAC_SECRET must be configured with at least 32 bytes")
+}
+function validBearer(header: string | undefined): boolean {
+  const input = Buffer.from(header ?? "")
+  const expected = Buffer.from(`Bearer ${runtimeToken}`)
+  return input.length === expected.length && timingSafeEqual(input, expected)
+}
+function safeRequest(body: unknown): body is AuthorizeRequest {
+  if (!body || typeof body !== "object") return false
+  const r = body as Partial<AuthorizeRequest>
+  return typeof r.subject === "string" && r.subject.length > 0 &&
+    typeof r.action === "string" && typeof r.resource === "string" &&
+    typeof r.repo === "string" && typeof r.branch === "string" &&
+    typeof r.commitSha === "string" && /^[0-9a-f]{40}$/i.test(r.commitSha) &&
+    typeof r.workflowRunId === "string" && /^[0-9]+$/.test(r.workflowRunId) &&
+    typeof r.invokingActor === "string" && Array.isArray(r.pathsTouched) &&
+    r.pathsTouched.length > 0 && r.pathsTouched.length < 3001 &&
+    r.pathsTouched.every(p => typeof p === "string" && p.length > 0 && p.length < 4096)
+}
 const receipts = new Map<string, ExecutionReceipt>()
 let lastHash: string | null = null
 
@@ -22,10 +46,12 @@ function riskClass(req: AuthorizeRequest, protectedPaths: string[]): DecisionCon
 
 function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: Decision; reason: string; context: DecisionContext } {
   const protectedAction = req.pathsTouched.some(p => isProtectedPath(p, protectedPaths))
-  const trustScore = req.trustScore ?? 0.5
-  const freshness = req.freshnessSeconds ?? 9999
+  // Caller-supplied trust, freshness and grant references are only assertions.
+  // Until a trusted issuer/registry is integrated, they may not establish authority.
+  const trustScore = 0
+  const freshness = 9999
   const attestationValid = freshness <= 900
-  const grantValid = Boolean(req.authorityGrantRef)
+  const grantValid = false // Must be independently verified against issuer-controlled grant registry.
 
   const risk = riskClass(req, protectedPaths)
 
@@ -129,12 +155,18 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, { ok: true })
   }
 
+  if (!validBearer(req.headers.authorization)) {
+    return json(res, 401, { error: "UNAUTHORIZED" })
+  }
+
   if (req.method === "POST" && url.pathname === "/trust/attest") {
     return json(res, 200, { status: "accepted", attestationRef: `att-${randomUUID()}` })
   }
 
   if (req.method === "POST" && url.pathname === "/re/authorize") {
-    const body = await parseBody(req) as AuthorizeRequest
+    let body: unknown
+    try { body = await parseBody(req) } catch { return json(res, 400, { error: "INVALID_JSON" }) }
+    if (!safeRequest(body)) return json(res, 400, { error: "INVALID_REQUEST" })
     const { decision, reason, context } = decide(body, protectedPaths)
 
     const receiptBase: Omit<ExecutionReceipt, "signature" | "chainHash"> = {
