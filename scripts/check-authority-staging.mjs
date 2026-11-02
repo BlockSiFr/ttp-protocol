@@ -40,6 +40,20 @@ const binary=path.join(compiled,'index.js');
 assert.ok(fs.existsSync(binary),'compiled authority entry missing');
 const require=createRequire(import.meta.url);
 const {assessApprovalHistory}=require(path.join(compiled,'approvalVerifier.js'));
+const {consumeStepUpReceipt}=require(path.join(compiled,'replayLedger.js'));
+const replayDir=path.join(tmp,'durable-ledger');
+assert.equal(consumeStepUpReceipt('step-up-fixture',replayDir).accepted,true,
+  'first step-up redemption can be durably recorded');
+assert.equal(consumeStepUpReceipt('step-up-fixture',replayDir).reason,'STEP_UP_ALREADY_CONSUMED',
+  'second attempt is denied');
+assert.equal(consumeStepUpReceipt('step-up-other',replayDir).accepted,true);
+assert.equal(consumeStepUpReceipt('step-up-new','relative/path').accepted,false,
+  'relative or operator-unconfigured store denied');
+const restartProbe=spawnSync(process.execPath,['-e',
+  'const r=require(process.argv[1]); if(r.consumeStepUpReceipt("step-up-fixture",process.argv[2]).accepted) process.exit(7)',
+  path.join(compiled,'replayLedger.js'),replayDir],{cwd:root,timeout:10000});
+assert.equal(restartProbe.status,0,'a separate process cannot redeem the same STEP_UP receipt');
+
 const claimed={
   repo:'BlockSiFr/ttp-protocol',workflowRunId:'111222333',
   commitSha:'a'.repeat(40),branch:'cfav-synthetic-branch',
