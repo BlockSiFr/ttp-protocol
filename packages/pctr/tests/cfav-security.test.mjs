@@ -58,6 +58,11 @@ test('CFAV: a sensitive read is never downgraded by a read verb or manifest hint
   assert.equal(g.nodes.get('vault.read').severity,'CRITICAL');
   assert.equal(g.nodes.get('vault.read').consequence,'SECRET_EXPOSED');
   assert.equal(classifyAction('payments.status').consequence,'DATA_READ');
+  for(const action of ['payments.transfer','customers.delete','secret.get']){
+    const result=classifyAction(action,{consequence:'NONE',severity:'LOW'});
+    assert.notEqual(result.consequence,'NONE');
+    assert.ok(['HIGH','CRITICAL'].includes(result.severity));
+  }
 });
 test('CFAV: no unsigned or self-supplied measurements authorize a high-risk real effect',async()=>{
   let called=0;
