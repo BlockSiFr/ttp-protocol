@@ -3,6 +3,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto"
 import { AuthorizeRequest, Decision, DecisionContext, ExecutionReceipt } from "./schemas"
 import { finalizeReceipt } from "./receiptSigner"
 import { isProtectedPath, loadProtectedPolicy } from "./policyLoader"
+import { verifyIndependentGithubApproval } from "./approvalVerifier"
 
 const runtimeToken = process.env.RUNTIME_AUTH_TOKEN
 if (!runtimeToken || Buffer.byteLength(runtimeToken) < 32) {
@@ -51,9 +52,18 @@ function safeRequest(body: unknown): body is AuthorizeRequest {
     typeof r.workflowRunId === "string" && /^[0-9]+$/.test(r.workflowRunId) &&
     typeof r.invokingActor === "string" && Array.isArray(r.pathsTouched) &&
     r.pathsTouched.length > 0 && r.pathsTouched.length < 3001 &&
-    r.pathsTouched.every(p => typeof p === "string" && p.length > 0 && p.length < 4096)
+    r.pathsTouched.every(p => typeof p === "string" && p.length > 0 && p.length < 4096) &&
+    (r.approval == null || (
+      typeof r.approval === "object" &&
+      typeof r.approval.approved === "boolean" &&
+      typeof r.approval.approvedBy === "string" &&
+      r.approval.approvedBy.length > 0 && r.approval.approvedBy.length <= 128 &&
+      typeof r.approval.environment === "string"
+    ))
 }
 const receipts = new Map<string, ExecutionReceipt>()
+// Single-process replay guard; production needs a transactional persistent store.
+const consumedStepUpReceipts = new Set<string>()
 let lastHash: string | null = null
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
@@ -69,7 +79,7 @@ function riskClass(req: AuthorizeRequest, protectedPaths: string[]): DecisionCon
   return "low"
 }
 
-function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: Decision; reason: string; context: DecisionContext } {
+async function decide(req: AuthorizeRequest, protectedPaths: string[]): Promise<{ decision: Decision; reason: string; context: DecisionContext }> {
   const protectedAction = req.pathsTouched.some(p => isProtectedPath(p, protectedPaths))
   // Never trust caller-supplied scores or freshness. Resolve the exact grant
   // from operator-provisioned state. Missing/stale/revoked grants fail closed.
@@ -148,12 +158,29 @@ function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: De
         Date.parse(prior.timestamp) > Date.now()) {
       return { decision: "DENY", reason: "prior_receipt_binding_or_freshness_mismatch", context }
     }
-    if (!req.approval?.approved || !req.approval.approvedBy) {
+    if (!req.approval?.approved || !req.approval.approvedBy ||
+        req.approval.environment !== "protected-execution") {
       return { decision: "DENY", reason: "step_up_approval_missing", context }
+    }
+    // GitHub's independently retrieved review history and current PR identity
+    // must corroborate caller claims before issuing any new permit.
+    const approvalProof = await verifyIndependentGithubApproval({
+      repo: req.repo, workflowRunId: req.workflowRunId,
+      commitSha: req.commitSha, branch: req.branch, resource: req.resource,
+      invokingActor: req.invokingActor, reviewer: req.approval.approvedBy
+    })
+    if (!approvalProof.verified) {
+      return { decision: "DENY", reason: approvalProof.reason, context }
+    }
+    if (consumedStepUpReceipts.has(req.priorReceiptId)) {
+      return { decision: "DENY", reason: "STEP_UP_ALREADY_CONSUMED", context }
     }
     if (!context.trust.attestationValid) {
       return { decision: "ESCALATE", reason: "stale_attestation_after_step_up", context }
     }
+    // Atomic against concurrent requests in this process: no await after check.
+    // A persistent transactional implementation remains a production gate.
+    consumedStepUpReceipts.add(req.priorReceiptId)
     return { decision: "PERMIT", reason: "step_up_approved_reauthorize_permit", context }
   }
 
@@ -215,7 +242,7 @@ const server = http.createServer(async (req, res) => {
     let body: unknown
     try { body = await parseBody(req) } catch { return json(res, 400, { error: "INVALID_JSON" }) }
     if (!safeRequest(body)) return json(res, 400, { error: "INVALID_REQUEST" })
-    const { decision, reason, context } = decide(body, protectedPaths)
+    const { decision, reason, context } = await decide(body, protectedPaths)
 
     const receiptBase: Omit<ExecutionReceipt, "signature" | "chainHash"> = {
       receiptId: `er-${randomUUID()}`,
