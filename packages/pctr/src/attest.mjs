@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { verify_attestation, prove_trust_threshold } from '../../../src/index.mjs';
 import { aggregateTrust, scoreLabel, DEFAULT_PARAMS, INSUFFICIENT_TRUST_DATA } from './aggregate.mjs';
 import { TRUST_REQUIRED, MAX_EVIDENCE_AGE_SECONDS } from './trust.mjs';
+import { verifyReceipt } from './receipt.mjs';
 
 // MEASURED TRUST.
 //
@@ -102,7 +103,9 @@ function runCommand(command, args, context, { cwd, timeoutMs }) {
  */
 export async function attestAgent(agent, {
   receipts = [], attestors = [], severity = 'MEDIUM', at = new Date().toISOString(),
-  cwd = process.cwd(), params = {}
+  cwd = process.cwd(), params = {}, trustedReceiptKeyIds = [], trustedReceiptPublicKey = null,
+  trustedIssuerKeys = {}, allowUnsignedDevelopmentReceipts = false,
+  allowUnsignedDevelopmentAttestations = false
 } = {}) {
   const now = new Date(at).getTime();
   const maxAge = MAX_EVIDENCE_AGE_SECONDS[severity] ?? DEFAULT_PARAMS.receipt_window_s;
@@ -111,7 +114,14 @@ export async function attestAgent(agent, {
   const errors = [];
 
   // Source 1: PCTR's own execution receipts.
-  collected.push(...behaviouralReceipts(agent.id, receipts));
+  const admittedReceipts = allowUnsignedDevelopmentReceipts ? receipts : receipts.filter((receipt) => {
+    const proof = verifyReceipt(receipt, { publicKey: trustedReceiptPublicKey, trustedKeyIds: trustedReceiptKeyIds });
+    return proof.valid && proof.signerVerified && receipt.issuedAt &&
+      Number.isFinite(Date.parse(receipt.issuedAt)) &&
+      Date.parse(receipt.issuedAt) <= now &&
+      now - Date.parse(receipt.issuedAt) <= maxAge * 1000;
+  });
+  collected.push(...behaviouralReceipts(agent.id, admittedReceipts));
 
   // Source 2: configured attestors.
   for (const spec of attestors) {
@@ -123,7 +133,9 @@ export async function attestAgent(agent, {
       const verified = verify_attestation({
         attestation, subject: agent.id, validAt: at,
         maxAge: attestation.maxAge ?? maxAge,
-        requiredIssuer: attestation.requiredIssuer, requiredType: attestation.requiredType
+        requiredIssuer: attestation.requiredIssuer, requiredType: attestation.requiredType,
+        verificationMode: allowUnsignedDevelopmentAttestations ? 'cleartext-dev' : 'signed',
+        trustedIssuerKeys
       });
       attestationResults.push({ ...verified, source: result.source });
       if (!verified.valid) continue;
@@ -136,8 +148,16 @@ export async function attestAgent(agent, {
         timestamp: new Date(attestation.issuedAt).getTime()
       });
     }
+    // Arbitrary plugin-returned receipt scores are not trusted evidence.
+    // Signed TTP execution receipts must be verified against pinned keys.
     for (const r of result.receipts) {
-      collected.push({ receipt_id: r.receipt_id ?? r.receiptId, issuer_id: r.issuer_id ?? result.source, score: r.score, timestamp: r.timestamp ?? now });
+      if (allowUnsignedDevelopmentReceipts) {
+        collected.push({ receipt_id: r.receipt_id ?? r.receiptId, issuer_id: r.issuer_id ?? result.source, score: r.score, timestamp: r.timestamp ?? now });
+      } else {
+        const proof = verifyReceipt(r, { publicKey: trustedReceiptPublicKey, trustedKeyIds: trustedReceiptKeyIds });
+        if (!proof.valid || !proof.signerVerified) continue;
+        collected.push(...behaviouralReceipts(agent.id, [r]));
+      }
     }
   }
 
@@ -183,12 +203,18 @@ export function proveThreshold(measurement, severity, { at = new Date().toISOStr
 
 // Measure every agent in a graph, and say plainly which ones are running on a number
 // somebody typed rather than on evidence.
-export async function attestGraph(graph, { receipts = [], attestors = {}, severity = 'MEDIUM', at, cwd } = {}) {
+export async function attestGraph(graph, {
+  receipts = [], attestors = {}, severity = 'MEDIUM', at, cwd,
+  trustedReceiptKeyIds = [], trustedReceiptPublicKey = null, trustedIssuerKeys = {},
+  allowUnsignedDevelopmentReceipts = false, allowUnsignedDevelopmentAttestations = false
+} = {}) {
   const agents = [...graph.nodes.values()].filter((n) => n.type === 'agent');
   const measurements = [];
   for (const agent of agents) {
     measurements.push(await attestAgent(agent, {
-      receipts, attestors: attestors[agent.id] ?? attestors['*'] ?? [], severity, at, cwd
+      receipts, attestors: attestors[agent.id] ?? attestors['*'] ?? [], severity, at, cwd,
+      trustedReceiptKeyIds, trustedReceiptPublicKey, trustedIssuerKeys,
+      allowUnsignedDevelopmentReceipts, allowUnsignedDevelopmentAttestations
     }));
   }
   return {

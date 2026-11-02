@@ -68,7 +68,7 @@ test('a protected consequence will not route through unmeasured trust', () => {
 
 test('measured trust replaces the declared number when evidence exists', async () => {
   const receipts = Array.from({ length: 5 }, () => receipt());
-  const m = await attestAgent({ id: 'agent', trust: 0.99 }, { receipts, at: now, severity: 'HIGH' });
+  const m = await attestAgent({ id: 'agent', trust: 0.99 }, { receipts, at: now, severity: 'HIGH', allowUnsignedDevelopmentReceipts: true });
   assert.equal(m.proven, true);
   assert.ok(m.trust > 0.9 && m.trust <= 1, `clean history should measure high, got ${m.trust}`);
 
@@ -82,7 +82,7 @@ test('misbehaviour drags measured trust below what the manifest claims', async (
     ...Array.from({ length: 4 }, () => receipt()),
     receipt({ verifier: { decision: 'EXECUTION_DENIED', failures: [{ code: 'INSUFFICIENT_AUTHORITY' }] } })
   ];
-  const m = await attestAgent({ id: 'agent', trust: 0.99 }, { receipts, at: now, severity: 'HIGH' });
+  const m = await attestAgent({ id: 'agent', trust: 0.99 }, { receipts, at: now, severity: 'HIGH', allowUnsignedDevelopmentReceipts: true });
   assert.ok(m.drift < -0.1, `expected the overstatement to show, drift was ${m.drift}`);
   assert.ok(m.trust < 0.99);
 });
@@ -109,7 +109,7 @@ test('an external attestor contributes verified attestations only', async () => 
         score: 1.0, issuedAt: '${ago(5)}', expiresAt: '${ago(-3600)}', claims: {} }
     ] });
   `);
-  const m = await attestAgent({ id: 'agent', trust: 0.5 }, { receipts: [], attestors: [file], at: now, severity: 'HIGH', cwd: dir });
+  const m = await attestAgent({ id: 'agent', trust: 0.5 }, { receipts: [], attestors: [file], at: now, severity: 'HIGH', cwd: dir, allowUnsignedDevelopmentAttestations: true });
 
   assert.equal(m.proven, true);
   const valid = m.attestations.filter((a) => a.valid);
@@ -121,7 +121,7 @@ test('an external attestor contributes verified attestations only', async () => 
 });
 
 test('a threshold proof is a TTP artefact carrying its evidence', async () => {
-  const m = await attestAgent({ id: 'agent', trust: 0.99 }, { receipts: Array.from({ length: 3 }, () => receipt()), at: now, severity: 'HIGH' });
+  const m = await attestAgent({ id: 'agent', trust: 0.99 }, { receipts: Array.from({ length: 3 }, () => receipt()), at: now, severity: 'HIGH', allowUnsignedDevelopmentReceipts: true });
   const proof = proveThreshold(m, 'HIGH', { at: now });
   assert.equal(proof.type, 'TrustThresholdProof');
   assert.equal(proof.subject, 'agent');
@@ -143,7 +143,7 @@ test('measuring a whole graph names the agents running on typed-in numbers', asy
       { id: 'ghost', trust: 0.99, authority: ['payments.*'], tools: ['payments'] }
     ]
   });
-  const result = await attestGraph(graph, { receipts: Array.from({ length: 3 }, () => receipt()), at: now, severity: 'HIGH' });
+  const result = await attestGraph(graph, { receipts: Array.from({ length: 3 }, () => receipt()), at: now, severity: 'HIGH', allowUnsignedDevelopmentReceipts: true });
   assert.deepEqual(result.unproven, ['ghost']);
   assert.equal(result.proven, 1);
 });

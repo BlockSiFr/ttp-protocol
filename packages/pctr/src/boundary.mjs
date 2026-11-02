@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { verifyAuthority, createReplayStore } from './authority.mjs';
 
 // THE EFFECT BOUNDARY.
@@ -10,11 +11,27 @@ import { verifyAuthority, createReplayStore } from './authority.mjs';
 
 // Spent nonces must survive a restart, or replay protection lasts only as long as uptime.
 export function persistentReplayStore(file) {
+  // An unreadable, malformed or tampered replay ledger must never be treated as
+  // a fresh empty ledger. Only a genuinely nonexistent file may initialize empty.
   let spent = new Set();
-  try { spent = new Set(JSON.parse(fs.readFileSync(file, 'utf8'))); } catch { /* first run */ }
+  try {
+    const content = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!Array.isArray(content) || !content.every(n => typeof n === 'string' && n.length > 0)) {
+      throw new Error('invalid replay ledger format');
+    }
+    spent = new Set(content);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
   const flush = () => {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify([...spent]));
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    const tmp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify([...spent]), { flag: 'wx', mode: 0o600 });
+      fs.renameSync(tmp, file);
+    } finally {
+      try { fs.unlinkSync(tmp); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+    }
   };
   return {
     seen: (nonce) => spent.has(nonce),
@@ -55,7 +72,10 @@ export function startBoundaryServer({ port = 8787, host = '127.0.0.1', boundary 
       try { parsed = JSON.parse(body); } catch { return send(400, { error: 'invalid JSON' }); }
       const { authority, execution } = parsed ?? {};
       if (!execution) return send(400, { error: 'execution is required: the boundary checks authority against what is actually about to run' });
-      const decision = boundary.verify(authority, execution);
+      let decision;
+      try { decision = boundary.verify(authority, execution); }
+      catch { return send(503, { allowed: false, decision: 'EXECUTION_DENIED',
+        failures: [{ code: 'REPLAY_LEDGER_UNAVAILABLE', message: 'durable replay state could not be verified or persisted' }] }); }
       onDecision?.(decision, { authority, execution });
       // A denial is a successful verification, so it is still 200 with a decision body.
       return send(200, decision);

@@ -19,6 +19,9 @@ export const CONSEQUENCE_CLASSES = {
 
 // The verb decides, not the namespace: payments.status reads, payments.transfer moves
 // money. A read verb in the final segment settles the question before anything else.
+// Sensitive reads are still disclosure-capable, regardless of the final read verb.
+// Do not allow a caller-supplied hint to downgrade these consequences.
+const SENSITIVE_READ = /(?:^|[.\\/_:-])(?:secret|secrets|credential|credentials|token|tokens|apikey|api_key|private_key|password|vault)(?:$|[.\\/_:-])/i;
 const READ_VERB = /(?:^|[.\/_:-])(get|list|read|status|search|query|fetch|describe|show|view|count|preview)$/i;
 
 // Ordered: first match wins, so the destructive readings are checked before the mild ones.
@@ -38,14 +41,18 @@ const RULES = [
 ];
 
 export function classifyAction(actionId, hints = {}) {
-  if (hints.consequence && CONSEQUENCE_CLASSES[hints.consequence]) {
-    return decorate(actionId, hints.consequence, hints);
+  let inferred = 'NONE';
+  if (SENSITIVE_READ.test(actionId)) inferred = 'SECRET_EXPOSED';
+  else if (READ_VERB.test(actionId)) inferred = 'DATA_READ';
+  else for (const [pattern, cls] of RULES) {
+    if (pattern.test(actionId)) { inferred = cls; break; }
   }
-  if (READ_VERB.test(actionId)) return decorate(actionId, 'DATA_READ', hints);
-  for (const [pattern, cls] of RULES) {
-    if (pattern.test(actionId)) return decorate(actionId, cls, hints);
-  }
-  return decorate(actionId, 'NONE', hints);
+  // A declared consequence is useful when it raises the floor. An agent or
+  // manifest cannot erase a more severe consequence derived from its action.
+  const declared = CONSEQUENCE_CLASSES[hints.consequence] ? hints.consequence : null;
+  const selected = declared && severityRank(CONSEQUENCE_CLASSES[declared].severity) >
+    severityRank(CONSEQUENCE_CLASSES[inferred].severity) ? declared : inferred;
+  return decorate(actionId, selected, hints);
 }
 
 const RANK = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
@@ -54,7 +61,8 @@ export const maxSeverity = (a, b) => (severityRank(a) >= severityRank(b) ? a : b
 
 function decorate(actionId, cls, hints) {
   const base = CONSEQUENCE_CLASSES[cls];
-  let severity = hints.severity ?? base.severity;
+  // Hints may increase severity but cannot override a higher conservative baseline.
+  let severity = maxSeverity(base.severity, hints.severity ?? base.severity);
   const reversible = hints.reversible ?? base.reversible;
   // Scale and money both raise the stakes beyond the action name itself.
   if (hints.recordsAffected >= 1000 || hints.amount >= 5000) severity = maxSeverity(severity, 'CRITICAL');

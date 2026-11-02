@@ -1,9 +1,58 @@
 import http from "node:http"
-import { randomUUID } from "node:crypto"
+import { randomUUID, timingSafeEqual } from "node:crypto"
 import { AuthorizeRequest, Decision, DecisionContext, ExecutionReceipt } from "./schemas"
 import { finalizeReceipt } from "./receiptSigner"
 import { isProtectedPath, loadProtectedPolicy } from "./policyLoader"
 
+const runtimeToken = process.env.RUNTIME_AUTH_TOKEN
+if (!runtimeToken || Buffer.byteLength(runtimeToken) < 32) {
+  throw new Error("RUNTIME_AUTH_TOKEN must be configured with at least 32 bytes")
+}
+if (!process.env.RECEIPT_HMAC_SECRET || Buffer.byteLength(process.env.RECEIPT_HMAC_SECRET) < 32) {
+  throw new Error("RECEIPT_HMAC_SECRET must be configured with at least 32 bytes")
+}
+interface TrustedGrant {
+  subject: string
+  repo: string
+  action: string
+  branch?: string
+  expiresAt: string
+  trustScore: number
+  verifiedAt: string
+  revoked?: boolean
+}
+const trustedGrants = JSON.parse(process.env.RUNTIME_AUTH_GRANTS_JSON ?? "{}") as Record<string, TrustedGrant>
+function verifiedGrant(req: AuthorizeRequest): TrustedGrant | null {
+  const ref = req.authorityGrantRef
+  if (!ref || !Object.hasOwn(trustedGrants, ref)) return null
+  const grant = trustedGrants[ref]
+  const now = Date.now()
+  if (!grant || grant.revoked || grant.subject !== req.subject || grant.repo !== req.repo) return null
+  if (grant.branch && grant.branch !== req.branch) return null
+  if (grant.action !== req.action &&
+      !(req.action === "merge request reauthorize" && grant.action === "pull_request.execute")) return null
+  if (!Number.isFinite(Date.parse(grant.expiresAt)) || Date.parse(grant.expiresAt) <= now) return null
+  if (!Number.isFinite(Date.parse(grant.verifiedAt)) || Date.parse(grant.verifiedAt) > now) return null
+  if (!Number.isFinite(grant.trustScore) || grant.trustScore < 0 || grant.trustScore > 1) return null
+  return grant
+}
+function validBearer(header: string | undefined): boolean {
+  const input = Buffer.from(header ?? "")
+  const expected = Buffer.from(`Bearer ${runtimeToken}`)
+  return input.length === expected.length && timingSafeEqual(input, expected)
+}
+function safeRequest(body: unknown): body is AuthorizeRequest {
+  if (!body || typeof body !== "object") return false
+  const r = body as Partial<AuthorizeRequest>
+  return typeof r.subject === "string" && r.subject.length > 0 &&
+    typeof r.action === "string" && typeof r.resource === "string" &&
+    typeof r.repo === "string" && typeof r.branch === "string" &&
+    typeof r.commitSha === "string" && /^[0-9a-f]{40}$/i.test(r.commitSha) &&
+    typeof r.workflowRunId === "string" && /^[0-9]+$/.test(r.workflowRunId) &&
+    typeof r.invokingActor === "string" && Array.isArray(r.pathsTouched) &&
+    r.pathsTouched.length > 0 && r.pathsTouched.length < 3001 &&
+    r.pathsTouched.every(p => typeof p === "string" && p.length > 0 && p.length < 4096)
+}
 const receipts = new Map<string, ExecutionReceipt>()
 let lastHash: string | null = null
 
@@ -22,10 +71,13 @@ function riskClass(req: AuthorizeRequest, protectedPaths: string[]): DecisionCon
 
 function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: Decision; reason: string; context: DecisionContext } {
   const protectedAction = req.pathsTouched.some(p => isProtectedPath(p, protectedPaths))
-  const trustScore = req.trustScore ?? 0.5
-  const freshness = req.freshnessSeconds ?? 9999
+  // Never trust caller-supplied scores or freshness. Resolve the exact grant
+  // from operator-provisioned state. Missing/stale/revoked grants fail closed.
+  const grant = verifiedGrant(req)
+  const trustScore = grant?.trustScore ?? 0
+  const freshness = grant ? (Date.now() - Date.parse(grant.verifiedAt)) / 1000 : 9999
   const attestationValid = freshness <= 900
-  const grantValid = Boolean(req.authorityGrantRef)
+  const grantValid = Boolean(grant)
 
   const risk = riskClass(req, protectedPaths)
 
@@ -84,6 +136,18 @@ function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: De
     if (!(prior.decision === "STEP_UP" || prior.decision === "ESCALATE")) {
       return { decision: "DENY", reason: "prior_decision_not_reauthorizable", context }
     }
+    // Reauthorization can never be transplanted to a different PR, commit,
+    // workflow run, branch or changed-file inventory.
+    if (prior.subject !== req.subject || prior.repo !== req.repo ||
+        prior.branch !== req.branch || prior.resource !== req.resource ||
+        prior.workflowRunId !== req.workflowRunId || prior.commitSha !== req.commitSha ||
+        prior.action !== "pull_request.execute" ||
+        JSON.stringify(prior.pathsTouched) !== JSON.stringify(req.pathsTouched) ||
+        !Number.isFinite(Date.parse(prior.timestamp)) ||
+        Date.now() - Date.parse(prior.timestamp) > 600_000 ||
+        Date.parse(prior.timestamp) > Date.now()) {
+      return { decision: "DENY", reason: "prior_receipt_binding_or_freshness_mismatch", context }
+    }
     if (!req.approval?.approved || !req.approval.approvedBy) {
       return { decision: "DENY", reason: "step_up_approval_missing", context }
     }
@@ -109,7 +173,17 @@ function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: De
 function parseBody(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on("data", c => chunks.push(c))
+    let bytes = 0
+    req.on("data", (c: Buffer) => {
+      bytes += c.length
+      if (bytes > 1_048_576) {
+        reject(new Error("REQUEST_TOO_LARGE"))
+        req.destroy()
+        return
+      }
+      chunks.push(c)
+    })
+    req.on("error", reject)
     req.on("end", () => {
       try {
         const raw = Buffer.concat(chunks).toString("utf8") || "{}"
@@ -129,12 +203,18 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, { ok: true })
   }
 
+  if (!validBearer(req.headers.authorization)) {
+    return json(res, 401, { error: "UNAUTHORIZED" })
+  }
+
   if (req.method === "POST" && url.pathname === "/trust/attest") {
     return json(res, 200, { status: "accepted", attestationRef: `att-${randomUUID()}` })
   }
 
   if (req.method === "POST" && url.pathname === "/re/authorize") {
-    const body = await parseBody(req) as AuthorizeRequest
+    let body: unknown
+    try { body = await parseBody(req) } catch { return json(res, 400, { error: "INVALID_JSON" }) }
+    if (!safeRequest(body)) return json(res, 400, { error: "INVALID_REQUEST" })
     const { decision, reason, context } = decide(body, protectedPaths)
 
     const receiptBase: Omit<ExecutionReceipt, "signature" | "chainHash"> = {
@@ -156,7 +236,9 @@ const server = http.createServer(async (req, res) => {
       commitSha: body.commitSha,
       invokingActor: body.invokingActor,
       timestamp: new Date().toISOString(),
-      reason
+      reason,
+      priorReceiptId: body.priorReceiptId,
+      approvalReviewer: body.approval?.approvedBy
     }
 
     const receipt = finalizeReceipt(receiptBase, lastHash)

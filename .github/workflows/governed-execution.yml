@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  actions: read
 
 jobs:
   govern:
@@ -26,6 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
           AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+          GRANT_REF: ${{ secrets.RUNTIME_AUTH_GRANT_REF }}
         run: |
           set -euo pipefail
           umask 077
@@ -74,8 +76,8 @@ jobs:
           ' "$WORK/paths.json")
 
           # Fail closed. GitHub does not provide these repo secrets to fork PRs.
-          [[ -n "${AUTH_URL:-}" && -n "${AUTH_TOKEN:-}" ]] || \
-            fail 'RUNTIME_AUTH_URL or RUNTIME_AUTH_TOKEN missing; no local authorization fallback'
+          [[ -n "${AUTH_URL:-}" && -n "${AUTH_TOKEN:-}" && -n "${GRANT_REF:-}" ]] || \
+            fail 'RUNTIME_AUTH_URL, RUNTIME_AUTH_TOKEN or RUNTIME_AUTH_GRANT_REF missing; no local authorization fallback'
           [[ "$AUTH_URL" == https://* ]] || fail 'runtime authority must use HTTPS'
 
           jq -n \
@@ -85,6 +87,7 @@ jobs:
             --arg sha "$HEAD_SHA" \
             --arg branch "$PR_BRANCH" \
             --arg run_id "$GITHUB_RUN_ID" \
+            --arg grant "$GRANT_REF" \
             --slurpfile paths "$WORK/paths.json" \
             '{
               subject: "wi://github/actions/runner",
@@ -93,6 +96,7 @@ jobs:
               repo: $repo, branch: $branch, commitSha: $sha,
               workflowRunId: $run_id, actor: $actor,
               invokingActor: $actor, pathsTouched: $paths[0],
+              authorityGrantRef: $grant,
               context: {event: "pull_request", repo: $repo}
             }' > "$WORK/request.json"
 
@@ -154,17 +158,115 @@ jobs:
           [[ -n "$RECEIPT_ID" ]] || exit 1
           echo 'Protected environment approval completed.'
 
+  reauthorize:
+    name: Reauthorize After Independent Approval
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [govern, step-up]
+    if: ${{ needs.govern.result == 'success' && needs.govern.outputs.decision == 'STEP_UP' && needs.step-up.result == 'success' }}
+    outputs:
+      decision: ${{ steps.recheck.outputs.decision }}
+      receipt: ${{ steps.recheck.outputs.receipt }}
+    steps:
+      - name: Verify GitHub approval and request fresh execution authority
+        id: recheck
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
+          AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+          GRANT_REF: ${{ secrets.RUNTIME_AUTH_GRANT_REF }}
+          PRIOR_RECEIPT: ${{ needs.govern.outputs.receipt }}
+        run: |
+          set -euo pipefail
+          umask 077
+          fail() { echo "TTP DENY: $*" >&2; exit 1; }
+          [[ "$AUTH_URL" == https://* && -n "$AUTH_TOKEN" && -n "$GRANT_REF" ]] || fail 'missing trusted authority configuration'
+          [[ "$PRIOR_RECEIPT" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail 'missing prior receipt'
+          WORK=$(mktemp -d)
+          trap 'rm -rf "$WORK"' EXIT
+          API="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          ghget() {
+            curl --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-time 30 --retry 2 \
+              -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' \
+              -H "Authorization: Bearer $GH_TOKEN" "$1"
+          }
+          ghget "$API/actions/runs/$GITHUB_RUN_ID/approvals" > "$WORK/approvals.json" ||
+            fail 'GitHub environment approval cannot be verified'
+          APPROVER=$(jq -er --arg author "$GITHUB_ACTOR" '
+            [.[] | select((.state | ascii_downcase) == "approved") |
+             select(any(.environments[]?; .name == "protected-execution")) |
+             select(.user.login != $author) | .user.login] | first // empty
+          ' "$WORK/approvals.json") || fail 'independent reviewer not established'
+          PR_NUMBER=$(jq -er '.pull_request.number | select(type == "number" and . > 0)' "$GITHUB_EVENT_PATH")
+          HEAD_SHA=$(jq -er '.pull_request.head.sha | select(type == "string" and test("^[a-fA-F0-9]{40}$"))' "$GITHUB_EVENT_PATH")
+          PR_BRANCH=$(jq -er '.pull_request.head.ref | select(type == "string" and length > 0)' "$GITHUB_EVENT_PATH")
+          : > "$WORK/pages.jsonl"
+          COMPLETE=false
+          for PAGE in $(seq 1 30); do
+            ghget "$API/pulls/$PR_NUMBER/files?per_page=100&page=$PAGE" > "$WORK/page.json" ||
+              fail 'cannot enumerate exact PR paths'
+            jq -e 'type == "array" and all(.[]; .filename | type == "string")' "$WORK/page.json" >/dev/null ||
+              fail 'invalid PR paths response'
+            jq -c . "$WORK/page.json" >> "$WORK/pages.jsonl"
+            COUNT=$(jq length "$WORK/page.json")
+            if (( COUNT < 100 )); then COMPLETE=true; break; fi
+          done
+          [[ "$COMPLETE" == true ]] || fail 'PR paths incomplete'
+          jq -sc '[.[][] | .filename, .previous_filename?] | map(select(type == "string")) | unique' \
+            "$WORK/pages.jsonl" > "$WORK/paths.json"
+          [[ "$(jq length "$WORK/paths.json")" -gt 0 ]] || fail 'empty PR path inventory'
+          jq -n --arg repo "$GITHUB_REPOSITORY" --arg sha "$HEAD_SHA" \
+            --arg run "$GITHUB_RUN_ID" --arg pr "$PR_NUMBER" --arg branch "$PR_BRANCH" \
+            --arg actor "$GITHUB_ACTOR" --arg prior "$PRIOR_RECEIPT" \
+            --arg grant "$GRANT_REF" --arg reviewer "$APPROVER" \
+            --slurpfile paths "$WORK/paths.json" '{
+              subject:"wi://github/actions/runner",
+              action:"merge request reauthorize",
+              resource:("repo:" + $repo + ":pr/" + $pr),
+              repo:$repo,branch:$branch,commitSha:$sha,workflowRunId:$run,
+              actor:$actor,invokingActor:$actor,pathsTouched:$paths[0],
+              authorityGrantRef:$grant,priorReceiptId:$prior,
+              approval:{environment:"protected-execution",approved:true,approvedBy:$reviewer},
+              context:{event:"pull_request",repo:$repo}
+            }' > "$WORK/request.json"
+          curl --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-time 40 \
+            -H "Authorization: Bearer $AUTH_TOKEN" -H 'Content-Type: application/json' \
+            -X POST "$AUTH_URL/re/authorize" \
+            --data-binary @"$WORK/request.json" -o "$WORK/response.json" ||
+            fail 'post-approval authority unavailable'
+          jq -e --arg repo "$GITHUB_REPOSITORY" --arg sha "$HEAD_SHA" \
+            --arg run "$GITHUB_RUN_ID" --arg prior "$PRIOR_RECEIPT" \
+            --arg reviewer "$APPROVER" --arg pr "$PR_NUMBER" \
+            --slurpfile paths "$WORK/paths.json" '
+              .decision == "PERMIT" and (.receiptId | type == "string" and length > 0) and
+              .receiptId != $prior and .receipt.receiptId == .receiptId and
+              .receipt.decision == .decision and .receipt.repo == $repo and
+              .receipt.commitSha == $sha and .receipt.workflowRunId == $run and
+              .receipt.priorReceiptId == $prior and .receipt.approvalReviewer == $reviewer and
+              .receipt.action == "merge request reauthorize" and
+              .receipt.resource == ("repo:" + $repo + ":pr/" + $pr) and
+              .receipt.pathsTouched == $paths[0]
+            ' "$WORK/response.json" >/dev/null ||
+            fail 'post-approval signed authority is not properly bound'
+          RECEIPT=$(jq -er .receiptId "$WORK/response.json")
+          [[ "$RECEIPT" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail 'invalid new receipt'
+          printf 'decision=PERMIT\nreceipt=%s\n' "$RECEIPT" >> "$GITHUB_OUTPUT"
+
   enforce:
     name: Enforce Authority Decision
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [govern, step-up]
+    needs: [govern, step-up, reauthorize]
     if: ${{ always() }}
     env:
       GOVERN_RESULT: ${{ needs.govern.result }}
       DECISION: ${{ needs.govern.outputs.decision }}
       RECEIPT_ID: ${{ needs.govern.outputs.receipt }}
       STEP_UP_RESULT: ${{ needs.step-up.result }}
+      REAUTH_RESULT: ${{ needs.reauthorize.result }}
+      REAUTH_DECISION: ${{ needs.reauthorize.outputs.decision }}
+      REAUTH_RECEIPT: ${{ needs.reauthorize.outputs.receipt }}
     steps:
       - name: Fail closed unless trusted authority permitted execution
         shell: bash
@@ -177,8 +279,12 @@ jobs:
               echo "TTP PERMIT: $RECEIPT_ID"
               ;;
             STEP_UP)
-              [[ "$STEP_UP_RESULT" == success ]] || { echo 'TTP DENY: step-up not approved'; exit 1; }
-              echo "TTP STEP_UP approved: $RECEIPT_ID"
+              [[ "$STEP_UP_RESULT" == success && "$REAUTH_RESULT" == success &&
+                "$REAUTH_DECISION" == PERMIT &&
+                "$REAUTH_RECEIPT" =~ ^[A-Za-z0-9._:-]{1,128}$ &&
+                "$REAUTH_RECEIPT" != "$RECEIPT_ID" ]] ||
+                { echo 'TTP DENY: independent reauthorization after approval not proven'; exit 1; }
+              echo "TTP STEP_UP reauthorized: $REAUTH_RECEIPT"
               ;;
             *)
               echo 'TTP DENY: no affirmative authority decision'

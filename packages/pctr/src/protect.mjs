@@ -2,7 +2,10 @@ import { previewConsequence, consequenceChanged } from './twin.mjs';
 import { resolveRoute } from './router.mjs';
 import { issueAuthority, verifyAuthority, createReplayStore } from './authority.mjs';
 import { createBoundary } from './boundary.mjs';
-import { issueReceipt } from './receipt.mjs';
+import { defaultKeyPair, exportPublic } from './keys.mjs';
+import { issueReceipt, verifyReceipt } from './receipt.mjs';
+import { attestGraph } from './attest.mjs';
+import { severityRank } from './consequences.mjs';
 import { createTimeline } from './timeline.mjs';
 import { requiresHumanApproval } from './trust.mjs';
 import { trustDelta } from './observe.mjs';
@@ -13,11 +16,14 @@ import { trustDelta } from './observe.mjs';
 // Async because a real effect boundary is out of process: enforcement is I/O.
 export async function protect(graph, rawRequest, options = {}) {
   const request = { principal: graph.principal, ...rawRequest };
+  // Local development mode pins the in-process signer explicitly. A remote
+  // boundary independently pins its own keys; it must never inherit this signer.
+  const signer = options.keyPair ?? defaultKeyPair();
   const {
     objective = null, approval = null, execute = null, clock,
     replayStore = createReplayStore(), timeline = createTimeline({ objective, clock }), priorReceiptHash = null,
-    boundary = createBoundary({ replayStore, publicKey: options.publicKey, trustedKeyIds: options.trustedKeyIds }),
-    keyPair
+    boundary = createBoundary({ replayStore, publicKey: options.publicKey ?? exportPublic(signer.publicKey), trustedKeyIds: options.trustedKeyIds }),
+    keyPair = signer
   } = options;
   const t = timeline;
   const policy = { ...(graph.manifest.policy ?? {}), ...(options.policy ?? {}) };
@@ -29,13 +35,53 @@ export async function protect(graph, rawRequest, options = {}) {
 
   // PREVIEW — what will this cause? A caller that has already measured the consequence
   // with a probe passes it in; otherwise it is computed from the graph.
-  const preview = options.preview ?? previewConsequence(graph, request.action, request.params ?? {});
+  const baseline = previewConsequence(graph, request.action, request.params ?? {});
+  const preview = options.preview ?? baseline;
+  // A model, probe or caller may raise risk, but never silently downgrade the
+  // local conservative consequence classification at the actual effect boundary.
+  if (severityRank(preview.severity) < severityRank(baseline.severity)) {
+    const denied = t.record('EXECUTION_DENIED', { reason: 'CONSEQUENCE_UNDERSTATED' }, { because: [proposed.id] });
+    return finish({ t, request, preview: baseline, route: null, authority: null, keyPair: signer,
+      verification: { decision: 'EXECUTION_DENIED', failures: [{ code: 'CONSEQUENCE_UNDERSTATED', message: 'reported consequence is less severe than the conservative baseline' }] },
+      result: null, policy: graph.manifest.policy ?? {}, priorReceiptHash, deniedAt: denied.id });
+  }
   const detected = t.record('CONSEQUENCE_DETECTED',
     { consequence: preview.consequence, severity: preview.severity, reversible: preview.reversible, blastRadius: preview.blastRadius.band },
     { because: [proposed.id] });
 
   // ROUTE — which trustworthy path may get there?
-  const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at });
+  let measurements = options.measurements;
+  // An actual HIGH/CRITICAL effect cannot be authorized from manifest assertions.
+  // Only independently pinned, valid receipt signatures may become evidence.
+  // A caller-supplied measurement object is NOT sufficient for live effects.
+  if (execute && severityRank(preview.severity) >= severityRank('HIGH')) {
+    const verified = (options.evidenceReceipts ?? []).filter((receipt) => {
+      const proof = verifyReceipt(receipt, {
+        publicKey: options.trustedEvidencePublicKey,
+        trustedKeyIds: options.trustedEvidenceKeyIds
+      });
+      const issued = Date.parse(receipt.issuedAt);
+      const nowMs = Date.parse(options.at ?? new Date().toISOString());
+      const freshness = preview.severity === 'CRITICAL' ? 300000 : 900000;
+      return proof.valid && proof.signerVerified && receipt.executed?.status === 'SUCCEEDED' &&
+        receipt.verifier?.decision === 'EXECUTION_ALLOWED' &&
+        Number.isFinite(issued) && Number.isFinite(nowMs) && issued <= nowMs &&
+        nowMs - issued <= freshness;
+    });
+    if (!verified.length) {
+      const denied = t.record('EXECUTION_DENIED', { reason: 'SIGNED_BEHAVIORAL_EVIDENCE_REQUIRED' }, { because: [detected.id] });
+      return finish({ t, request, preview, route: null, authority: null, keyPair: signer,
+        verification: { decision: 'EXECUTION_DENIED', failures: [{ code: 'SIGNED_BEHAVIORAL_EVIDENCE_REQUIRED', message: 'high-consequence execution requires trusted, signed behavioral receipts' }] },
+        result: null, policy, priorReceiptHash, deniedAt: denied.id });
+    }
+    const measured = await attestGraph(graph, {
+      receipts: verified, severity: preview.severity, at: options.at,
+      trustedReceiptKeyIds: options.trustedEvidenceKeyIds ?? [],
+      trustedReceiptPublicKey: options.trustedEvidencePublicKey ?? null
+    });
+    measurements = Object.fromEntries(measured.measurements.map((m) => [m.agentId, m]));
+  }
+  const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at, measurements });
   if (!route.selected) {
     const reason = route.candidates.length
       ? route.candidates[0].rejections.map((r) => r.message).join('; ')
@@ -113,9 +159,17 @@ export async function protect(graph, rawRequest, options = {}) {
   }
   const allowed = t.record('EXECUTION_ALLOWED', { bindingHash: authority.bindingHash }, { because: [issued.id] });
 
-  const result = execute
-    ? { status: 'SUCCEEDED', output: execute(execution), executedAt: options.at ?? new Date().toISOString() }
-    : { status: 'SIMULATED', output: null, executedAt: options.at ?? new Date().toISOString() };
+  // Never claim success before an asynchronous tool has actually settled.
+  // A rejected tool call is a FAILED effect, even if authorization was PERMIT.
+  let result = { status: 'SIMULATED', output: null, executedAt: options.at ?? new Date().toISOString() };
+  if (execute) {
+    try {
+      const output = await execute(execution);
+      result = { status: 'SUCCEEDED', output, executedAt: options.at ?? new Date().toISOString() };
+    } catch {
+      result = { status: 'FAILED', output: null, executedAt: options.at ?? new Date().toISOString() };
+    }
+  }
   t.record('EXECUTION_COMPLETED', { action: request.action, status: result.status }, { because: [allowed.id] });
 
   return finish({ t, request, preview, route: route.selected, authority, verification, result, policy, priorReceiptHash, routeResult: route, keyPair });

@@ -134,6 +134,7 @@ def parse_spiffe_id(agent_id: Any) -> Optional[Dict[str, str]]:
 # ── Consequences ─────────────────────────────────────────────────────────────
 # Mirrors packages/pctr/src/consequences.mjs. The verb decides over the namespace:
 # payments.status reads, payments.transfer moves money.
+_SENSITIVE_READ = re.compile(r"(?:^|[.\\/_:-])(?:secret|secrets|credential|credentials|token|tokens|apikey|api_key|private_key|password|vault)(?:$|[.\\/_:-])", re.I)
 _READ_VERB = re.compile(
     r"(?:^|[./_:-])(get|list|read|status|search|query|fetch|describe|show|view|count|preview)$",
     re.IGNORECASE)
@@ -179,9 +180,7 @@ def severity_rank(severity: Optional[str]) -> int:
 def classify_action(action: str, params: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     """What can this action cause? Scale and money raise the stakes."""
     hints = dict(params or {})
-    consequence = hints.get("consequence")
-    if consequence not in _CONSEQUENCES:
-        consequence = None
+    consequence = "SECRET_EXPOSED" if _SENSITIVE_READ.search(action or "") else None
     if consequence is None:
         consequence = "DATA_READ" if _READ_VERB.search(action or "") else None
     if consequence is None:
@@ -190,9 +189,13 @@ def classify_action(action: str, params: Optional[Mapping[str, Any]] = None) -> 
                 consequence = name
                 break
     consequence = consequence or "NONE"
+    declared = hints.get("consequence")
+    if declared in _CONSEQUENCES and _SEVERITY_RANK[_CONSEQUENCES[declared][1]] > _SEVERITY_RANK[_CONSEQUENCES[consequence][1]]:
+        consequence = declared
 
     label, severity, reversible = _CONSEQUENCES[consequence]
-    severity = hints.get("severity", severity)
+    claimed_severity = hints.get("severity", severity)
+    severity = claimed_severity if severity_rank(claimed_severity) >= severity_rank(severity) else severity
     reversible = hints.get("reversible", reversible)
 
     records = hints.get("recordsAffected", hints.get("records_affected", 0)) or 0

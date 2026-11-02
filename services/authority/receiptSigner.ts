@@ -8,7 +8,10 @@ export function chainHash(previous: string | null, payload: object): string {
   return `sha256:${h.digest("hex")}`
 }
 
-export function signReceipt(receipt: object, signingSecret = "dev-only-secret"): string {
+export function signReceipt(receipt: object, signingSecret = process.env.RECEIPT_HMAC_SECRET): string {
+  if (!signingSecret || Buffer.byteLength(signingSecret) < 32) {
+    throw new Error("RECEIPT_HMAC_SECRET must be an independently provisioned secret of at least 32 bytes")
+  }
   const sig = crypto.createHmac("sha256", signingSecret)
   sig.update(JSON.stringify(receipt))
   return `hmac-sha256:${sig.digest("hex")}`

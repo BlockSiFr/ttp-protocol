@@ -11,6 +11,16 @@ import { createTimeline, why, compare, fork, replay } from '../src/timeline.mjs'
 import { protect, simulate } from '../src/protect.mjs';
 import { generateKeyPair, exportPublic } from '../src/keys.mjs';
 
+// Explicitly signed synthetic evidence, with the test's key independently pinned.
+const signedEvidence = (agents, key) => issueReceipt({
+  request: { action: 'payments.transfer', target: 'acct:fixture', params: { amount: 100 } },
+  route: { routeId: 'fixture-route', routeHash: 'sha256:fixture', effectiveTrust: 0.95, agents },
+  verification: { decision: 'EXECUTION_ALLOWED', failures: [], signerVerified: true },
+  result: { status: 'SUCCEEDED', output: null, executedAt: new Date().toISOString() },
+  keyPair: key, issuedAt: new Date().toISOString()
+});
+
+
 const manifest = () => ({
   principal: 'user:test',
   agents: [
@@ -92,7 +102,7 @@ test('authority binds the exact execution, not the credential', () => {
     principal: 'user:test', action: 'payments.transfer', target: 'acct:9931',
     params: { amount: 1800 }, consequence: 'MONEY_MOVED', route
   });
-  const ok = verifyAuthority(authority, { action: 'payments.transfer', target: 'acct:9931', params: { amount: 1800 }, principal: 'user:test' });
+  const ok = verifyAuthority(authority, { action: 'payments.transfer', target: 'acct:9931', params: { amount: 1800 }, principal: 'user:test' }, { publicKey: authority.signerPublicKey });
   assert.equal(ok.allowed, true);
 
   // Same valid authority, changed amount: possession is not authority.
@@ -116,8 +126,8 @@ test('authority expires and cannot be replayed', () => {
 
   const replayStore = createReplayStore();
   const at = '2026-01-01T00:00:30.000Z';
-  assert.equal(verifyAuthority(authority, execution, { now: at, replayStore }).allowed, true);
-  const second = verifyAuthority(authority, execution, { now: at, replayStore });
+  assert.equal(verifyAuthority(authority, execution, { now: at, replayStore, publicKey: authority.signerPublicKey }).allowed, true);
+  const second = verifyAuthority(authority, execution, { now: at, replayStore, publicKey: authority.signerPublicKey });
   assert.ok(second.failures.some((f) => f.code === 'REPLAYED_AUTHORITY'));
 });
 
@@ -152,7 +162,12 @@ test('the full protected loop denies, then allows once approval is recorded', as
   assert.ok(denied.receipt.verifier.failures.some((f) => f.code === 'APPROVAL_REQUIRED'));
   assert.equal(denied.receipt.executed, null);
 
-  const allowed = await protect(g, request, { approval: { by: 'maurice' }, execute: () => 'transferred' });
+  const evidenceKey = generateKeyPair();
+  const allowed = await protect(g, request, {
+    approval: { by: 'fixture-reviewer' }, execute: () => 'transferred',
+    evidenceReceipts: [signedEvidence(['planner', 'finance-d'], evidenceKey)],
+    trustedEvidenceKeyIds: [evidenceKey.keyId]
+  });
   assert.equal(allowed.allowed, true);
   assert.equal(allowed.result.output, 'transferred');
   assert.equal(verifyReceipt(allowed.receipt).valid, true);

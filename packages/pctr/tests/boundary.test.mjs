@@ -9,7 +9,17 @@ import { protect } from '../src/protect.mjs';
 import { issueAuthority } from '../src/authority.mjs';
 import { startBoundaryServer, remoteBoundary, createBoundary, persistentReplayStore } from '../src/boundary.mjs';
 import { generateKeyPair, exportPublic } from '../src/keys.mjs';
-import { verifyReceipt } from '../src/receipt.mjs';
+import { verifyReceipt, issueReceipt } from '../src/receipt.mjs';
+
+// Explicitly signed synthetic evidence, with the test's key independently pinned.
+const signedEvidence = (agents, key) => issueReceipt({
+  request: { action: 'payments.transfer', target: 'acct:fixture', params: { amount: 100 } },
+  route: { routeId: 'fixture-route', routeHash: 'sha256:fixture', effectiveTrust: 0.95, agents },
+  verification: { decision: 'EXECUTION_ALLOWED', failures: [], signerVerified: true },
+  result: { status: 'SUCCEEDED', output: null, executedAt: new Date().toISOString() },
+  keyPair: key, issuedAt: new Date().toISOString()
+});
+
 
 const graph = () => buildGraph({
   principal: 'user:test',
@@ -20,10 +30,12 @@ const graph = () => buildGraph({
 });
 
 test('authority is verified out of process, by a boundary the agent does not control', async () => {
-  const { url, close } = await startBoundaryServer({ port: 0 });
+  const key = generateKeyPair();
+  const evidenceReceipts = [signedEvidence(['finance'], key)];
+  const { url, close } = await startBoundaryServer({ port: 0, boundary: createBoundary({ trustedKeyIds: [key.keyId] }) });
   try {
     const run = await protect(graph(), { action: 'payments.transfer', target: 'acct:1', params: { amount: 100 } },
-      { boundary: remoteBoundary(url), execute: () => 'sent' });
+      { boundary: remoteBoundary(url), keyPair: key, evidenceReceipts, trustedEvidenceKeyIds: [key.keyId], execute: () => 'sent' });
     assert.equal(run.allowed, true);
     assert.equal(run.receipt.verifier.boundary, url);
     assert.equal(run.result.output, 'sent');
@@ -33,10 +45,11 @@ test('authority is verified out of process, by a boundary the agent does not con
 });
 
 test('an unreachable boundary denies execution; it never fails open', async () => {
-  const { url, close } = await startBoundaryServer({ port: 0 });
+  const key = generateKeyPair();
+  const { url, close } = await startBoundaryServer({ port: 0, boundary: createBoundary({ trustedKeyIds: [key.keyId] }) });
   await close(); // the boundary is now gone
   const run = await protect(graph(), { action: 'payments.transfer', target: 'acct:1', params: { amount: 100 } },
-    { boundary: remoteBoundary(url, { timeoutMs: 500 }), execute: () => 'sent' });
+    { boundary: remoteBoundary(url, { timeoutMs: 500 }), keyPair: key, evidenceReceipts: [signedEvidence(['finance'], key)], trustedEvidenceKeyIds: [key.keyId], execute: () => 'sent' });
   assert.equal(run.allowed, false);
   assert.ok(run.receipt.verifier.failures.some((f) => f.code === 'BOUNDARY_UNREACHABLE'));
   assert.equal(run.result, null); // nothing executed
@@ -80,10 +93,21 @@ test('the protected loop signs with the key it was given, end to end', async () 
   const key = generateKeyPair();
   const other = generateKeyPair();
   const run = await protect(graph(), { action: 'payments.transfer', target: 'acct:1', params: { amount: 100 } },
-    { keyPair: key, publicKey: exportPublic(key.publicKey), execute: () => 'sent' });
+    { keyPair: key, publicKey: exportPublic(key.publicKey), evidenceReceipts: [signedEvidence(['finance'], key)], trustedEvidenceKeyIds: [key.keyId], execute: () => 'sent' });
 
   assert.equal(run.allowed, true);
   assert.equal(run.authority.keyId, key.keyId);
   assert.equal(verifyReceipt(run.receipt, { publicKey: exportPublic(key.publicKey) }).valid, true);
   assert.equal(verifyReceipt(run.receipt, { publicKey: exportPublic(other.publicKey) }).valid, false);
+});
+
+test('CFAV: replay ledger corruption cannot reset spent nonces to permit replays', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pctr-ledger-cfav-'));
+  try {
+    const file=path.join(dir,'spent-nonces.json');
+    fs.writeFileSync(file,'{"tampered":true}');
+    assert.throws(()=>persistentReplayStore(file),/invalid replay ledger format/);
+    fs.writeFileSync(file,'this-is-not-json');
+    assert.throws(()=>persistentReplayStore(file),SyntaxError);
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });

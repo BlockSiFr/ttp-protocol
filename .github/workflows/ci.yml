@@ -45,6 +45,9 @@ jobs:
       - name: Build Trust Authority reference
         run: npm run build:trust-authority
 
+      - name: Typecheck governed authority service
+        run: ./reference-implementations/trust-authority/node_modules/.bin/tsc -p services/authority/tsconfig.json
+
       - name: Show CLI version
         run: npm run ttp -- version
 

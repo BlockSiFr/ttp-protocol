@@ -1,20 +1,40 @@
-# Authority Service (Starter)
+# TTP Governed Authority (fail-closed reference service)
 
-Minimal runtime authority service scaffold for GitHub protected-action governance.
+**Not production accredited.** This is a security-hardened reference integration, not an independently audited identity or execution authority service.
 
-## Endpoints
+## Required operator configuration
 
-- `POST /re/authorize`
-- `POST /trust/attest`
-- `GET /receipts/{id}`
-- `GET /healthz`
+Set these values in a trusted server-side secret store, not in the GitHub repository:
 
-## Runtime contract
+- `RUNTIME_AUTH_TOKEN`: unique bearer credential of at least 32 bytes, shared only with the trusted GitHub workflow; never expose to PR code.
+- `RECEIPT_HMAC_SECRET`: independently provisioned signing key of at least 32 bytes. The former development signing fallback has been removed.
+- `RUNTIME_AUTH_GRANTS_JSON`: operator-provisioned mapping from opaque grant IDs to `{subject, repo, action, branch?, expiresAt, trustScore, verifiedAt, revoked?}`. Grant state must be obtained from independently authenticated issuer/operator evidence, not request text. `verifiedAt` must be fresh within 900 seconds.
+- `PORT`: trusted listener port (default `8080`). Terminate TLS and authenticate workload identity with an approved fronting gateway.
 
-Input includes: subject, action, resource, repo, branch, pathsTouched, commitSha, invokingActor, workflowRunId, attestationRef, context.
+An example **synthetic** grant structure, without credentials:
 
-Output includes: decision (`PERMIT|STEP_UP|ESCALATE|DENY`), reasons, constraints, and an `ExecutionReceipt`.
+```json
+{
+  "grant-synthetic-001": {
+    "subject": "wi://github/actions/runner",
+    "repo": "BlockSiFr/ttp-protocol",
+    "action": "pull_request.execute",
+    "expiresAt": "2099-01-01T00:00:00Z",
+    "trustScore": 0.95,
+    "verifiedAt": "MUST_BE_A_TRUSTED_FRESH_TIMESTAMP"
+  }
+}
+```
 
-Fail-closed behavior:
-- missing grant or invalid attestation => `DENY`
-- protected action without step-up evidence => `STEP_UP` or `ESCALATE`
+The workflow additionally requires GitHub Actions secrets `RUNTIME_AUTH_URL`, `RUNTIME_AUTH_TOKEN`, and `RUNTIME_AUTH_GRANT_REF`, and the `protected-execution` environment with independently required reviewers.
+
+## API and security posture
+
+- `POST /re/authorize`: bearer authentication, bounded JSON, scoped grant, exact request binding and fail-closed decision.
+- `POST /trust/attest`: reference placeholder, authenticated but **not** an independently validated attestation issuer.
+- `GET /receipts/{id}`: authenticated; receipts are process-local and not a production ledger.
+- `GET /healthz`: unauthenticated, minimal status only.
+
+Caller-supplied `trustScore`, `freshnessSeconds` or claimed grant IDs never establish trust by themselves. Unknown or stale grants deny or escalate; they do not permit. Step-up reauthorization requires prior receipt continuity, freshness and independently authenticated GitHub approval evidence.
+
+**Remaining P0 integration:** independently verified GitHub/OIDC workload identity, live negative/positive HTTPS tests, durable signed receipt storage, production-grade issuer and revocation registry, KMS/HSM key custody, tenant separation and target-side completion verification. HMAC receipts are not publicly verifiable Ed25519 receipts. Keep this service inaccessible from untrusted networks until those gates are met.

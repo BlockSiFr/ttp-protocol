@@ -39,8 +39,16 @@ export function verifyReceipt(receipt, { publicKey, trustedKeyIds, priorReceiptH
 
   // A third party verifies with a key they already hold. The embedded key can only
   // establish internal consistency, so verification says which of the two happened.
+  // Never use a self-supplied key ID as evidence that a key is trusted.
+  // The key actually used to verify the signature must derive the bound key ID.
+  // Pinned publicKey or an independently configured allowlist is the trust anchor.
   const key = publicKey ?? signerPublicKey;
-  const signerVerified = Boolean(publicKey) || (Array.isArray(trustedKeyIds) && trustedKeyIds.includes(payload.keyId));
+  let derivedKeyId = null;
+  try { if (key) derivedKeyId = keyIdFor(key); } catch { /* invalid key is rejected below */ }
+  const keyIdentityMatches = derivedKeyId === payload.keyId;
+  const pinnedKey = Boolean(publicKey) || (Array.isArray(trustedKeyIds) && trustedKeyIds.includes(derivedKeyId));
+  const signerVerified = keyIdentityMatches && pinnedKey;
+  if (key && !keyIdentityMatches) failures.push({ code: 'SIGNER_KEY_ID_MISMATCH', message: 'verifying public key does not derive the claimed signer ID' });
   if (!key) failures.push({ code: 'SIGNATURE_INVALID', message: 'receipt carries no verification key' });
   else if (!verifyHash(receiptHash, signature, key)) failures.push({ code: 'SIGNATURE_INVALID', message: 'receipt signature does not verify' });
   else if (signature?.keyId !== payload.keyId) failures.push({ code: 'SIGNER_MISMATCH', message: 'signature key id does not match the key id inside the receipt' });
