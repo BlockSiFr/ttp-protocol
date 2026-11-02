@@ -3,7 +3,9 @@ import { resolveRoute } from './router.mjs';
 import { issueAuthority, verifyAuthority, createReplayStore } from './authority.mjs';
 import { createBoundary } from './boundary.mjs';
 import { defaultKeyPair, exportPublic } from './keys.mjs';
-import { issueReceipt } from './receipt.mjs';
+import { issueReceipt, verifyReceipt } from './receipt.mjs';
+import { attestGraph } from './attest.mjs';
+import { severityRank } from './consequences.mjs';
 import { createTimeline } from './timeline.mjs';
 import { requiresHumanApproval } from './trust.mjs';
 import { trustDelta } from './observe.mjs';
@@ -33,13 +35,44 @@ export async function protect(graph, rawRequest, options = {}) {
 
   // PREVIEW — what will this cause? A caller that has already measured the consequence
   // with a probe passes it in; otherwise it is computed from the graph.
-  const preview = options.preview ?? previewConsequence(graph, request.action, request.params ?? {});
+  const baseline = previewConsequence(graph, request.action, request.params ?? {});
+  const preview = options.preview ?? baseline;
+  // A model, probe or caller may raise risk, but never silently downgrade the
+  // local conservative consequence classification at the actual effect boundary.
+  if (severityRank(preview.severity) < severityRank(baseline.severity)) {
+    const denied = t.record('EXECUTION_DENIED', { reason: 'CONSEQUENCE_UNDERSTATED' }, { because: [proposed.id] });
+    return finish({ t, request, preview: baseline, route: null, authority: null, keyPair: signer,
+      verification: { decision: 'EXECUTION_DENIED', failures: [{ code: 'CONSEQUENCE_UNDERSTATED', message: 'reported consequence is less severe than the conservative baseline' }] },
+      result: null, policy: graph.manifest.policy ?? {}, priorReceiptHash, deniedAt: denied.id });
+  }
   const detected = t.record('CONSEQUENCE_DETECTED',
     { consequence: preview.consequence, severity: preview.severity, reversible: preview.reversible, blastRadius: preview.blastRadius.band },
     { because: [proposed.id] });
 
   // ROUTE — which trustworthy path may get there?
-  const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at, measurements: options.measurements });
+  let measurements = options.measurements;
+  // An actual HIGH/CRITICAL effect cannot be authorized from manifest assertions.
+  // Only independently pinned, valid receipt signatures may become evidence.
+  // A caller-supplied measurement object is NOT sufficient for live effects.
+  if (execute && severityRank(preview.severity) >= severityRank('HIGH')) {
+    const verified = (options.evidenceReceipts ?? []).filter((receipt) => {
+      const proof = verifyReceipt(receipt, {
+        publicKey: options.trustedEvidencePublicKey,
+        trustedKeyIds: options.trustedEvidenceKeyIds
+      });
+      return proof.valid && proof.signerVerified && receipt.executed?.status === 'SUCCEEDED' &&
+        receipt.verifier?.decision === 'EXECUTION_ALLOWED';
+    });
+    if (!verified.length) {
+      const denied = t.record('EXECUTION_DENIED', { reason: 'SIGNED_BEHAVIORAL_EVIDENCE_REQUIRED' }, { because: [detected.id] });
+      return finish({ t, request, preview, route: null, authority: null, keyPair: signer,
+        verification: { decision: 'EXECUTION_DENIED', failures: [{ code: 'SIGNED_BEHAVIORAL_EVIDENCE_REQUIRED', message: 'high-consequence execution requires trusted, signed behavioral receipts' }] },
+        result: null, policy, priorReceiptHash, deniedAt: denied.id });
+    }
+    const measured = await attestGraph(graph, { receipts: verified, severity: preview.severity, at: options.at });
+    measurements = Object.fromEntries(measured.measurements.map((m) => [m.agentId, m]));
+  }
+  const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at, measurements });
   if (!route.selected) {
     const reason = route.candidates.length
       ? route.candidates[0].rejections.map((r) => r.message).join('; ')
