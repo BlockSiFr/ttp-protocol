@@ -102,7 +102,7 @@ test('authority binds the exact execution, not the credential', () => {
     principal: 'user:test', action: 'payments.transfer', target: 'acct:9931',
     params: { amount: 1800 }, consequence: 'MONEY_MOVED', route
   });
-  const ok = verifyAuthority(authority, { action: 'payments.transfer', target: 'acct:9931', params: { amount: 1800 }, principal: 'user:test' });
+  const ok = verifyAuthority(authority, { action: 'payments.transfer', target: 'acct:9931', params: { amount: 1800 }, principal: 'user:test' }, { publicKey: authority.signerPublicKey });
   assert.equal(ok.allowed, true);
 
   // Same valid authority, changed amount: possession is not authority.
@@ -126,8 +126,8 @@ test('authority expires and cannot be replayed', () => {
 
   const replayStore = createReplayStore();
   const at = '2026-01-01T00:00:30.000Z';
-  assert.equal(verifyAuthority(authority, execution, { now: at, replayStore }).allowed, true);
-  const second = verifyAuthority(authority, execution, { now: at, replayStore });
+  assert.equal(verifyAuthority(authority, execution, { now: at, replayStore, publicKey: authority.signerPublicKey }).allowed, true);
+  const second = verifyAuthority(authority, execution, { now: at, replayStore, publicKey: authority.signerPublicKey });
   assert.ok(second.failures.some((f) => f.code === 'REPLAYED_AUTHORITY'));
 });
 
