@@ -41,15 +41,18 @@ const RULES = [
 ];
 
 export function classifyAction(actionId, hints = {}) {
-  if (SENSITIVE_READ.test(actionId)) return decorate(actionId, 'SECRET_EXPOSED', hints);
-  if (hints.consequence && CONSEQUENCE_CLASSES[hints.consequence]) {
-    return decorate(actionId, hints.consequence, hints);
+  let inferred = 'NONE';
+  if (SENSITIVE_READ.test(actionId)) inferred = 'SECRET_EXPOSED';
+  else if (READ_VERB.test(actionId)) inferred = 'DATA_READ';
+  else for (const [pattern, cls] of RULES) {
+    if (pattern.test(actionId)) { inferred = cls; break; }
   }
-  if (READ_VERB.test(actionId)) return decorate(actionId, 'DATA_READ', hints);
-  for (const [pattern, cls] of RULES) {
-    if (pattern.test(actionId)) return decorate(actionId, cls, hints);
-  }
-  return decorate(actionId, 'NONE', hints);
+  // A declared consequence is useful when it raises the floor. An agent or
+  // manifest cannot erase a more severe consequence derived from its action.
+  const declared = CONSEQUENCE_CLASSES[hints.consequence] ? hints.consequence : null;
+  const selected = declared && severityRank(CONSEQUENCE_CLASSES[declared].severity) >
+    severityRank(CONSEQUENCE_CLASSES[inferred].severity) ? declared : inferred;
+  return decorate(actionId, selected, hints);
 }
 
 const RANK = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
