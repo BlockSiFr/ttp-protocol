@@ -11,6 +11,16 @@ import { createTimeline, why, compare, fork, replay } from '../src/timeline.mjs'
 import { protect, simulate } from '../src/protect.mjs';
 import { generateKeyPair, exportPublic } from '../src/keys.mjs';
 
+// Explicitly signed synthetic evidence, with the test's key independently pinned.
+const signedEvidence = (agents, key) => issueReceipt({
+  request: { action: 'payments.transfer', target: 'acct:fixture', params: { amount: 100 } },
+  route: { routeId: 'fixture-route', routeHash: 'sha256:fixture', effectiveTrust: 0.95, agents },
+  verification: { decision: 'EXECUTION_ALLOWED', failures: [], signerVerified: true },
+  result: { status: 'SUCCEEDED', output: null, executedAt: new Date().toISOString() },
+  keyPair: key, issuedAt: new Date().toISOString()
+});
+
+
 const manifest = () => ({
   principal: 'user:test',
   agents: [
@@ -152,7 +162,12 @@ test('the full protected loop denies, then allows once approval is recorded', as
   assert.ok(denied.receipt.verifier.failures.some((f) => f.code === 'APPROVAL_REQUIRED'));
   assert.equal(denied.receipt.executed, null);
 
-  const allowed = await protect(g, request, { approval: { by: 'maurice' }, execute: () => 'transferred' });
+  const evidenceKey = generateKeyPair();
+  const allowed = await protect(g, request, {
+    approval: { by: 'fixture-reviewer' }, execute: () => 'transferred',
+    evidenceReceipts: [signedEvidence(['planner', 'finance-d'], evidenceKey)],
+    trustedEvidenceKeyIds: [evidenceKey.keyId]
+  });
   assert.equal(allowed.allowed, true);
   assert.equal(allowed.result.output, 'transferred');
   assert.equal(verifyReceipt(allowed.receipt).valid, true);
