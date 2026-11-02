@@ -1,39 +1,34 @@
-# TTP governed execution — integration readiness
+# TTP governed execution: deployment acceptance
 
-Status: **security patch staged, NOT production verified** (2026-10-26).
+**Status, November 2, 2026: source hardened, live authorization NOT verified.**
 
-## Source change
-- `.github/workflows/governed-execution.yml`: PR file inventory comes from GitHub API, not PR-controlled checkout; untrusted event fields are parsed as data; missing or failing runtime authority is a hard deny.
-- `.github/workflows/ci.yml`: pinned action SHAs, read-only repository token permissions.
-- `pull_request_target` is intentionally privileged. Never execute code from a PR in this workflow.
+PR #77 merged validated fail-closed changes in the GitHub workflow and the reference authority service. PR #79 added independent Go pinned-key verification and Node-to-Go conformance tests. The normal test CI is passing.
 
-## Authority contract required before enablement
-The runtime must expose HTTPS `POST /re/authorize`, authenticate the caller (reject invalid bearer tokens), and produce a decision `PERMIT`, `STEP_UP`, or `DENY` with a receipt whose `receiptId`, `decision`, `repo`, `commitSha`, `workflowRunId`, `action`, `resource`, and `pathsTouched` exactly match the request. Authenticity and integrity of the receipt must be validated by a **trusted authority**. GitHub-side JSON structural checks alone do not validate the cryptographic signature. The authority must independently authenticate/verify GitHub identity and evidence; never accept untrusted `trustScore`, `freshnessSeconds`, `approval`, or grant assertions as proof.
+**Verified live blocker:** [workflow run 41544110333](https://github.com/BlockSiFr/ttp-protocol/actions/runs/41544110333) refused authorization because `RUNTIME_AUTH_URL`, `RUNTIME_AUTH_TOKEN`, or `RUNTIME_AUTH_GRANT_REF` was missing. A denied run is evidence of fail-closed behavior, not a proven legitimate permit.
 
-### Known integration blockers
-1. `services/authority/index.ts` does not authenticate the incoming bearer token and `receiptSigner.ts` defaults to `dev-only-secret`. The service stores receipts in process memory.
-2. The changed workflow does **not** send `authorityGrantRef` or verified attestation evidence. The existing `services/authority/index.ts` therefore normally denies the request. Do not forge a grant or trust score just to get a green check.
-3. The separate `reference-implementations/runtime-authority-gate/server.mjs` uses a seeded development grant and its receipt format differs; it is not an interchangeable production gateway.
-4. `STEP_UP` presently gates on GitHub environment approval, but there is no post-approval reauthorization with a new bound receipt. Implement and test reauthorization before treating this as a final protected-action authorization protocol.
-5. Actual GitHub secret names/values, environment reviewer rules, active deployment, and branch protection could not be verified through source inspection.
+## Current trust model
 
-## Required configuration
-- Configure repository action secrets `RUNTIME_AUTH_URL` (HTTPS) and `RUNTIME_AUTH_TOKEN` (unique credential for this workflow only). Do not commit either value.
-- Create `protected-execution` GitHub Environment with **required reviewers**, disallow self-approval where supported, and limit authorized approvers.
-- Restrict GitHub workflow permissions; configure protected branch checks when end-to-end results are passing.
+- `pull_request_target` uses the trusted base branch and does not execute or check out PR-controlled code. Metadata comes from the GitHub API. File inventory must be complete before the request.
+- HTTPS `POST /re/authorize` uses a bearer credential. The reference service requires operator-provisioned trust/grant state and refuses a requester's self-asserted trust score as authority.
+- Only the exact repository, commit SHA, workflow run ID, action, resource, changed-path list, and applicable grant may be relied upon. The reference authority returns a signed HMAC receipt bound to that evaluation.
+- Sensitive policy/workflow changes cannot be direct PERMIT; they require `STEP_UP`.
+- After GitHub environment approval, a separate job retrieves the independent reviewer's identity through GitHub's approvals API, reconstructs the PR changed-path inventory and requests a **new** bound reauthorization receipt. The final job requires `PERMIT` with a new receipt ID. Failure at any stage DENIES.
+- Source tests cover fail-closed workflow posture, but cannot prove externally configured GitHub reviewers, server identity or live target-side execution.
 
-## Validation matrix before merging/enabling
-1. Unauthorized or absent token => HTTP 401/403 and workflow DENY.
-2. No configured endpoint, timeout, malformed response, no receipt, response binding mismatch => DENY.
-3. Proven authorized safe PR => signed `PERMIT` receipt bound to exact repository/commit/paths/run.
-4. Protected policy/workflow changes => `STEP_UP` and required independent reviewer approval.
-5. After approval, independently verified new signed reauthorization receipt => final `PERMIT` (not yet implemented).
-6. Forged branch/filename, missing file pages, forked PR, stale or replayed receipts => DENY.
-7. Verify receipt signatures, timestamp TTL, trusted issuer, nonce and audience; reject replay.
-8. Verify tests in a non-production GitHub environment before enabling as a required merge check.
+## Configure in approved staging
 
-## Mock validation
-A separate isolated local test harness executed 15 branch/outcome checks with simulated GitHub API and simulated authority responses. Results: 15/15 PASS. **It cannot verify an actual deployment, authentication, or cryptographic receipts.**
+1. Deploy the reference authority behind a trusted HTTPS gateway. Supply `RUNTIME_AUTH_TOKEN` and `RECEIPT_HMAC_SECRET` (at least 32 bytes each), plus `RUNTIME_AUTH_GRANTS_JSON` containing independently vetted, current and scoped grants. See [service README](../../services/authority/README.md).
+2. Configure GitHub Actions secrets `RUNTIME_AUTH_URL`, `RUNTIME_AUTH_TOKEN` and `RUNTIME_AUTH_GRANT_REF` by an authorized repository administrator. Do not publish values in issues or PRs.
+3. Configure a GitHub `protected-execution` Environment with required independent reviewers and disallow self-approval, verifying repository rules and identity.
+4. Perform signed positive and negative staging runs including safe PERMIT, protected STEP_UP, post-approval new PERMIT, direct protected PERMIT denial, bad token, unknown/revoked/expired grant, altered commit and path, stale state, replayed receipt, missing approval and service outage.
+5. Produce redacted, immutable evidence tied to exact workflow SHA and deployment version. Only then consider requiring the governed-execution check for merges.
 
-## Merge guard
-Do not claim this PR deploys or activates runtime authority. It stages a fail-closed caller. A separate runtime-authentication/attestation/receipt verification integration is required.
+## Known limitations
+
+- The starter reference service still holds its receipt ledger in process memory; production-grade persistence, rotation, revocation, key custody, peer identity, audit retention and high availability are external P0 deliverables.
+- HMAC receipts are authenticated between parties sharing the key; they are not equivalent to independently pinned Ed25519 verifier receipts.
+- GitHub's JSON structural checks depend on an independently trusted runtime endpoint and transport. They do not independently cryptographically validate receipts.
+- GitHub approvals API and environment reviewer rules have not passed a real protected-action acceptance run with configured secrets.
+- The reference code is **not** an automatic PR merge or deployment authority, a formal security certification, or an authorization to operate.
+
+**Next acceptance:** [P0 staging activation issue #80](https://github.com/BlockSiFr/ttp-protocol/issues/80), [P0 patent legal review #81](https://github.com/BlockSiFr/ttp-protocol/issues/81), and [independent conformance issue #82](https://github.com/BlockSiFr/ttp-protocol/issues/82).
