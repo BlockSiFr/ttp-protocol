@@ -15,7 +15,7 @@ import { issueReceipt } from '../src/receipt.mjs';
 import { generateKeyPair } from '../src/keys.mjs';
 
 const proofKey = generateKeyPair();
-const evidence = () => issueReceipt({
+const syntheticEvidenceReceipt = () => issueReceipt({
   request: { action: 'payments.transfer', target: 'acct:fixture', params: { amount: 1800 } },
   route: { routeId: 'fixture', routeHash: 'sha256:fixture', effectiveTrust: 0.95,
     agents: ['spiffe://blocksifr.com/ns/prod/sa/finance'] },
@@ -108,7 +108,7 @@ test('the domain defaults from the consequence when AGT does not supply one', ()
 
 test('a receipt becomes behavioural evidence AGT can consume on the next decision', async () => {
   const run = await protect(graph(), { action: 'payments.transfer', target: 'acct:1', params: { amount: 1800 } },
-    { execute: () => 'sent', evidenceReceipts: [evidence()], trustedEvidenceKeyIds: [proofKey.keyId] });
+    { execute: () => 'sent', evidenceReceipts: [syntheticEvidenceReceipt()], trustedEvidenceKeyIds: [proofKey.keyId] });
   const evidence = toTrustEvidence(run.receipt);
 
   assert.equal(evidence.type, 'TTPBehavioralEvidence');
@@ -127,7 +127,7 @@ test('a receipt becomes behavioural evidence AGT can consume on the next decisio
 
 test('a receipt becomes an AgentMesh attestation that traces back to the execution', async () => {
   const run = await protect(graph(), { action: 'payments.transfer', target: 'acct:1', params: { amount: 1800 } },
-    { execute: () => 'sent', evidenceReceipts: [evidence()], trustedEvidenceKeyIds: [proofKey.keyId] });
+    { execute: () => 'sent', evidenceReceipts: [syntheticEvidenceReceipt()], trustedEvidenceKeyIds: [proofKey.keyId] });
   const attestation = toMeshAttestation(run.receipt, { peer: 'spiffe://partner.example/ns/prod/sa/mesh' });
 
   assert.equal(attestation.type, 'AgentMeshTrustAttestation');
