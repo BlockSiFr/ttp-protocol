@@ -59,8 +59,15 @@ export function verifyAuthority(authority, execution, { now = new Date().toISOSt
 
   if (!pinnedKey) failures.push({ code: 'UNTRUSTED_SIGNER', message: 'an independently pinned verification key or trusted key ID is required' });
 
-  if (new Date(now) > new Date(envelope.expiresAt)) failures.push({ code: 'AUTHORITY_EXPIRED', message: `authority expired at ${envelope.expiresAt}` });
-  if (new Date(now) < new Date(envelope.issuedAt)) failures.push({ code: 'AUTHORITY_NOT_YET_VALID', message: 'authority is not yet valid' });
+  const issuedMs = Date.parse(envelope.issuedAt);
+  const expiresMs = Date.parse(envelope.expiresAt);
+  const nowMs = Date.parse(now);
+  if (![issuedMs, expiresMs, nowMs].every(Number.isFinite) || expiresMs <= issuedMs) {
+    failures.push({ code: 'AUTHORITY_TIME_INVALID', message: 'authority has missing, malformed, or inverted validity timestamps' });
+  } else {
+    if (nowMs >= expiresMs) failures.push({ code: 'AUTHORITY_EXPIRED', message: `authority expired at ${envelope.expiresAt}` });
+    if (nowMs < issuedMs) failures.push({ code: 'AUTHORITY_NOT_YET_VALID', message: 'authority is not yet valid' });
+  }
 
   if (execution.action !== envelope.action) failures.push({ code: 'ACTION_MISMATCH', message: `authority binds ${envelope.action}, execution is ${execution.action}` });
   if (execution.target !== envelope.target) failures.push({ code: 'TARGET_MISMATCH', message: `authority binds ${envelope.target}, execution targets ${execution.target}` });
