@@ -4,6 +4,7 @@ import { AuthorizeRequest, Decision, DecisionContext, ExecutionReceipt } from ".
 import { finalizeReceipt } from "./receiptSigner"
 import { isProtectedPath, loadProtectedPolicy } from "./policyLoader"
 import { verifyIndependentGithubApproval } from "./approvalVerifier"
+import { consumeStepUpReceipt } from "./replayLedger"
 
 const runtimeToken = process.env.RUNTIME_AUTH_TOKEN
 if (!runtimeToken || Buffer.byteLength(runtimeToken) < 32) {
@@ -62,8 +63,7 @@ function safeRequest(body: unknown): body is AuthorizeRequest {
     ))
 }
 const receipts = new Map<string, ExecutionReceipt>()
-// Single-process replay guard; production needs a transactional persistent store.
-const consumedStepUpReceipts = new Set<string>()
+// Post-approval redemption uses an operator-controlled, persistent, atomic ledger.
 let lastHash: string | null = null
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
@@ -172,15 +172,15 @@ async function decide(req: AuthorizeRequest, protectedPaths: string[]): Promise<
     if (!approvalProof.verified) {
       return { decision: "DENY", reason: approvalProof.reason, context }
     }
-    if (consumedStepUpReceipts.has(req.priorReceiptId)) {
-      return { decision: "DENY", reason: "STEP_UP_ALREADY_CONSUMED", context }
-    }
     if (!context.trust.attestationValid) {
       return { decision: "ESCALATE", reason: "stale_attestation_after_step_up", context }
     }
-    // Atomic against concurrent requests in this process: no await after check.
-    // A persistent transactional implementation remains a production gate.
-    consumedStepUpReceipts.add(req.priorReceiptId)
+    // Never acknowledge a new permit until the prior STEP_UP nonce has been
+    // spent through the configured, restart-stable single-host atomic ledger.
+    const spend = consumeStepUpReceipt(req.priorReceiptId)
+    if (!spend.accepted) {
+      return { decision: "DENY", reason: spend.reason, context }
+    }
     return { decision: "PERMIT", reason: "step_up_approved_reauthorize_permit", context }
   }
 
