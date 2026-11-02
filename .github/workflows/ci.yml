@@ -48,6 +48,9 @@ jobs:
       - name: Typecheck governed authority service
         run: ./reference-implementations/trust-authority/node_modules/.bin/tsc -p services/authority/tsconfig.json
 
+      - name: Test governed authority using synthetic loopback HTTP scenarios
+        run: node scripts/check-authority-staging.mjs
+
       - name: Go verifier regression and concurrency tests
         run: |
           go version
