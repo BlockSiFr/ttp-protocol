@@ -2,6 +2,7 @@ import { previewConsequence, consequenceChanged } from './twin.mjs';
 import { resolveRoute } from './router.mjs';
 import { issueAuthority, verifyAuthority, createReplayStore } from './authority.mjs';
 import { createBoundary } from './boundary.mjs';
+import { defaultKeyPair, exportPublic } from './keys.mjs';
 import { issueReceipt } from './receipt.mjs';
 import { createTimeline } from './timeline.mjs';
 import { requiresHumanApproval } from './trust.mjs';
@@ -13,11 +14,14 @@ import { trustDelta } from './observe.mjs';
 // Async because a real effect boundary is out of process: enforcement is I/O.
 export async function protect(graph, rawRequest, options = {}) {
   const request = { principal: graph.principal, ...rawRequest };
+  // Local development mode pins the in-process signer explicitly. A remote
+  // boundary independently pins its own keys; it must never inherit this signer.
+  const signer = options.keyPair ?? defaultKeyPair();
   const {
     objective = null, approval = null, execute = null, clock,
     replayStore = createReplayStore(), timeline = createTimeline({ objective, clock }), priorReceiptHash = null,
-    boundary = createBoundary({ replayStore, publicKey: options.publicKey, trustedKeyIds: options.trustedKeyIds }),
-    keyPair
+    boundary = createBoundary({ replayStore, publicKey: options.publicKey ?? exportPublic(signer.publicKey), trustedKeyIds: options.trustedKeyIds }),
+    keyPair = signer
   } = options;
   const t = timeline;
   const policy = { ...(graph.manifest.policy ?? {}), ...(options.policy ?? {}) };
@@ -35,7 +39,7 @@ export async function protect(graph, rawRequest, options = {}) {
     { because: [proposed.id] });
 
   // ROUTE — which trustworthy path may get there?
-  const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at });
+  const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at, measurements: options.measurements });
   if (!route.selected) {
     const reason = route.candidates.length
       ? route.candidates[0].rejections.map((r) => r.message).join('; ')
@@ -113,9 +117,17 @@ export async function protect(graph, rawRequest, options = {}) {
   }
   const allowed = t.record('EXECUTION_ALLOWED', { bindingHash: authority.bindingHash }, { because: [issued.id] });
 
-  const result = execute
-    ? { status: 'SUCCEEDED', output: execute(execution), executedAt: options.at ?? new Date().toISOString() }
-    : { status: 'SIMULATED', output: null, executedAt: options.at ?? new Date().toISOString() };
+  // Never claim success before an asynchronous tool has actually settled.
+  // A rejected tool call is a FAILED effect, even if authorization was PERMIT.
+  let result = { status: 'SIMULATED', output: null, executedAt: options.at ?? new Date().toISOString() };
+  if (execute) {
+    try {
+      const output = await execute(execution);
+      result = { status: 'SUCCEEDED', output, executedAt: options.at ?? new Date().toISOString() };
+    } catch {
+      result = { status: 'FAILED', output: null, executedAt: options.at ?? new Date().toISOString() };
+    }
+  }
   t.record('EXECUTION_COMPLETED', { action: request.action, status: result.status }, { because: [allowed.id] });
 
   return finish({ t, request, preview, route: route.selected, authority, verification, result, policy, priorReceiptHash, routeResult: route, keyPair });
