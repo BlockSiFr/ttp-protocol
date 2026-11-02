@@ -180,9 +180,7 @@ def severity_rank(severity: Optional[str]) -> int:
 def classify_action(action: str, params: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     """What can this action cause? Scale and money raise the stakes."""
     hints = dict(params or {})
-    consequence = "SECRET_EXPOSED" if _SENSITIVE_READ.search(action or "") else hints.get("consequence")
-    if consequence not in _CONSEQUENCES:
-        consequence = None
+    consequence = "SECRET_EXPOSED" if _SENSITIVE_READ.search(action or "") else None
     if consequence is None:
         consequence = "DATA_READ" if _READ_VERB.search(action or "") else None
     if consequence is None:
@@ -191,6 +189,9 @@ def classify_action(action: str, params: Optional[Mapping[str, Any]] = None) -> 
                 consequence = name
                 break
     consequence = consequence or "NONE"
+    declared = hints.get("consequence")
+    if declared in _CONSEQUENCES and _SEVERITY_RANK[_CONSEQUENCES[declared][1]] > _SEVERITY_RANK[_CONSEQUENCES[consequence][1]]:
+        consequence = declared
 
     label, severity, reversible = _CONSEQUENCES[consequence]
     claimed_severity = hints.get("severity", severity)
