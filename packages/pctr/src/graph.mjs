@@ -42,7 +42,8 @@ export function buildGraph(manifest) {
     for (const actionId of tool.actions ?? []) {
       const hints = actionHints.get(actionId) ?? {};
       const c = classifyAction(actionId, hints);
-      add(actionId, 'action', { ...c, ...hints });
+      // Conservative classification is authoritative; untrusted hints cannot overwrite severity or consequence.
+      add(actionId, 'action', { ...hints, ...c });
       link(tool.id, actionId, 'performs');
       const consequenceId = `consequence:${c.consequence}`;
       add(consequenceId, 'consequence', { class: c.consequence, label: c.label, severity: c.severity });
