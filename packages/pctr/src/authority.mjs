@@ -66,6 +66,21 @@ export function verifyAuthority(authority, execution, { now = new Date().toISOSt
   if (execution.target !== envelope.target) failures.push({ code: 'TARGET_MISMATCH', message: `authority binds ${envelope.target}, execution targets ${execution.target}` });
   if (execution.principal && execution.principal !== envelope.principal) failures.push({ code: 'PRINCIPAL_MISMATCH', message: 'execution principal differs from the authorized principal' });
 
+  // Extra runtime parameters may change the effect. They are not authorized by
+  // a signature over only the named subset unless policy explicitly marks them
+  // nonmaterial in the signed constraints.
+  const signedMaterial = envelope.materialParams ?? {};
+  const signedNonmaterial = envelope.constraints?.nonMaterialParams ?? [];
+  if (!Array.isArray(signedNonmaterial) ||
+      signedNonmaterial.some((key) => typeof key !== 'string')) {
+    failures.push({ code: 'INVALID_CONSTRAINTS', message: 'nonmaterial parameter exclusions are malformed' });
+  }
+  for (const key of Object.keys(execution.params ?? {})) {
+    if (!Object.hasOwn(signedMaterial, key) &&
+        !(Array.isArray(signedNonmaterial) && signedNonmaterial.includes(key))) {
+      failures.push({ code: 'UNBOUND_EXECUTION_PARAMETER', message: `${key} was not bound by the signed authority` });
+    }
+  }
   const executed = selectMaterial(execution.params ?? {}, Object.keys(envelope.materialParams ?? {}));
   for (const [key, value] of Object.entries(envelope.materialParams ?? {})) {
     if (!deepEqual(executed[key], value)) {
