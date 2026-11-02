@@ -48,6 +48,12 @@ jobs:
       - name: Typecheck governed authority service
         run: ./reference-implementations/trust-authority/node_modules/.bin/tsc -p services/authority/tsconfig.json
 
+      - name: Go verifier regression and concurrency tests
+        run: |
+          go version
+          cd sdk/go
+          go test -race ./...
+
       - name: Show CLI version
         run: npm run ttp -- version
 
