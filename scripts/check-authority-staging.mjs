@@ -139,6 +139,8 @@ try{
   assert.equal((await request({...reauth,commitSha:'b'.repeat(40)})).json.decision,'DENY');
   assert.equal((await request({...reauth,pathsTouched:['.github/workflows/other.yml']})).json.decision,'DENY');
   assert.equal((await request({...reauth,approval:undefined})).json.decision,'DENY');
+  const malformedApproval=await request({...reauth,approval:{approved:true,approvedBy:123,environment:'protected-execution'}});
+  assert.equal(malformedApproval.status,400,'malformed GitHub reviewer claim must not crash the service');
   const approved=await request(reauth);
   assert.equal(approved.json.decision,'DENY',
     'caller-supplied approval cannot permit without independent GitHub API verification');
