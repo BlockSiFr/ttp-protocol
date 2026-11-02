@@ -8,6 +8,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'ttp-cfav-authority-'));
@@ -37,6 +38,32 @@ const build=spawnSync(tsc,['-p',config,'--noEmit','false','--outDir',compiled],
 if(build.status!==0)throw Error('cannot compile authority: '+build.stderr+build.stdout);
 const binary=path.join(compiled,'index.js');
 assert.ok(fs.existsSync(binary),'compiled authority entry missing');
+const require=createRequire(import.meta.url);
+const {assessApprovalHistory}=require(path.join(compiled,'approvalVerifier.js'));
+const claimed={
+  repo:'BlockSiFr/ttp-protocol',workflowRunId:'111222333',
+  commitSha:'a'.repeat(40),branch:'cfav-synthetic-branch',
+  resource:'repo:BlockSiFr/ttp-protocol:pr/100',
+  invokingActor:'synthetic-contributor',reviewer:'independent-synthetic-reviewer'
+};
+const history=[{state:'approved',user:{login:claimed.reviewer},
+  environments:[{name:'protected-execution'}]}];
+assert.equal(assessApprovalHistory(history,claimed,'synthetic-pr-author',
+  claimed.commitSha,claimed.branch).verified,true,
+  'independent positive fixture requires correct GitHub payload');
+for(const [entries,author,sha,ref] of [
+  [[], 'synthetic-pr-author',claimed.commitSha,claimed.branch],
+  [history,claimed.reviewer,claimed.commitSha,claimed.branch],
+  [history,'synthetic-pr-author','b'.repeat(40),claimed.branch],
+  [history,'synthetic-pr-author',claimed.commitSha,'other-branch'],
+  [[{...history[0],state:'rejected'}],'synthetic-pr-author',claimed.commitSha,claimed.branch],
+  [[{...history[0],environments:[{name:'another-environment'}]}],
+    'synthetic-pr-author',claimed.commitSha,claimed.branch]
+]){
+  assert.equal(assessApprovalHistory(entries,claimed,author,sha,ref).verified,false,
+    'fake, wrong, revoked or mismatched approval must deny');
+}
+
 
 const probe=net.createServer();
 const port=await new Promise((resolve,reject)=>{
@@ -113,14 +140,15 @@ try{
   assert.equal((await request({...reauth,pathsTouched:['.github/workflows/other.yml']})).json.decision,'DENY');
   assert.equal((await request({...reauth,approval:undefined})).json.decision,'DENY');
   const approved=await request(reauth);
-  assert.equal(approved.json.decision,'PERMIT','synthetic post-step-up permit');
-  assert.notEqual(approved.json.receiptId,stepup.json.receiptId);
+  assert.equal(approved.json.decision,'DENY',
+    'caller-supplied approval cannot permit without independent GitHub API verification');
+  assert.equal(approved.json.reason,'GITHUB_APPROVAL_VERIFIER_UNCONFIGURED');
   assert.equal(approved.json.receipt.priorReceiptId,stepup.json.receiptId);
   const bad=await fetch(url+'/re/authorize',{
     method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:'{broken-json'});
   assert.equal(bad.status,400);
-  console.log('CFAV synthetic authority HTTP PASS: authentication, scoped grants, freshness, bound receipts, STEP_UP, reauthorization and negative controls.');
-  console.log('Not a live GitHub reviewer approval or production deployment.');
+  console.log('CFAV synthetic authority HTTP PASS: credentials, scoped grants, STEP_UP, fake approval denial and evidence binding.');
+  console.log('Pure GitHub history fixtures include positive and negative assertions; live authorization remains unverified.');
 }finally{
   if(server){
     server.kill('SIGTERM');
