@@ -54,6 +54,9 @@ jobs:
           cd sdk/go
           go test -race ./...
 
+      - name: Compare Node-issued authority and receipts with Go verifier
+        run: node scripts/check-go-authority-parity.mjs
+
       - name: Show CLI version
         run: npm run ttp -- version
 
