@@ -100,3 +100,14 @@ test('the protected loop signs with the key it was given, end to end', async () 
   assert.equal(verifyReceipt(run.receipt, { publicKey: exportPublic(key.publicKey) }).valid, true);
   assert.equal(verifyReceipt(run.receipt, { publicKey: exportPublic(other.publicKey) }).valid, false);
 });
+
+test('CFAV: replay ledger corruption cannot reset spent nonces to permit replays', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pctr-ledger-cfav-'));
+  try {
+    const file=path.join(dir,'spent-nonces.json');
+    fs.writeFileSync(file,'{"tampered":true}');
+    assert.throws(()=>persistentReplayStore(file),/invalid replay ledger format/);
+    fs.writeFileSync(file,'this-is-not-json');
+    assert.throws(()=>persistentReplayStore(file),SyntaxError);
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
