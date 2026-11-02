@@ -60,8 +60,13 @@ export async function protect(graph, rawRequest, options = {}) {
         publicKey: options.trustedEvidencePublicKey,
         trustedKeyIds: options.trustedEvidenceKeyIds
       });
+      const issued = Date.parse(receipt.issuedAt);
+      const nowMs = Date.parse(options.at ?? new Date().toISOString());
+      const freshness = preview.severity === 'CRITICAL' ? 300000 : 900000;
       return proof.valid && proof.signerVerified && receipt.executed?.status === 'SUCCEEDED' &&
-        receipt.verifier?.decision === 'EXECUTION_ALLOWED';
+        receipt.verifier?.decision === 'EXECUTION_ALLOWED' &&
+        Number.isFinite(issued) && Number.isFinite(nowMs) && issued <= nowMs &&
+        nowMs - issued <= freshness;
     });
     if (!verified.length) {
       const denied = t.record('EXECUTION_DENIED', { reason: 'SIGNED_BEHAVIORAL_EVIDENCE_REQUIRED' }, { because: [detected.id] });
@@ -69,7 +74,11 @@ export async function protect(graph, rawRequest, options = {}) {
         verification: { decision: 'EXECUTION_DENIED', failures: [{ code: 'SIGNED_BEHAVIORAL_EVIDENCE_REQUIRED', message: 'high-consequence execution requires trusted, signed behavioral receipts' }] },
         result: null, policy, priorReceiptHash, deniedAt: denied.id });
     }
-    const measured = await attestGraph(graph, { receipts: verified, severity: preview.severity, at: options.at });
+    const measured = await attestGraph(graph, {
+      receipts: verified, severity: preview.severity, at: options.at,
+      trustedReceiptKeyIds: options.trustedEvidenceKeyIds ?? [],
+      trustedReceiptPublicKey: options.trustedEvidencePublicKey ?? null
+    });
     measurements = Object.fromEntries(measured.measurements.map((m) => [m.agentId, m]));
   }
   const route = resolveRoute(graph, request.action, { policy, severity: preview.severity, target: request.target, at: options.at, measurements });
