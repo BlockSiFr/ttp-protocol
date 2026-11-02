@@ -31,7 +31,7 @@ export function issueReceipt({
   return { ...payload, receiptHash, signature: signHash(receiptHash, keyPair), signerPublicKey: exportPublic(keyPair.publicKey) };
 }
 
-export function verifyReceipt(receipt, { publicKey, trustedKeyIds, priorReceiptHash = undefined } = {}) {
+export function verifyReceipt(receipt, { publicKey, trustedKeyIds, priorReceiptHash = undefined, now = new Date().toISOString() } = {}) {
   const failures = [];
   const { receiptHash, signature, signerPublicKey, ...payload } = receipt ?? {};
   if (!receipt) return { valid: false, signerVerified: false, failures: [{ code: 'RECEIPT_MISSING', message: 'no receipt provided' }] };
@@ -54,6 +54,11 @@ export function verifyReceipt(receipt, { publicKey, trustedKeyIds, priorReceiptH
   else if (signature?.keyId !== payload.keyId) failures.push({ code: 'SIGNER_MISMATCH', message: 'signature key id does not match the key id inside the receipt' });
   if (Array.isArray(trustedKeyIds) && !trustedKeyIds.includes(payload.keyId)) {
     failures.push({ code: 'UNTRUSTED_SIGNER', message: `receipt was signed by ${payload.keyId}, which is not a trusted signer` });
+  }
+  const issuedMs = Date.parse(payload.issuedAt);
+  const checkedAtMs = Date.parse(now);
+  if (![issuedMs, checkedAtMs].every(Number.isFinite) || issuedMs > checkedAtMs) {
+    failures.push({ code: 'RECEIPT_TIME_INVALID', message: 'receipt has missing, invalid, or future issuance timestamp' });
   }
   if (priorReceiptHash !== undefined && payload.priorReceiptHash !== priorReceiptHash) {
     failures.push({ code: 'CHAIN_BROKEN', message: 'receipt does not chain to the expected prior receipt' });
