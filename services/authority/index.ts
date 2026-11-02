@@ -5,6 +5,7 @@ import { finalizeReceipt } from "./receiptSigner"
 import { isProtectedPath, loadProtectedPolicy } from "./policyLoader"
 import { verifyIndependentGithubApproval } from "./approvalVerifier"
 import { consumeStepUpReceipt } from "./replayLedger"
+import { openReceiptLedger } from "./receiptLedger"
 
 const runtimeToken = process.env.RUNTIME_AUTH_TOKEN
 if (!runtimeToken || Buffer.byteLength(runtimeToken) < 32) {
@@ -62,9 +63,8 @@ function safeRequest(body: unknown): body is AuthorizeRequest {
       typeof r.approval.environment === "string"
     ))
 }
-const receipts = new Map<string, ExecutionReceipt>()
-// Post-approval redemption uses an operator-controlled, persistent, atomic ledger.
-let lastHash: string | null = null
+const receiptLedger = openReceiptLedger()
+// Both receipt issuance and post-approval redemption require durable, private storage.
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" })
@@ -139,7 +139,7 @@ async function decide(req: AuthorizeRequest, protectedPaths: string[]): Promise<
     if (!req.priorReceiptId) {
       return { decision: "DENY", reason: "missing_prior_receipt", context }
     }
-    const prior = receipts.get(req.priorReceiptId)
+    const prior = receiptLedger.get(req.priorReceiptId)
     if (!prior) {
       return { decision: "DENY", reason: "prior_receipt_not_found", context }
     }
@@ -268,9 +268,11 @@ const server = http.createServer(async (req, res) => {
       approvalReviewer: body.approval?.approvedBy
     }
 
-    const receipt = finalizeReceipt(receiptBase, lastHash)
-    lastHash = receipt.chainHash
-    receipts.set(receipt.receiptId, receipt)
+    const receipt = finalizeReceipt(receiptBase, receiptLedger.lastHash())
+    // No PERMIT or STEP_UP is acknowledged unless its receipt has been written,
+    // chain-verified and fsynced to operator-controlled durable storage.
+    try { receiptLedger.append(receipt) }
+    catch { return json(res, 503, { error: "DURABLE_RECEIPT_LEDGER_UNAVAILABLE" }) }
 
     return json(res, 200, {
       decision,
@@ -286,7 +288,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname.startsWith("/receipts/")) {
     const id = url.pathname.split("/").pop() ?? ""
-    const receipt = receipts.get(id)
+    const receipt = receiptLedger.get(id)
     if (!receipt) return json(res, 404, { error: "NOT_FOUND" })
     return json(res, 200, receipt)
   }
@@ -303,3 +305,11 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 server.listen(port, "127.0.0.1", () => {
   console.log(`[authority] local listener on 127.0.0.1:${port}; use approved TLS fronting gateway`)
 })
+function shutdown(): void {
+  server.close(() => {
+    try { receiptLedger.close() }
+    catch { process.exitCode = 1 }
+  })
+}
+process.once("SIGTERM", shutdown)
+process.once("SIGINT", shutdown)
