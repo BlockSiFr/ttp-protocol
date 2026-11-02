@@ -102,6 +102,12 @@ func canonical(v any) (string,error) {
 		f=math.Round(f*1e6)/1e6
 		if f==0{return "0",nil}
 		return strconv.FormatFloat(f,'f',-1,64),nil
+	case int:
+		return strconv.Itoa(x),nil
+	case int64:
+		return strconv.FormatInt(x,10),nil
+	case uint64:
+		return strconv.FormatUint(x,10),nil
 	case float64:
 		return canonical(json.Number(strconv.FormatFloat(x,'g',-1,64)))
 	case []any:
