@@ -11,6 +11,31 @@ if (!runtimeToken || Buffer.byteLength(runtimeToken) < 32) {
 if (!process.env.RECEIPT_HMAC_SECRET || Buffer.byteLength(process.env.RECEIPT_HMAC_SECRET) < 32) {
   throw new Error("RECEIPT_HMAC_SECRET must be configured with at least 32 bytes")
 }
+interface TrustedGrant {
+  subject: string
+  repo: string
+  action: string
+  branch?: string
+  expiresAt: string
+  trustScore: number
+  verifiedAt: string
+  revoked?: boolean
+}
+const trustedGrants = JSON.parse(process.env.RUNTIME_AUTH_GRANTS_JSON ?? "{}") as Record<string, TrustedGrant>
+function verifiedGrant(req: AuthorizeRequest): TrustedGrant | null {
+  const ref = req.authorityGrantRef
+  if (!ref || !Object.hasOwn(trustedGrants, ref)) return null
+  const grant = trustedGrants[ref]
+  const now = Date.now()
+  if (!grant || grant.revoked || grant.subject !== req.subject || grant.repo !== req.repo) return null
+  if (grant.branch && grant.branch !== req.branch) return null
+  if (grant.action !== req.action &&
+      !(req.action === "merge request reauthorize" && grant.action === "pull_request.execute")) return null
+  if (!Number.isFinite(Date.parse(grant.expiresAt)) || Date.parse(grant.expiresAt) <= now) return null
+  if (!Number.isFinite(Date.parse(grant.verifiedAt)) || Date.parse(grant.verifiedAt) > now) return null
+  if (!Number.isFinite(grant.trustScore) || grant.trustScore < 0 || grant.trustScore > 1) return null
+  return grant
+}
 function validBearer(header: string | undefined): boolean {
   const input = Buffer.from(header ?? "")
   const expected = Buffer.from(`Bearer ${runtimeToken}`)
@@ -46,12 +71,13 @@ function riskClass(req: AuthorizeRequest, protectedPaths: string[]): DecisionCon
 
 function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: Decision; reason: string; context: DecisionContext } {
   const protectedAction = req.pathsTouched.some(p => isProtectedPath(p, protectedPaths))
-  // Caller-supplied trust, freshness and grant references are only assertions.
-  // Until a trusted issuer/registry is integrated, they may not establish authority.
-  const trustScore = 0
-  const freshness = 9999
+  // Never trust caller-supplied scores or freshness. Resolve the exact grant
+  // from operator-provisioned state. Missing/stale/revoked grants fail closed.
+  const grant = verifiedGrant(req)
+  const trustScore = grant?.trustScore ?? 0
+  const freshness = grant ? (Date.now() - Date.parse(grant.verifiedAt)) / 1000 : 9999
   const attestationValid = freshness <= 900
-  const grantValid = false // Must be independently verified against issuer-controlled grant registry.
+  const grantValid = Boolean(grant)
 
   const risk = riskClass(req, protectedPaths)
 
@@ -188,7 +214,9 @@ const server = http.createServer(async (req, res) => {
       commitSha: body.commitSha,
       invokingActor: body.invokingActor,
       timestamp: new Date().toISOString(),
-      reason
+      reason,
+      priorReceiptId: body.priorReceiptId,
+      approvalReviewer: body.approval?.approvedBy
     }
 
     const receipt = finalizeReceipt(receiptBase, lastHash)
