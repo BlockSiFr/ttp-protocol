@@ -83,6 +83,8 @@ export interface ExecutionReceipt {
   commitSha: string
   invokingActor: string
   timestamp: string
+  priorReceiptId?: string
+  approvalReviewer?: string
   signature: string
   chainHash: string
   reason: string
