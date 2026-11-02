@@ -41,6 +41,10 @@ assert.ok(fs.existsSync(binary),'compiled authority entry missing');
 const require=createRequire(import.meta.url);
 const {assessApprovalHistory}=require(path.join(compiled,'approvalVerifier.js'));
 const {consumeStepUpReceipt}=require(path.join(compiled,'replayLedger.js'));
+const {openReceiptLedger}=require(path.join(compiled,'receiptLedger.js'));
+const receiptFile=path.join(tmp,'signed-receipts','receipts.jsonl');
+process.env.RECEIPT_HMAC_SECRET=key;
+
 const replayDir=path.join(tmp,'durable-ledger');
 assert.equal(consumeStepUpReceipt('step-up-fixture',replayDir).accepted,true,
   'first step-up redemption can be durably recorded');
@@ -90,7 +94,8 @@ try{
   server=spawn(process.execPath,[binary],{
     cwd:root,stdio:['ignore','pipe','pipe'],
     env:{...process.env,PORT:String(port),RUNTIME_AUTH_TOKEN:token,
-      RECEIPT_HMAC_SECRET:key,RUNTIME_AUTH_GRANTS_JSON:JSON.stringify(grants)}
+      RECEIPT_HMAC_SECRET:key,RUNTIME_AUTH_GRANTS_JSON:JSON.stringify(grants),
+      RUNTIME_AUTH_RECEIPT_LEDGER_PATH:receiptFile}
   });
   let stderr='';
   server.stderr.on('data',chunk=>{stderr+=chunk.toString().slice(0,2000)});
@@ -163,6 +168,28 @@ try{
   const bad=await fetch(url+'/re/authorize',{
     method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:'{broken-json'});
   assert.equal(bad.status,400);
+  // A gracefully restarted service must recover signed prior decisions from
+  // the same persisted ledger. Corrupting that ledger must deny startup.
+  server.kill('SIGTERM');
+  await new Promise((resolve,reject)=>{
+    if(server.exitCode!==null){resolve();return}
+    server.once('exit',resolve);
+    setTimeout(()=>reject(new Error('staging authority did not stop cleanly')),3000);
+  });
+  server=undefined;
+  const restored=openReceiptLedger(receiptFile);
+  assert.ok(restored.count()>=4,'every authority decision must be durable');
+  assert.equal(restored.get(allowed.json.receiptId)?.decision,'PERMIT');
+  assert.equal(restored.get(stepup.json.receiptId)?.decision,'STEP_UP');
+  assert.equal(restored.get(approved.json.receiptId)?.decision,'DENY');
+  assert.ok(restored.lastHash()?.startsWith('sha256:'));
+  assert.throws(()=>openReceiptLedger(receiptFile),/EEXIST/,
+    'two authority services cannot fork the same signed chain');
+  restored.close();
+  const persisted=fs.readFileSync(receiptFile,'utf8');
+  fs.writeFileSync(receiptFile,persisted.replace('"decision":"PERMIT"','"decision":"DENY"'));
+  assert.throws(()=>openReceiptLedger(receiptFile),/RECEIPT_LEDGER_(CHAIN_BROKEN|SIGNATURE_INVALID)/,
+    'tampered receipt chain cannot authorize after restart');
   console.log('CFAV synthetic authority HTTP PASS: credentials, scoped grants, STEP_UP, fake approval denial and evidence binding.');
   console.log('Pure GitHub history fixtures include positive and negative assertions; live authorization remains unverified.');
 }finally{
