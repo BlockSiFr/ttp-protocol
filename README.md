@@ -4,10 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/BlockSiFr/ttp-protocol/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="tests" src="https://img.shields.io/badge/tests-195%20passing-00E676?style=flat-square&labelColor=0A0A0F">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-0066CC?style=flat-square&labelColor=0A0A0F"></a>
   <a href="https://www.npmjs.com/package/@blocksifr/pctr"><img alt="npm" src="https://img.shields.io/npm/v/@blocksifr/pctr?style=flat-square&labelColor=0A0A0F&color=00D4FF"></a>
-  <img alt="dependencies" src="https://img.shields.io/badge/dependencies-none-00B8A9?style=flat-square&labelColor=0A0A0F">
 </p>
 
 <p align="center">
@@ -56,9 +54,11 @@ worked example that every view labels as made-up.
 `pctr scan --share` turns that into Markdown you can paste into a pull request, and
 `packages/pctr/examples/pctr-scan.yml` runs it on every PR as a comment.
 
-No account, no network: everything stays in `./pctr.json` and `./.pctr`. Three flagship capabilities sit on top of that graph — the **Consequence Twin** (`pctr preview`), **TrustRoute Autopilot** (`pctr route`), and the **Agent Time Machine** (`pctr replay`, `pctr explain`) — with Ed25519-signed receipts, read-only probes that measure a consequence instead of declaring it, adapters for the common agent frameworks, and an effect boundary (`pctr serve`) that verifies authority in its own process. See the [PCTR README](packages/pctr/README.md), `npm run demo:pctr` and `npm run demo:pctr-fabric`.
+No account or required cloud connection once installed: local workbench state stays in `./pctr.json` and `./.pctr`. Initial `npx` package retrieval may require access to npm. Three flagship capabilities sit on top of that graph — the **Consequence Twin** (`pctr preview`), **TrustRoute Autopilot** (`pctr route`), and the **Agent Time Machine** (`pctr replay`, `pctr explain`) — with Ed25519-signed receipts, read-only probes that measure a consequence instead of declaring it, adapters for the common agent frameworks, and an effect boundary (`pctr serve`) that verifies authority in its own process. See the [PCTR README](packages/pctr/README.md), `npm run demo:pctr` and `npm run demo:pctr-fabric`.
 
 PCTR routes to the consequence. TTP binds the authority for the exact execution that reaches it.
+
+**CFAV security update (November 2, 2026):** Source-level signer-identity, evidence, consequence and replay hardening landed in [PR #77](https://github.com/BlockSiFr/ttp-protocol/pull/77). An independent [Go verifier](sdk/go/README.md) and Node-to-Go signed authority/receipt conformance checks landed in [PR #79](https://github.com/BlockSiFr/ttp-protocol/pull/79). Ordinary CI passes. The separate [GitHub Governed Execution workflow](https://github.com/BlockSiFr/ttp-protocol/actions/workflows/governed-execution.yml) is still **fail closed** without configured runtime secrets and an independently reviewed deployment. See [CFAV acceptance matrix](docs/CFAV_SECURITY_ACCEPTANCE_2026-11-02.md). Signed receipts substantiate what was authorized and recorded, not necessarily an independently observed target effect.
 
 ## BlockSiFr Control
 
@@ -78,7 +78,7 @@ design partners and strategic partners: [hello@blocksifr.com](mailto:hello@block
 
 ## Under the hood: the Trust Transfer Protocol
 
-**TTP is the open protocol for machine chain trust:** proving whether the chain behind an AI agent, copilot, workflow, pipeline, API, service account, or non-human identity is trustworthy enough to be relied on, before downstream authority and execution decisions occur.
+**TTP is a draft open protocol for machine chain trust:** proving whether the chain behind an AI agent, copilot, workflow, pipeline, API, service account, or non-human identity is trustworthy enough to be relied on, before downstream authority and execution decisions occur.
 
 Identity proves *who* is acting. Authorization defines *what* was assigned. **TTP establishes whether the chain behind this action deserves reliance, right now** — before any downstream authority or execution decision is made.
 
@@ -95,7 +95,7 @@ An *isnad* is a chain of transmission: who received what from whom, and whether 
 
 TTP establishes whether a chain deserves reliance. Downstream authority systems decide whether execution may proceed.
 
-OAuth standardized delegated access. SCIM standardized identity provisioning. **TTP standardizes trust-before-execution for autonomous systems.** It is a platform-agnostic trust protocol — bring any agent, IdP, gateway, or workflow.
+OAuth standardized delegated access. SCIM standardized identity provisioning. **TTP proposes an open trust-before-execution protocol for autonomous systems.** It is a platform-agnostic trust protocol — bring any agent, IdP, gateway, or workflow.
 
 <p align="center">
   <img src="assets/diagrams/protocol-loop.svg" alt="Identity, Attestation, Trust Evaluation, Runtime Authority Gate, Decision, Execution Receipt" width="100%">
