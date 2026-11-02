@@ -52,7 +52,14 @@ function safeRequest(body: unknown): body is AuthorizeRequest {
     typeof r.workflowRunId === "string" && /^[0-9]+$/.test(r.workflowRunId) &&
     typeof r.invokingActor === "string" && Array.isArray(r.pathsTouched) &&
     r.pathsTouched.length > 0 && r.pathsTouched.length < 3001 &&
-    r.pathsTouched.every(p => typeof p === "string" && p.length > 0 && p.length < 4096)
+    r.pathsTouched.every(p => typeof p === "string" && p.length > 0 && p.length < 4096) &&
+    (r.approval == null || (
+      typeof r.approval === "object" &&
+      typeof r.approval.approved === "boolean" &&
+      typeof r.approval.approvedBy === "string" &&
+      r.approval.approvedBy.length > 0 && r.approval.approvedBy.length <= 128 &&
+      typeof r.approval.environment === "string"
+    ))
 }
 const receipts = new Map<string, ExecutionReceipt>()
 // Single-process replay guard; production needs a transactional persistent store.
