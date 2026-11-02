@@ -136,6 +136,18 @@ function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: De
     if (!(prior.decision === "STEP_UP" || prior.decision === "ESCALATE")) {
       return { decision: "DENY", reason: "prior_decision_not_reauthorizable", context }
     }
+    // Reauthorization can never be transplanted to a different PR, commit,
+    // workflow run, branch or changed-file inventory.
+    if (prior.subject !== req.subject || prior.repo !== req.repo ||
+        prior.branch !== req.branch || prior.resource !== req.resource ||
+        prior.workflowRunId !== req.workflowRunId || prior.commitSha !== req.commitSha ||
+        prior.action !== "pull_request.execute" ||
+        JSON.stringify(prior.pathsTouched) !== JSON.stringify(req.pathsTouched) ||
+        !Number.isFinite(Date.parse(prior.timestamp)) ||
+        Date.now() - Date.parse(prior.timestamp) > 600_000 ||
+        Date.parse(prior.timestamp) > Date.now()) {
+      return { decision: "DENY", reason: "prior_receipt_binding_or_freshness_mismatch", context }
+    }
     if (!req.approval?.approved || !req.approval.approvedBy) {
       return { decision: "DENY", reason: "step_up_approval_missing", context }
     }
@@ -161,7 +173,17 @@ function decide(req: AuthorizeRequest, protectedPaths: string[]): { decision: De
 function parseBody(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on("data", c => chunks.push(c))
+    let bytes = 0
+    req.on("data", (c: Buffer) => {
+      bytes += c.length
+      if (bytes > 1_048_576) {
+        reject(new Error("REQUEST_TOO_LARGE"))
+        req.destroy()
+        return
+      }
+      chunks.push(c)
+    })
+    req.on("error", reject)
     req.on("end", () => {
       try {
         const raw = Buffer.concat(chunks).toString("utf8") || "{}"
