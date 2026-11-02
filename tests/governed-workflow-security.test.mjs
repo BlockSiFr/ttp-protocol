@@ -40,3 +40,26 @@ test('governance token has no write permissions', () => {
   assert.match(workflow, /permissions:\s*\n\s*contents: read\s*\n\s*pull-requests: read/)
   assert.doesNotMatch(workflow, /^\s*(?:contents|pull-requests): write\s*$/m)
 })
+
+test('CFAV: protected step-up requires fresh independently reviewed execution authority', () => {
+  assert.match(workflow, /Reauthorize After Independent Approval/);
+  assert.match(workflow, /actions\/runs\/\$GITHUB_RUN_ID\/approvals/);
+  assert.match(workflow, /protected-execution/);
+  assert.match(workflow, /priorReceiptId/);
+  assert.match(workflow, /REAUTH_RESULT/);
+  assert.match(workflow, /REAUTH_DECISION/);
+  assert.match(workflow, /REAUTH_RECEIPT/);
+  assert.match(workflow, /independent reauthorization after approval not proven/);
+  assert.match(workflow, /RUNTIME_AUTH_GRANT_REF/);
+});
+
+test('CFAV: authority starter cannot accept unauthenticated users or default signing secrets', () => {
+  const authority=fs.readFileSync('services/authority/index.ts','utf8');
+  const signer=fs.readFileSync('services/authority/receiptSigner.ts','utf8');
+  assert.match(authority,/timingSafeEqual/);
+  assert.match(authority,/if \(!validBearer\(req.headers.authorization\)\)/);
+  assert.match(authority,/verifiedGrant\(req\)/);
+  assert.match(authority,/prior_receipt_binding_or_freshness_mismatch/);
+  assert.doesNotMatch(signer,/dev-only-secret/);
+  assert.match(signer,/RECEIPT_HMAC_SECRET/);
+});
