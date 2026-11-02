@@ -13,7 +13,7 @@ TTP answers:
 
 > Can this actor prove enough current trust to attempt this action now?
 
-TTP does not enforce actions by itself. It produces trust context and evaluation results that runtime systems such as RAP, Execution Exchange, API gateways, CI gates, and FrontDesk-integrated control surfaces can use before execution.
+TTP does not enforce actions by itself. It produces trust context and evaluation results that runtime systems such as RAP, Execution Exchange, API gateways, CI gates, and other authorized control surfaces can use before execution.
 
 ## Design Principles
 
@@ -38,7 +38,7 @@ subject "agent:invoice_reviewer" {
 }
 
 trust "agent:invoice_reviewer" {
-  issuer = "verifiedtrust:tenant_123"
+  issuer = "issuer:tenant_123"
   score = 0.86
   issued_at = "2026-05-11T12:00:00Z"
   expires_at = "2026-05-11T18:00:00Z"
@@ -314,7 +314,7 @@ Delegation expresses bounded trust transfer:
 delegation "review_to_payment_exception" {
   from = "agent:invoice_reviewer"
   to = "agent:payment_exception_reviewer"
-  issuer = "verifiedtrust:tenant_123"
+  issuer = "issuer:tenant_123"
   scope = ["invoice.exception.review"]
   max_score = 0.72
   expires_at = "2026-05-11T16:00:00Z"
