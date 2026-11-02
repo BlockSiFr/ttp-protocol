@@ -40,14 +40,24 @@ export function verifyAuthority(authority, execution, { now = new Date().toISOSt
 
   // Verifying with a key supplied by the caller is the real check. Falling back to the
   // key carried inside the authority proves only internal consistency, and says so.
+  // Never use a self-supplied key ID as evidence that a key is trusted.
+  // The key actually used to verify the signature must derive the bound key ID.
+  // Pinned publicKey or an independently configured allowlist is the trust anchor.
   const key = publicKey ?? signerPublicKey;
-  const signerVerified = Boolean(publicKey) || (Array.isArray(trustedKeyIds) && trustedKeyIds.includes(envelope.keyId));
+  let derivedKeyId = null;
+  try { if (key) derivedKeyId = keyIdFor(key); } catch { /* invalid key is rejected below */ }
+  const keyIdentityMatches = derivedKeyId === envelope.keyId;
+  const pinnedKey = Boolean(publicKey) || (Array.isArray(trustedKeyIds) && trustedKeyIds.includes(derivedKeyId));
+  const signerVerified = keyIdentityMatches && pinnedKey;
+  if (key && !keyIdentityMatches) failures.push({ code: 'SIGNER_KEY_ID_MISMATCH', message: 'verifying public key does not derive the claimed signer ID' });
   if (!key) failures.push({ code: 'SIGNATURE_INVALID', message: 'authority carries no verification key' });
   else if (!verifyHash(bindingHash, signature, key)) failures.push({ code: 'SIGNATURE_INVALID', message: 'authority signature does not verify' });
   else if (signature?.keyId !== envelope.keyId) failures.push({ code: 'SIGNER_MISMATCH', message: 'signature key id does not match the key id bound into the authority' });
   if (Array.isArray(trustedKeyIds) && !trustedKeyIds.includes(envelope.keyId)) {
     failures.push({ code: 'UNTRUSTED_SIGNER', message: `authority was signed by ${envelope.keyId}, which is not a trusted signer` });
   }
+
+  if (!pinnedKey) failures.push({ code: 'UNTRUSTED_SIGNER', message: 'an independently pinned verification key or trusted key ID is required' });
 
   if (new Date(now) > new Date(envelope.expiresAt)) failures.push({ code: 'AUTHORITY_EXPIRED', message: `authority expired at ${envelope.expiresAt}` });
   if (new Date(now) < new Date(envelope.issuedAt)) failures.push({ code: 'AUTHORITY_NOT_YET_VALID', message: 'authority is not yet valid' });
