@@ -63,3 +63,9 @@ test('CFAV: authority starter cannot accept unauthenticated users or default sig
   assert.doesNotMatch(signer,/dev-only-secret/);
   assert.match(signer,/RECEIPT_HMAC_SECRET/);
 });
+
+test('CFAV: starter authority never exposes bearer authentication on an unrestricted HTTP listener',()=>{
+  const authority=fs.readFileSync('services/authority/index.ts','utf8');
+  assert.match(authority,/server\.listen\(port, "127\.0\.0\.1"/);
+  assert.match(authority,/PORT must be an integer/);
+});

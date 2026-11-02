@@ -268,7 +268,11 @@ const server = http.createServer(async (req, res) => {
 })
 
 const port = Number(process.env.PORT ?? "8080")
-server.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`[authority] listening on :${port}`)
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PORT must be an integer in the range 1 to 65535")
+}
+// Safe default: bearer credentials must not traverse an exposed plaintext HTTP
+// socket. Terminate TLS at an approved local fronting proxy/sidecar.
+server.listen(port, "127.0.0.1", () => {
+  console.log(`[authority] local listener on 127.0.0.1:${port}; use approved TLS fronting gateway`)
 })
