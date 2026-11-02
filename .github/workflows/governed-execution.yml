@@ -27,6 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AUTH_URL: ${{ secrets.RUNTIME_AUTH_URL }}
           AUTH_TOKEN: ${{ secrets.RUNTIME_AUTH_TOKEN }}
+          GRANT_REF: ${{ secrets.RUNTIME_AUTH_GRANT_REF }}
         run: |
           set -euo pipefail
           umask 077
@@ -75,8 +76,8 @@ jobs:
           ' "$WORK/paths.json")
 
           # Fail closed. GitHub does not provide these repo secrets to fork PRs.
-          [[ -n "${AUTH_URL:-}" && -n "${AUTH_TOKEN:-}" ]] || \
-            fail 'RUNTIME_AUTH_URL or RUNTIME_AUTH_TOKEN missing; no local authorization fallback'
+          [[ -n "${AUTH_URL:-}" && -n "${AUTH_TOKEN:-}" && -n "${GRANT_REF:-}" ]] || \
+            fail 'RUNTIME_AUTH_URL, RUNTIME_AUTH_TOKEN or RUNTIME_AUTH_GRANT_REF missing; no local authorization fallback'
           [[ "$AUTH_URL" == https://* ]] || fail 'runtime authority must use HTTPS'
 
           jq -n \
@@ -86,6 +87,7 @@ jobs:
             --arg sha "$HEAD_SHA" \
             --arg branch "$PR_BRANCH" \
             --arg run_id "$GITHUB_RUN_ID" \
+            --arg grant "$GRANT_REF" \
             --slurpfile paths "$WORK/paths.json" \
             '{
               subject: "wi://github/actions/runner",
@@ -94,6 +96,7 @@ jobs:
               repo: $repo, branch: $branch, commitSha: $sha,
               workflowRunId: $run_id, actor: $actor,
               invokingActor: $actor, pathsTouched: $paths[0],
+              authorityGrantRef: $grant,
               context: {event: "pull_request", repo: $repo}
             }' > "$WORK/request.json"
 
@@ -192,6 +195,7 @@ jobs:
             fail 'GitHub environment approval cannot be verified'
           APPROVER=$(jq -er --arg author "$GITHUB_ACTOR" '
             [.[] | select((.state | ascii_downcase) == "approved") |
+             select(any(.environments[]?; .name == "protected-execution")) |
              select(.user.login != $author) | .user.login] | first // empty
           ' "$WORK/approvals.json") || fail 'independent reviewer not established'
           PR_NUMBER=$(jq -er '.pull_request.number | select(type == "number" and . > 0)' "$GITHUB_EVENT_PATH")
